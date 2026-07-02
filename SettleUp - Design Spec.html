@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SettleUp — Design Spec</title>
+<style>
+  :root{
+    /* ---- Design tokens (mapped to Tailwind in the notes) ---- */
+    --navy:#1F3A5F;      /* slate-800-ish  brand dark */
+    --blue:#2E75B6;      /* primary action */
+    --blue-600:#2563EB;  /* tailwind blue-600 alt */
+    --sky:#EAF2FB;       /* tinted surface */
+    --green:#2E7D4F;     /* positive / you are owed */
+    --green-bg:#E7F4ED;
+    --red:#B23A3A;       /* negative / you owe */
+    --red-bg:#FBEAEA;
+    --amber:#9A6700;
+    --ink:#1B2430;       /* primary text */
+    --muted:#667085;     /* secondary text */
+    --line:#E6EAF0;      /* borders */
+    --bg:#F4F6FA;        /* app background */
+    --card:#FFFFFF;
+    --radius:16px;
+    --radius-sm:10px;
+    --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.1);
+    --shadow-lg:0 8px 24px rgba(16,24,40,.12);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDF0F5;color:var(--ink);font-family:var(--font);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 24px 80px}
+  header.page{text-align:center;margin-bottom:8px}
+  header.page h1{font-size:40px;margin:0;color:var(--navy);letter-spacing:-.5px}
+  header.page p{color:var(--muted);margin:6px 0 0;font-size:16px}
+  .tag{display:inline-block;background:var(--sky);color:var(--blue);font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;margin-top:14px}
+  h2.section{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--blue);margin:54px 0 18px;border-bottom:2px solid var(--line);padding-bottom:8px}
+  .lead{color:var(--muted);max-width:720px;margin:-6px 0 22px;font-size:15px}
+
+  /* ---------- swatches ---------- */
+  .grid{display:flex;flex-wrap:wrap;gap:16px}
+  .swatch{width:150px;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:#fff;box-shadow:var(--shadow)}
+  .swatch .chip{height:64px}
+  .swatch .meta{padding:8px 10px}
+  .swatch .name{font-weight:600;font-size:13px}
+  .swatch .hex{color:var(--muted);font-size:12px;font-family:ui-monospace,Menlo,monospace}
+  .swatch .tw{color:var(--blue);font-size:11px;font-family:ui-monospace,Menlo,monospace}
+
+  /* ---------- type scale ---------- */
+  .type-row{display:flex;align-items:baseline;gap:18px;border-bottom:1px dashed var(--line);padding:12px 0}
+  .type-row .lbl{width:150px;color:var(--muted);font-size:12px;font-family:ui-monospace,Menlo,monospace}
+
+  /* ---------- component cards ---------- */
+  .compgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:18px}
+  .panel{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow)}
+  .panel h4{margin:0 0 12px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:15px;border:none;border-radius:12px;padding:12px 18px;cursor:default}
+  .btn.primary{background:var(--blue);color:#fff}
+  .btn.secondary{background:var(--sky);color:var(--blue)}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .btn.block{width:100%}
+  .input{display:block;width:100%;border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:15px;color:var(--ink);background:#fff;margin-bottom:10px}
+  .input.amount{font-size:26px;font-weight:700;text-align:center;letter-spacing:.5px}
+  .chiprow{display:flex;flex-wrap:wrap;gap:8px}
+  .cat{font-size:13px;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:var(--muted)}
+  .cat.active{background:var(--navy);color:#fff;border-color:var(--navy)}
+  .seg{display:flex;background:#EEF1F6;border-radius:12px;padding:4px;gap:4px}
+  .seg span{flex:1;text-align:center;font-size:13px;font-weight:600;color:var(--muted);padding:8px;border-radius:9px}
+  .seg span.on{background:#fff;color:var(--navy);box-shadow:var(--shadow)}
+
+  /* ---------- phones ---------- */
+  .screens{display:flex;flex-wrap:wrap;gap:30px;justify-content:flex-start}
+  .phone-wrap{width:300px}
+  .phone-title{font-weight:600;margin:0 0 10px;font-size:15px;color:var(--navy)}
+  .phone-sub{color:var(--muted);font-size:12.5px;margin:0 0 12px;min-height:34px}
+  .phone{width:300px;height:620px;background:var(--bg);border-radius:34px;border:10px solid #11161F;box-shadow:var(--shadow-lg);overflow:hidden;display:flex;flex-direction:column;position:relative}
+  .statusbar{height:30px;background:var(--bg);display:flex;align-items:center;justify-content:space-between;padding:0 18px;font-size:11px;color:var(--muted);font-weight:600;flex:0 0 auto}
+  .appbar{background:#fff;padding:14px 16px 12px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .appbar .t{font-size:18px;font-weight:700;color:var(--navy)}
+  .appbar .s{font-size:12px;color:var(--muted)}
+  .screen-body{flex:1 1 auto;overflow:hidden;padding:14px;display:flex;flex-direction:column;gap:12px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:var(--shadow)}
+  .balance{ text-align:center;padding:20px 14px}
+  .balance .who{color:var(--muted);font-size:13px}
+  .balance .amt{font-size:34px;font-weight:800;margin:4px 0 2px}
+  .pos{color:var(--green)} .neg{color:var(--red)}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+  .pill.pos{background:var(--green-bg);color:var(--green)}
+  .pill.neg{background:var(--red-bg);color:var(--red)}
+  .row{display:flex;align-items:center;gap:12px}
+  .ico{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:17px;flex:0 0 auto}
+  .ico.g{background:#E8F0FB} .ico.r{background:#F0EAF8} .ico.u{background:#FBF0E6} .ico.f{background:#E7F4ED}
+  .li{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .li:last-child{border-bottom:none}
+  .li .main{flex:1;min-width:0}
+  .li .main .d{font-weight:600;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .li .main .m{color:var(--muted);font-size:12px}
+  .li .val{font-weight:700;font-size:14px}
+  .miniseg{display:flex;background:#EEF1F6;border-radius:10px;padding:3px;gap:3px;margin-bottom:4px}
+  .miniseg span{flex:1;text-align:center;font-size:11px;font-weight:600;color:var(--muted);padding:6px;border-radius:7px}
+  .miniseg span.on{background:#fff;color:var(--navy);box-shadow:var(--shadow)}
+  .fab{position:absolute;right:16px;bottom:74px;width:52px;height:52px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:var(--shadow-lg)}
+  .tabbar{flex:0 0 auto;background:#fff;border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:8px 0 10px}
+  .tab{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--muted)}
+  .tab.on{color:var(--blue)}
+  .tab .ti{font-size:18px}
+  .check{width:20px;height:20px;border-radius:6px;border:2px solid var(--line);flex:0 0 auto}
+  .check.on{background:var(--green);border-color:var(--green);position:relative}
+  .check.on:after{content:"✓";color:#fff;font-size:12px;position:absolute;left:3px;top:-2px}
+  .strike{text-decoration:line-through;color:var(--muted)}
+  .syncbar{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--green);background:var(--green-bg);padding:5px 10px;border-radius:999px;align-self:flex-start}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green)}
+  .hint{font-size:12px;color:var(--muted)}
+  .splitrow{display:flex;justify-content:space-between;font-size:13px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .splitrow:last-child{border-bottom:none}
+  .logo{font-weight:800;color:var(--navy);font-size:30px;text-align:center;margin:30px 0 4px}
+  .onb-mid{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px}
+
+  /* notes */
+  .note{background:#fff;border:1px solid var(--line);border-left:5px solid var(--blue);border-radius:12px;padding:16px 18px;margin:14px 0;box-shadow:var(--shadow)}
+  .note b{color:var(--navy)}
+  table.tw{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden;font-size:13.5px}
+  table.tw th,table.tw td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  table.tw th{background:var(--navy);color:#fff;font-size:12px;text-transform:uppercase;letter-spacing:.05em}
+  table.tw td code{background:#F1F4F9;padding:2px 6px;border-radius:6px;font-size:12px;color:var(--blue)}
+  table.tw tr:last-child td{border-bottom:none}
+  ul.clean{margin:6px 0 0;padding-left:18px;color:var(--ink);font-size:14.5px}
+  ul.clean li{margin:5px 0}
+  .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:60px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="page">
+    <h1>SettleUp — Design Spec</h1>
+    <p>Mobile-first visual language for the Android PWA · built to drop straight into Next.js + Tailwind</p>
+    <span class="tag">v1.0 · feed back into the project scope</span>
+  </header>
+
+  <!-- PRINCIPLES -->
+  <h2 class="section">Design principles</h2>
+  <p class="lead">Five rules that keep the app calm, fast to build, and effortless to maintain by one person.</p>
+  <div class="compgrid">
+    <div class="panel"><h4>1 · Calm & money-first</h4>Lots of white space, one clear number per screen. The balance is always the hero. Money never feels stressful.</div>
+    <div class="panel"><h4>2 · Mobile-first, thumb-friendly</h4>Designed for one hand on a phone. Primary actions sit low; tap targets ≥ 44px. A bottom tab bar and a single floating “add” button.</div>
+    <div class="panel"><h4>3 · One primary colour</h4>A single blue for all actions; green/red only for owed/owing. No rainbow. Easy to keep consistent.</div>
+    <div class="panel"><h4>4 · Tailwind defaults only</h4>Tokens map to stock Tailwind classes and one tiny theme extension — no custom CSS framework to maintain.</div>
+    <div class="panel"><h4>5 · Components, not pages</h4>A small kit (button, input, card, list-row, chip, sheet) composes every screen, so the UI stays consistent for free.</div>
+  </div>
+
+  <!-- COLOUR -->
+  <h2 class="section">Colour palette</h2>
+  <p class="lead">Brand navy + one action blue, with semantic green (owed to you) and red (you owe). Each swatch shows its Tailwind equivalent.</p>
+  <div class="grid">
+    <div class="swatch"><div class="chip" style="background:#1F3A5F"></div><div class="meta"><div class="name">Navy / brand</div><div class="hex">#1F3A5F</div><div class="tw">~ slate-800</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#2E75B6"></div><div class="meta"><div class="name">Primary action</div><div class="hex">#2E75B6</div><div class="tw">~ blue-600</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#EAF2FB"></div><div class="meta"><div class="name">Tinted surface</div><div class="hex">#EAF2FB</div><div class="tw">~ blue-50</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#2E7D4F"></div><div class="meta"><div class="name">Positive (owed)</div><div class="hex">#2E7D4F</div><div class="tw">~ green-700</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#B23A3A"></div><div class="meta"><div class="name">Negative (owe)</div><div class="hex">#B23A3A</div><div class="tw">~ red-700</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#1B2430"></div><div class="meta"><div class="name">Ink / text</div><div class="hex">#1B2430</div><div class="tw">~ slate-900</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#667085"></div><div class="meta"><div class="name">Muted text</div><div class="hex">#667085</div><div class="tw">~ slate-500</div></div></div>
+    <div class="swatch"><div class="chip" style="background:#F4F6FA;border-bottom:1px solid #e6eaf0"></div><div class="meta"><div class="name">App background</div><div class="hex">#F4F6FA</div><div class="tw">~ slate-50</div></div></div>
+  </div>
+
+  <!-- TYPE -->
+  <h2 class="section">Typography</h2>
+  <p class="lead">System font stack (Inter if you want to ship a webfont). Few sizes, used consistently — heavier weights carry hierarchy, not extra colours.</p>
+  <div class="panel">
+    <div class="type-row"><div class="lbl">text-3xl / 800</div><div style="font-size:30px;font-weight:800;color:var(--navy)">R1 240,00</div></div>
+    <div class="type-row"><div class="lbl">text-xl / 700</div><div style="font-size:20px;font-weight:700">Screen title</div></div>
+    <div class="type-row"><div class="lbl">text-base / 600</div><div style="font-size:16px;font-weight:600">Expense description</div></div>
+    <div class="type-row"><div class="lbl">text-sm / 400</div><div style="font-size:14px">Body & list metadata</div></div>
+    <div class="type-row"><div class="lbl">text-xs / 600</div><div style="font-size:12px;font-weight:600;color:var(--muted)">LABELS · 30 JUN</div></div>
+  </div>
+  <div class="note"><b>Currency rule:</b> always format as <code>R1 234,56</code> (space thousands separator, comma decimals — SA convention). Store cents as integers; format only at display via one shared helper.</div>
+
+  <!-- COMPONENTS -->
+  <h2 class="section">Core component kit</h2>
+  <p class="lead">Everything in the app is built from these. Each maps to a single small React component.</p>
+  <div class="compgrid">
+    <div class="panel"><h4>Buttons</h4>
+      <button class="btn primary block" style="margin-bottom:10px">Add expense</button>
+      <button class="btn secondary block" style="margin-bottom:10px">Settle up</button>
+      <button class="btn ghost block">Cancel</button>
+    </div>
+    <div class="panel"><h4>Inputs</h4>
+      <input class="input amount" value="R 742,00" readonly>
+      <input class="input" value="Woolworths groceries" readonly>
+    </div>
+    <div class="panel"><h4>Category chips</h4>
+      <div class="chiprow">
+        <span class="cat active">Groceries</span><span class="cat">Rent</span>
+        <span class="cat">Utilities</span><span class="cat">Eating out</span>
+        <span class="cat">Transport</span><span class="cat">Other</span>
+      </div>
+    </div>
+    <div class="panel"><h4>Split selector (segmented)</h4>
+      <div class="seg"><span class="on">Equal</span><span>Exact</span><span>%</span><span>Salary</span></div>
+      <p class="hint" style="margin-top:10px">Methods unlock by phase: Equal/Exact in P1, % & Salary in P3.</p>
+    </div>
+    <div class="panel"><h4>Balance pills</h4>
+      <span class="pill pos">You are owed</span> &nbsp; <span class="pill neg">You owe</span>
+      <div style="margin-top:14px;font-weight:800;font-size:24px" class="pos">+ R420,00</div>
+    </div>
+    <div class="panel"><h4>List row</h4>
+      <div class="li"><div class="ico g">🛒</div><div class="main"><div class="d">Groceries</div><div class="m">Partner paid · 28 Jun</div></div><div class="val">R742,00</div></div>
+      <div class="li"><div class="ico u">💡</div><div class="main"><div class="d">Electricity</div><div class="m">Josh paid · 25 Jun</div></div><div class="val">R310,00</div></div>
+    </div>
+  </div>
+
+  <!-- SCREENS -->
+  <h2 class="section">Key screens</h2>
+  <p class="lead">The six screens that make up Phase 1 (plus the Phase-4 shopping list), shown at phone scale. These are the source of truth for layout — build each as a route in the Next.js App Router.</p>
+
+  <div class="screens">
+
+    <!-- 1 Onboarding -->
+    <div class="phone-wrap">
+      <p class="phone-title">1 · Sign in / onboarding</p>
+      <p class="phone-sub">Lightest possible entry — name + email, then straight into the household.</p>
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▼</span></div>
+        <div class="screen-body" style="justify-content:flex-start">
+          <div class="logo">SettleUp</div>
+          <p style="text-align:center;color:var(--muted);font-size:13px;margin:0 0 8px">Shared expenses, sorted.</p>
+          <div class="onb-mid">
+            <input class="input" value="Display name" readonly style="color:var(--muted)">
+            <input class="input" value="you@email.com" readonly style="color:var(--muted)">
+            <button class="btn primary block">Continue</button>
+            <p class="hint" style="text-align:center">We’ll email you a sign-in link — no password to remember.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 Home / balance -->
+    <div class="phone-wrap">
+      <p class="phone-title">2 · Home — the balance</p>
+      <p class="phone-sub">The hero number: who owes whom, right now. Recent activity below.</p>
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▼</span></div>
+        <div class="appbar"><div class="t">Apartment</div><div class="s">Josh & Sam</div></div>
+        <div class="screen-body">
+          <div class="syncbar"><span class="dot"></span> All synced</div>
+          <div class="card balance">
+            <div class="who">Sam owes you</div>
+            <div class="amt pos">R420,00</div>
+            <span class="pill pos">You’re ahead this month</span>
+          </div>
+          <div class="card" style="padding:10px 14px">
+            <div class="li"><div class="ico g">🛒</div><div class="main"><div class="d">Groceries</div><div class="m">Sam · split equally</div></div><div class="val">R742,00</div></div>
+            <div class="li"><div class="ico u">💡</div><div class="main"><div class="d">Electricity</div><div class="m">You · split equally</div></div><div class="val">R310,00</div></div>
+            <div class="li"><div class="ico r">🏠</div><div class="main"><div class="d">Rent</div><div class="m">You · by salary</div></div><div class="val">R12 000</div></div>
+          </div>
+        </div>
+        <div class="fab">+</div>
+        <div class="tabbar">
+          <div class="tab on"><span class="ti">⌂</span>Home</div>
+          <div class="tab"><span class="ti">≣</span>Expenses</div>
+          <div class="tab"><span class="ti">🛒</span>List</div>
+          <div class="tab"><span class="ti">▦</span>Reports</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 Add expense -->
+    <div class="phone-wrap">
+      <p class="phone-title">3 · Add expense</p>
+      <p class="phone-sub">Big amount field first, then the essentials. Opens as a bottom sheet.</p>
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▼</span></div>
+        <div class="appbar"><div class="t">New expense</div><div class="s">Apartment</div></div>
+        <div class="screen-body">
+          <input class="input amount" value="R 742,00" readonly>
+          <input class="input" value="Woolworths groceries" readonly>
+          <div class="chiprow"><span class="cat active">Groceries</span><span class="cat">Rent</span><span class="cat">Utilities</span><span class="cat">Other</span></div>
+          <div>
+            <p class="hint" style="margin:4px 0">Split</p>
+            <div class="miniseg"><span class="on">Equal</span><span>Exact</span><span>%</span><span>Salary</span></div>
+          </div>
+          <div class="card" style="padding:8px 14px">
+            <div class="splitrow"><span>You</span><b>R371,00</b></div>
+            <div class="splitrow"><span>Sam</span><b>R371,00</b></div>
+          </div>
+        </div>
+        <div class="tabbar" style="padding:10px 14px"><button class="btn primary block">Save expense</button></div>
+      </div>
+    </div>
+
+    <!-- 4 Expenses list -->
+    <div class="phone-wrap">
+      <p class="phone-title">4 · Expenses</p>
+      <p class="phone-sub">The full ledger, newest first, grouped by date. Tap any row for detail.</p>
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▼</span></div>
+        <div class="appbar"><div class="t">Expenses</div><div class="s">June · R13 052 shared</div></div>
+        <div class="screen-body">
+          <p class="hint" style="margin:0">28 June</p>
+          <div class="card" style="padding:6px 14px">
+            <div class="li"><div class="ico g">🛒</div><div class="main"><div class="d">Groceries</div><div class="m">Sam paid · you owe R371</div></div><div class="val">R742</div></div>
+          </div>
+          <p class="hint" style="margin:0">25 June</p>
+          <div class="card" style="padding:6px 14px">
+            <div class="li"><div class="ico u">💡</div><div class="main"><div class="d">Electricity</div><div class="m">You paid · Sam owes R155</div></div><div class="val">R310</div></div>
+            <div class="li"><div class="ico f">🍝</div><div class="main"><div class="d">Dinner out</div><div class="m">You paid · split equally</div></div><div class="val">R480</div></div>
+          </div>
+          <p class="hint" style="margin:0">1 June</p>
+          <div class="card" style="padding:6px 14px">
+            <div class="li"><div class="ico r">🏠</div><div class="main"><div class="d">Rent</div><div class="m">You paid · by salary</div></div><div class="val">R12 000</div></div>
+          </div>
+        </div>
+        <div class="fab">+</div>
+        <div class="tabbar">
+          <div class="tab"><span class="ti">⌂</span>Home</div>
+          <div class="tab on"><span class="ti">≣</span>Expenses</div>
+          <div class="tab"><span class="ti">🛒</span>List</div>
+          <div class="tab"><span class="ti">▦</span>Reports</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 Settle up -->
+    <div class="phone-wrap">
+      <p class="phone-title">5 · Settle up</p>
+      <p class="phone-sub">One tap to record the payment that clears the balance.</p>
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▼</span></div>
+        <div class="appbar"><div class="t">Settle up</div><div class="s">Apartment</div></div>
+        <div class="screen-body" style="justify-content:flex-start">
+          <div class="card balance">
+            <div class="who">Sam pays you</div>
+            <div class="amt pos">R420,00</div>
+            <span class="pill pos">Clears the balance</span>
+          </div>
+          <div class="card">
+            <div class="splitrow"><span>From</span><b>Sam</b></div>
+            <div class="splitrow"><span>To</span><b>You (Josh)</b></div>
+            <div class="splitrow"><span>Amount</span><b>R420,00</b></div>
+            <div class="splitrow"><span>Date</span><b>30 Jun 2026</b></div>
+          </div>
+          <p class="hint">No money moves in the app — this just records that Sam paid you, and resets the balance to zero.</p>
+        </div>
+        <div class="tabbar" style="padding:10px 14px"><button class="btn primary block">Record payment</button></div>
+      </div>
+    </div>
+
+    <!-- 6 Shopping list -->
+    <div class="phone-wrap">
+      <p class="phone-title">6 · Shopping list <span style="font-weight:400;color:var(--muted);font-size:12px">(Phase 4)</span></p>
+      <p class="phone-sub">Shared, real-time. Tick items off, then turn the trip into one expense.</p>
+      <div class="phone">
+        <div class="statusbar"><span>9:41</span><span>▮▮▮ ▼</span></div>
+        <div class="appbar"><div class="t">Shopping list</div><div class="s">Shared · 5 items</div></div>
+        <div class="screen-body">
+          <div class="card" style="padding:6px 14px">
+            <div class="li"><div class="check on"></div><div class="main"><div class="d strike">Milk</div></div><div class="m">R28</div></div>
+            <div class="li"><div class="check on"></div><div class="main"><div class="d strike">Bread</div></div><div class="m">R22</div></div>
+            <div class="li"><div class="check"></div><div class="main"><div class="d">Eggs</div></div><div class="m">R55</div></div>
+            <div class="li"><div class="check"></div><div class="main"><div class="d">Coffee</div></div><div class="m">R89</div></div>
+            <div class="li"><div class="check"></div><div class="main"><div class="d">Dishwasher tablets</div></div><div class="m">—</div></div>
+          </div>
+          <input class="input" value="+ Add item…" readonly style="color:var(--muted)">
+        </div>
+        <div class="tabbar" style="padding:10px 14px"><button class="btn primary block">Turn trip into expense</button></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TAILWIND MAPPING -->
+  <h2 class="section">Build & maintain it in Tailwind</h2>
+  <p class="lead">So this spec is trivial to keep in sync with the code: every token is one line in <code>tailwind.config.js</code>, and every component is a thin wrapper. No design system to maintain — just these.</p>
+
+  <div class="note"><b>tailwind.config.js — theme.extend.colors</b>
+    <ul class="clean">
+      <li><code>brand: '#1F3A5F'</code> · <code>primary: '#2E75B6'</code> · <code>surface: '#EAF2FB'</code></li>
+      <li><code>owed: '#2E7D4F'</code> · <code>owe: '#B23A3A'</code> · <code>bg: '#F4F6FA'</code></li>
+      <li>Everything else uses stock Tailwind <code>slate-*</code>. Radius: <code>rounded-2xl</code> cards, <code>rounded-xl</code> controls.</li>
+    </ul>
+  </div>
+
+  <table class="tw">
+    <tr><th>Component</th><th>Tailwind recipe (one wrapper component each)</th></tr>
+    <tr><td><b>Primary button</b></td><td><code>bg-primary text-white font-semibold rounded-xl px-4 py-3 active:opacity-90</code></td></tr>
+    <tr><td><b>Secondary button</b></td><td><code>bg-surface text-primary font-semibold rounded-xl px-4 py-3</code></td></tr>
+    <tr><td><b>Input</b></td><td><code>w-full border border-slate-200 rounded-xl px-3.5 py-3 text-base focus:ring-2 focus:ring-primary</code></td></tr>
+    <tr><td><b>Card</b></td><td><code>bg-white border border-slate-200 rounded-2xl p-4 shadow-sm</code></td></tr>
+    <tr><td><b>List row</b></td><td><code>flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0</code></td></tr>
+    <tr><td><b>Category chip</b></td><td><code>text-sm px-3 py-1.5 rounded-full border</code> · active adds <code>bg-brand text-white</code></td></tr>
+    <tr><td><b>Segmented split</b></td><td><code>flex bg-slate-100 rounded-xl p-1</code> · active item <code>bg-white text-brand shadow-sm</code></td></tr>
+    <tr><td><b>FAB</b></td><td><code>fixed bottom-20 right-4 w-13 h-13 rounded-full bg-primary text-white shadow-lg</code></td></tr>
+    <tr><td><b>Bottom tab bar</b></td><td><code>flex justify-around border-t border-slate-200 bg-white py-2</code> · active <code>text-primary</code></td></tr>
+    <tr><td><b>Balance / owe pill</b></td><td><code>rounded-full text-xs font-bold px-2.5 py-1</code> with <code>bg-{owed|owe}/10 text-{owed|owe}</code></td></tr>
+  </table>
+
+  <div class="note"><b>Recommended libraries (all free, low-maintenance):</b>
+    <ul class="clean">
+      <li><b>Tailwind CSS</b> for all styling — no separate CSS files.</li>
+      <li><b>lucide-react</b> for icons (the emoji here are placeholders for clean line icons).</li>
+      <li><b>Headless UI</b> or <b>Radix</b> only for the bottom-sheet/modal and toggles — accessible, unstyled, you keep full control.</li>
+      <li>Skip a heavy component library; this small kit + Tailwind is faster to maintain solo.</li>
+    </ul>
+  </div>
+
+  <div class="note"><b>Layout rules to keep it consistent:</b>
+    <ul class="clean">
+      <li>One screen = one route. Persistent bottom tab bar: Home · Expenses · List · Reports. Single FAB for “add expense”.</li>
+      <li>16px screen padding, 12px gap between cards, 44px minimum tap target.</li>
+      <li>Add/Settle forms open as bottom sheets, not new pages — faster and more native-feeling.</li>
+      <li>Sync status always visible on Home (a small pill) so offline state is never a surprise.</li>
+    </ul>
+  </div>
+
+  <p class="foot">SettleUp Design Spec v1.0 · feed the principles, palette, and screen list back into the Scope document (Section 6/8). Update the tokens here and in tailwind.config together.</p>
+
+</div>
+</body>
+</html>

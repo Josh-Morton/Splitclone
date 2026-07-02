@@ -1,0 +1,25 @@
+# dependencies
+node_modules/
+
+# next.js
+settleup/.next/
+settleup/out/
+settleup/next-env.d.ts
+
+# env / secrets — never commit Supabase keys
+.env
+.env.*
+!.env.example
+
+# vercel
+.vercel
+
+# OS
+.DS_Store
+
+# test / coverage
+coverage/
+
+# supabase local dev
+supabase/.temp/
+supabase/.branches/

@@ -1,0 +1,30 @@
+{
+  "name": "SettleUp",
+  "short_name": "SettleUp",
+  "description": "Shared expenses for your home — always know who owes whom.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0E1521",
+  "theme_color": "#0E1521",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

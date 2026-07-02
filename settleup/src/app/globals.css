@@ -1,0 +1,89 @@
+/*
+ * SettleUp design tokens — canonical values from the design handoff README
+ * (design_handoff_settleup/README.md "Design Tokens"). Dark-mode-only design.
+ * Do not invent new colors; add tokens here if the design gains them.
+ */
+
+:root {
+  /* Surfaces */
+  --bg: #0e1521;
+  --surface: #161f2e;
+  --s2: #1f2a3b;
+  --s3: #29374c;
+  --sheet: #16212f;
+  --line: #283750;
+  --line2: #36475f;
+
+  /* Text */
+  --ink: #eaf0f8;
+  --muted: #93a0b5;
+  --faint: #64708a;
+
+  /* Brand & semantic */
+  --primary: #4e9bf0;
+  --primary-dark: #3a86dc;
+  --bluebg: rgba(78, 155, 240, 0.14);
+  --green: #41c58a;
+  --greenbg: rgba(65, 197, 138, 0.15);
+  --red: #f2767a;
+  --redbg: rgba(242, 118, 122, 0.15);
+  --amber: #e3a53c;
+
+  /* Category accents */
+  --cat-groceries: #7fb6f5;
+  --cat-rent: #a9abf8;
+  --cat-utilities: #e9bf73;
+  --cat-eatingout: #6fd7ac;
+  --cat-transport: #74d2e0;
+  --cat-household: #c9a6f4;
+  --cat-entertainment: #f39dc0;
+  --cat-other: #aeb9cc;
+
+  /* Gradients */
+  --shell-gradient: radial-gradient(1200px 700px at 50% -10%, #15243b 0%, #0a111c 55%, #070b12 100%);
+  --brand-gradient: linear-gradient(155deg, #4e9bf0, #2f6dd0);
+
+  /* Radii */
+  --r-card: 18px;
+  --r-input: 13px;
+  --r-sheet: 26px;
+  --r-pill: 999px;
+
+  /* Shadows */
+  --shadow-primary-btn: 0 10px 22px -10px rgba(78, 155, 240, 0.7);
+  --shadow-card: 0 12px 30px -18px rgba(0, 0, 0, 0.7);
+  --shadow-fab: 0 14px 28px -8px rgba(78, 155, 240, 0.75);
+  --shadow-sheet: 0 -20px 50px -20px rgba(0, 0, 0, 0.6);
+
+  /* Motion */
+  --ease-sheet: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ' *)",
+      "Bash(npm --version)",
+      "Bash(git --version)",
+      "Bash(git init *)",
+      "Bash(npx --yes create-next-app@latest settleup --typescript --app --src-dir --no-tailwind --eslint --import-alias \"@/*\" --use-npm --skip-install)",
+      "Bash(npm install *)",
+      "Bash(mkdir -p src/lib/domain/__tests__ src/lib/data src/lib/supabase)",
+      "Bash(python3 -c \"import PIL; print\\('PIL ok'\\)\")",
+      "Bash(npm pkg *)",
+      "Bash(npx vitest *)",
+      "Bash(mkdir -p public/icons)",
+      "Bash(python3)",
+      "Bash(npm run *)",
+      "Bash(npx eslint *)"
+    ]
+  }
+}
