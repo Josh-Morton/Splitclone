@@ -31,7 +31,9 @@ export default function WelcomePage() {
     setError("");
     const { error } = await getSupabase().auth.signInWithOtp({
       email: addr,
-      options: { shouldCreateUser: true },
+      // Magic-link fallback returns to wherever we're running (localhost or
+      // the deployed URL) — origin must be in the Supabase redirect allow list.
+      options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
     });
     setBusy(false);
     if (error) {

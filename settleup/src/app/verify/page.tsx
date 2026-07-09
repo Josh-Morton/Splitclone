@@ -47,7 +47,7 @@ function VerifyForm() {
     setResent(false);
     const { error } = await getSupabase().auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: true },
+      options: { shouldCreateUser: true, emailRedirectTo: window.location.origin },
     });
     if (error) setError(error.message);
     else setResent(true);
