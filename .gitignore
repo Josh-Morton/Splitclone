@@ -23,3 +23,6 @@ coverage/
 # supabase local dev
 supabase/.temp/
 supabase/.branches/
+
+# Claude Code local permissions (can contain approved commands w/ secrets)
+.claude/settings.local.json

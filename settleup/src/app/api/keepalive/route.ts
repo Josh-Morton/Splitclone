@@ -18,7 +18,7 @@ export async function GET() {
     // Cheapest possible authenticated request: ask PostgREST for the OpenAPI
     // root. Touches the database enough to count as activity.
     const res = await fetch(`${url}/rest/v1/`, {
-      headers: { apikey: key },
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
       cache: "no-store",
     });
     return NextResponse.json({ ok: res.ok, status: res.status });

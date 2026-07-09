@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-09 (session 2: Add expense + settle up shipped)
+**Last updated:** 2026-07-10 (deployed to Vercel — app is live)
 
 ## Where we are
 
@@ -32,9 +32,13 @@ meanwhile), then E3 invites and E4 expense-entry UI.
       endpoint or the SQL editor, not `supabase db push`)
 - [x] `.env.local` configured with anon key; REST + RLS connectivity verified
 - [x] GitHub repo pushed: https://github.com/Josh-Morton/Splitclone
-- [ ] **Manual (Josh):** Vercel project settings — Root Directory = `settleup`,
-      add the two `NEXT_PUBLIC_SUPABASE_*` env vars, confirm deploy URL
-- [ ] Set Supabase Auth `site_url` to the Vercel URL once known (currently localhost)
+- [x] Vercel live: **https://splitclone-joshprojects13.vercel.app** (2026-07-10).
+      Root Directory + framework set via API (token in macOS keychain, service
+      "Vercel Token (SettleUp)", expires ~2026-10; project
+      `prj_Pn9YOGxi6sgUcACgUU2glH0mBu02`, team `team_YTsxApEip0v1AllLCINb5CYy`).
+      Env vars were already set by Josh. Pushes to main auto-deploy.
+- [x] Supabase Auth `site_url` set to the Vercel URL; `*.vercel.app` +
+      localhost in the redirect allow list
 - [ ] **Manual (Josh, optional):** custom SMTP (e.g. free Resend) so OTP emails
       contain a real 6-digit code — free tier can't edit templates on the default
       sender; magic-link sign-in works meanwhile
