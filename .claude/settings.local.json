@@ -30,7 +30,20 @@
       "Bash(command -v supabase)",
       "Bash(supabase init *)",
       "Bash(git mv *)",
-      "Bash(git commit -m 'Make schema CLI-pushable: supabase init, timestamped migration, setup paths *)"
+      "Bash(git commit -m 'Make schema CLI-pushable: supabase init, timestamped migration, setup paths *)",
+      "Bash(supabase projects *)",
+      "Bash(vercel whoami *)",
+      "Bash(supabase link *)",
+      "Bash(supabase db *)",
+      "Read(//Users/mac/.supabase/**)",
+      "Bash(security find-generic-password *)",
+      "Bash(curl -sS -X POST https://api.supabase.com/v1/projects/zgoinuagmornkwgqomhq/database/query -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -H 'User-Agent: SupabaseCLI/2.109.1' --data @/tmp/migration_payload.json -w '\\\\nHTTP %{http_code}\\\\n')",
+      "Bash(printf '%s' '{\"query\":\"select tablename, rowsecurity from pg_tables where schemaname = '\\\\''public'\\\\'' order by tablename; \"}')",
+      "Bash(curl -sS -X POST https://api.supabase.com/v1/projects/zgoinuagmornkwgqomhq/database/query -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -H 'User-Agent: SupabaseCLI/2.109.1' --data @/tmp/q.json -w '\\\\nHTTP %{http_code}\\\\n')",
+      "Bash(curl -sS https://api.supabase.com/v1/projects/zgoinuagmornkwgqomhq/config/auth -H 'Authorization: Bearer __TRACKED_VAR__' -H 'User-Agent: SupabaseCLI/2.109.1')",
+      "Bash(curl -sS -X PATCH https://api.supabase.com/v1/projects/zgoinuagmornkwgqomhq/config/auth -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -H 'User-Agent: SupabaseCLI/2.109.1' --data @/tmp/authcfg.json -o /dev/null -w 'HTTP %{http_code}\\\\n')",
+      "Bash(curl -sS -X PATCH https://api.supabase.com/v1/projects/zgoinuagmornkwgqomhq/config/auth -H 'Authorization: Bearer __TRACKED_VAR__' -H 'Content-Type: application/json' -H 'User-Agent: SupabaseCLI/2.109.1' --data @/tmp/authcfg.json)",
+      "Bash(git commit -m 'Go live: Supabase wired, E1 auth + onboarding, SupabaseRepo, E2E verified *)"
     ]
   }
 }

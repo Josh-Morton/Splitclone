@@ -1,22 +1,34 @@
 export * from "./repo";
 export * from "./memory-repo";
+export * from "./supabase-repo";
 
 import { MemoryRepo, seedDemo } from "./memory-repo";
+import { SupabaseRepo } from "./supabase-repo";
+import { getSupabase, isSupabaseConfigured } from "../supabase/client";
 import type { Repo } from "./repo";
 
-let demoRepo: { repo: Repo; groupId: string } | null = null;
+export type RepoMode = "supabase" | "demo";
+
+let demo: { repo: Repo; groupId: string } | null = null;
+let supa: SupabaseRepo | null = null;
 
 /**
- * Returns the app's Repo. Currently the in-memory demo household; once
- * Supabase env vars are configured (epic E1/E2), this switches to the
- * Supabase-backed implementation — screens don't change.
+ * The demo household (in-memory, seeded) — powers "Skip — explore the demo
+ * household" and local development without Supabase env vars.
  */
-export async function getRepo(): Promise<{ repo: Repo; groupId: string }> {
-  // TODO(E1): if NEXT_PUBLIC_SUPABASE_URL is set, return SupabaseRepo instead.
-  if (!demoRepo) {
+export async function getDemoRepo(): Promise<{ repo: Repo; groupId: string }> {
+  if (!demo) {
     const repo = new MemoryRepo();
     const { groupId } = await seedDemo(repo);
-    demoRepo = { repo, groupId };
+    demo = { repo, groupId };
   }
-  return demoRepo;
+  return demo;
 }
+
+/** The real, RLS-backed repo. Caller must be signed in for reads to return data. */
+export function getSupabaseRepo(): SupabaseRepo {
+  if (!supa) supa = new SupabaseRepo(getSupabase());
+  return supa;
+}
+
+export { isSupabaseConfigured };

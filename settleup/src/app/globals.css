@@ -87,3 +87,13 @@ a {
 button {
   font-family: inherit;
 }
+
+input::placeholder {
+  color: var(--faint);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -5,14 +5,17 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-02 (session: project bootstrap)
+**Last updated:** 2026-07-09 (session: Supabase live + E1/E2 + SupabaseRepo)
 
 ## Where we are
 
-**Phase 0 (Foundations) is code-complete locally.** The two manual steps that
-need Josh's accounts — creating the Supabase project and the Vercel deploy —
-are documented in [SETUP.md](SETUP.md) and are the next actions. After that,
-Phase 1 epic E1 (auth) is the next coding work.
+**Phase 0 is done and the backend is live.** Supabase project
+`zgoinuagmornkwgqomhq` has the schema + RLS applied and verified end-to-end
+(two-user RLS isolation test passed). E1 auth/onboarding screens and the
+SupabaseRepo are built and verified. Remaining before M1 work continues:
+Vercel deploy settings (root dir `settleup/` + env vars — needs Josh's
+dashboard), optional SMTP for real 6-digit OTP codes (magic link works
+meanwhile), then E3 invites and E4 expense-entry UI.
 
 ## Phase 0 — Foundations
 
@@ -24,23 +27,34 @@ Phase 1 epic E1 (auth) is the next coding work.
 - [x] Phase-1 schema migration + RLS written (`supabase/migrations/20260702000000_phase1_schema.sql`)
 - [x] Keep-alive cron route (`/api/keepalive` + `vercel.json`)
 - [x] ADRs 0001–0008 recorded
-- [ ] **Manual:** create Supabase project, run migration, set env vars ([SETUP.md](SETUP.md))
-- [ ] **Manual:** create GitHub repo + Vercel project, first deploy ([SETUP.md](SETUP.md))
+- [x] Supabase project created + migration applied via Management API (2026-07-09;
+      port 5432 is blocked on this network — use the Management API `database/query`
+      endpoint or the SQL editor, not `supabase db push`)
+- [x] `.env.local` configured with anon key; REST + RLS connectivity verified
+- [x] GitHub repo pushed: https://github.com/Josh-Morton/Splitclone
+- [ ] **Manual (Josh):** Vercel project settings — Root Directory = `settleup`,
+      add the two `NEXT_PUBLIC_SUPABASE_*` env vars, confirm deploy URL
+- [ ] Set Supabase Auth `site_url` to the Vercel URL once known (currently localhost)
+- [ ] **Manual (Josh, optional):** custom SMTP (e.g. free Resend) so OTP emails
+      contain a real 6-digit code — free tier can't edit templates on the default
+      sender; magic-link sign-in works meanwhile
 - [ ] Verify PWA installs to an Android home screen from the deployed URL
 
 ## Phase 1 — Core ledger (MVP) → milestone M1 "It works for us"
 
-- [ ] **E1 Auth & onboarding** — email OTP sign-in (ADR-0006), onboarding
-      (name → optional salary → create/join space) per the designed screens,
-      session persistence, route protection
-- [ ] **E2 Schema live** — migration applied; RLS verified with two test users
-      (one cannot read the other's group via the REST API)
-- [ ] **E3 Groups & members** — create/rename household, invite link/code flow,
-      placeholder ("Sam") members, upgrade-on-invite
-- [ ] **E4 Expenses** — `SupabaseRepo` implementation of the Repo contract;
-      Add/Edit sheet (equal · exact · proportional, defaulting proportional),
-      multi-payer, auto-category, soft-delete + undo; Expenses tab + detail
-      screen per design
+- [x] **E1 Auth & onboarding** — email OTP sign-in (ADR-0006; code entry +
+      magic-link fallback), onboarding (name → optional salary → create space),
+      client-side session + route guards, demo mode. Join-space-by-code lands
+      with E3. (2026-07-09, verified in browser)
+- [x] **E2 Schema live** — migration + expense RPCs applied; RLS verified with
+      two test users via REST (cross-tenant reads AND writes blocked; salary
+      private; unbalanced expenses rejected by deferred triggers) (2026-07-09)
+- [ ] **E3 Groups & members** — invite link/code flow UI, placeholder-member
+      management UI, upgrade-on-invite (backend `invite` table ready)
+- [ ] **E4 Expenses** — ~~SupabaseRepo~~ done (atomic via create/update_expense
+      RPCs, 2026-07-09); remaining: Add/Edit sheet (equal · exact · proportional,
+      defaulting proportional), multi-payer, soft-delete + undo UI; Expenses
+      tab + detail screen per design
 - [ ] **E5 Balances & settle up** — Home balance hero, settle-up sheet with
       recorded payments
 - [ ] **E6 Verification** — balance scenario tests vs hand calcs; one-week
