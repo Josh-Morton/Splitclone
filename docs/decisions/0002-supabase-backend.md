@@ -16,7 +16,7 @@ custom backend to avoid undifferentiated infra work.
 
 ## Consequences
 - All authorization is enforced at the database via RLS
-  (see `supabase/migrations/0001_phase1_schema.sql`) — a compromised client
+  (see `supabase/migrations/20260702000000_phase1_schema.sql`) — a compromised client
   cannot read another household's data.
 - Free projects pause after 7 days of inactivity → mitigated by a daily
   keep-alive cron (`/api/keepalive`, `settleup/vercel.json`).

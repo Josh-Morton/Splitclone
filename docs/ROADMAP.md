@@ -21,7 +21,7 @@ Phase 1 epic E1 (auth) is the next coding work.
 - [x] Design tokens in `globals.css` from the design handoff
 - [x] Domain maths ported + 41 unit tests passing (splits, balances, simplify, money, auto-category)
 - [x] Repo data-layer interface + in-memory demo implementation (ADR-0005)
-- [x] Phase-1 schema migration + RLS written (`supabase/migrations/0001_phase1_schema.sql`)
+- [x] Phase-1 schema migration + RLS written (`supabase/migrations/20260702000000_phase1_schema.sql`)
 - [x] Keep-alive cron route (`/api/keepalive` + `vercel.json`)
 - [x] ADRs 0001–0008 recorded
 - [ ] **Manual:** create Supabase project, run migration, set env vars ([SETUP.md](SETUP.md))

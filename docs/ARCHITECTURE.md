@@ -63,7 +63,7 @@ interactions, motion, currency formatting. `support.js` in the handoff is a
 prototype runtime — never port it.
 
 ### 4. Database (`supabase/migrations/`)
-`0001_phase1_schema.sql` creates the Phase-1 tables (profile, group,
+`20260702000000_phase1_schema.sql` creates the Phase-1 tables (profile, group,
 group_member, invite, expense, expense_payer, expense_split, settlement,
 activity) with:
 - integer-cents `bigint` money columns, positive-amount checks

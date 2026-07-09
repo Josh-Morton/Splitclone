@@ -39,7 +39,7 @@ when unsure.
   Supabase/fetch/IndexedDB directly (ADR-0005). `MemoryRepo` is the demo +
   reference implementation; `SupabaseRepo` is the next one to build (E4).
 - `src/app/` — screens. Styling only via tokens in `globals.css` (ADR-0007).
-- `supabase/migrations/0001_phase1_schema.sql` — schema + RLS, written, not
+- `supabase/migrations/20260702000000_phase1_schema.sql` — schema + RLS, written, not
   yet applied (needs the Supabase project, docs/SETUP.md).
 
 ## Iron rules (from the ADRs — violating these breaks the product)

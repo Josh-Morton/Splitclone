@@ -14,7 +14,23 @@
       "Bash(mkdir -p public/icons)",
       "Bash(python3)",
       "Bash(npm run *)",
-      "Bash(npx eslint *)"
+      "Bash(npx eslint *)",
+      "Bash(git commit -m 'Bootstrap SettleUp: architecture, domain logic, schema, PWA scaffold \\(Phase 0\\) *)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(git add *)",
+      "Bash(git commit -m 'Add launch config for dev-server preview *)",
+      "Bash(git remote *)",
+      "Bash(git push *)",
+      "Bash(git fetch *)",
+      "Bash(git ls-tree *)",
+      "Bash(git merge *)",
+      "Bash(supabase --version)",
+      "Bash(brew install *)",
+      "Bash(/opt/homebrew/bin/supabase --version)",
+      "Bash(command -v supabase)",
+      "Bash(supabase init *)",
+      "Bash(git mv *)",
+      "Bash(git commit -m 'Make schema CLI-pushable: supabase init, timestamped migration, setup paths *)"
     ]
   }
 }

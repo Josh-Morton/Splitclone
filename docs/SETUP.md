@@ -14,9 +14,25 @@ with account access. ~30 minutes total. Infrastructure cost: **R0/month**.
 ## 2. Supabase project (10 min)
 1. https://supabase.com → New project (free tier). Region: closest to ZA
    (currently `af-south-1` / Cape Town if offered, otherwise EU-west).
-2. **Run the migration:** Dashboard → SQL Editor → paste the contents of
-   `supabase/migrations/0001_phase1_schema.sql` → Run.
-   (Or with the CLI: `supabase link --project-ref <ref> && supabase db push`.)
+2. **Run the migration.** Two ways — pick one:
+
+   **a) SQL Editor (no tooling).** Open it directly at
+   **https://supabase.com/dashboard/project/_/sql/new** (the `_` auto-redirects
+   to your project; this is the "New query" editor if you can't find the sidebar
+   icon — it's the `</>`-style "SQL Editor" item on the left). Paste the entire
+   contents of `supabase/migrations/20260702000000_phase1_schema.sql`, then click
+   **Run** (or ⌘/Ctrl+Enter). You should see "Success. No rows returned".
+
+   **b) CLI (repeatable, recommended).** From the repo root:
+   ```bash
+   supabase login                       # opens a browser to authorize
+   supabase link --project-ref <ref>    # <ref> is in your project URL / Settings → General
+   supabase db push                     # applies everything in supabase/migrations/
+   ```
+   The `<ref>` is the 20-char id in `https://<ref>.supabase.co` (or Dashboard →
+   Settings → General → "Reference ID"). `link` will prompt for your database
+   password (set when you created the project; resettable under Settings →
+   Database).
 3. **Auth:** Authentication → Providers → Email: enable, and turn ON
    "Email OTP" / magic code sign-in (we use passwordless OTP, ADR-0006).
    Disable "Confirm email" double-opt-in if you want the fastest first sign-in.
