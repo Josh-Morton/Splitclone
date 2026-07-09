@@ -15,9 +15,9 @@ export async function GET() {
     return NextResponse.json({ ok: true, supabase: "not configured" });
   }
   try {
-    // Cheapest possible authenticated request: ask PostgREST for the OpenAPI
-    // root. Touches the database enough to count as activity.
-    const res = await fetch(`${url}/rest/v1/`, {
+    // A real table query so the database registers activity. RLS makes it
+    // return an empty set for the anon role — cheap and harmless.
+    const res = await fetch(`${url}/rest/v1/group?select=id&limit=1`, {
       headers: { apikey: key, Authorization: `Bearer ${key}` },
       cache: "no-store",
     });
