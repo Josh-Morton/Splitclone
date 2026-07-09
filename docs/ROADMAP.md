@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-09 (session: Supabase live + E1/E2 + SupabaseRepo)
+**Last updated:** 2026-07-09 (session 2: Add expense + settle up shipped)
 
 ## Where we are
 
@@ -51,12 +51,16 @@ meanwhile), then E3 invites and E4 expense-entry UI.
       private; unbalanced expenses rejected by deferred triggers) (2026-07-09)
 - [ ] **E3 Groups & members** — invite link/code flow UI, placeholder-member
       management UI, upgrade-on-invite (backend `invite` table ready)
-- [ ] **E4 Expenses** — ~~SupabaseRepo~~ done (atomic via create/update_expense
-      RPCs, 2026-07-09); remaining: Add/Edit sheet (equal · exact · proportional,
-      defaulting proportional), multi-payer, soft-delete + undo UI; Expenses
-      tab + detail screen per design
-- [ ] **E5 Balances & settle up** — Home balance hero, settle-up sheet with
-      recorded payments
+- [ ] **E4 Expenses** — SupabaseRepo done (atomic RPCs); **Add-expense sheet
+      done** (equal · exact · proportional defaulting proportional, auto-category,
+      payer pills, participant chips, live shares + %, exact-remaining validation);
+      **soft-delete + 4s undo done** (all verified in browser 2026-07-09).
+      Remaining: edit expense, multi-payer UI, Expenses tab + detail screen,
+      date picker
+- [x] **E5 Balances & settle up (basic)** — Home balance hero with live nets,
+      settle-up sheet (fewest-payments list, record payment → balance clears;
+      verified in browser 2026-07-09). Pairwise view for 3+ members comes with
+      the full shell
 - [ ] **E6 Verification** — balance scenario tests vs hand calcs; one-week
       real-data trial with both users
 

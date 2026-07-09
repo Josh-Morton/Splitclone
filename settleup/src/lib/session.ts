@@ -38,31 +38,38 @@ export function useSessionState(): SessionState {
   const [state, setState] = useState<SessionState>({ status: "loading" });
 
   useEffect(() => {
-    if (isDemoMode()) {
-      setState({ status: "demo" });
-      return;
-    }
-    if (!isSupabaseConfigured()) {
-      setState({ status: "signedout" });
-      return;
-    }
-    const sb = getSupabase();
     let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
 
-    sb.auth.getSession().then(({ data }) => {
+    void (async () => {
+      // Yield a tick so no state is set synchronously inside the effect.
+      await Promise.resolve();
+      if (cancelled) return;
+
+      if (isDemoMode()) {
+        setState({ status: "demo" });
+        return;
+      }
+      if (!isSupabaseConfigured()) {
+        setState({ status: "signedout" });
+        return;
+      }
+
+      const sb = getSupabase();
+      const { data } = await sb.auth.getSession();
       if (cancelled) return;
       setState(data.session ? { status: "supabase", session: data.session } : { status: "signedout" });
-    });
 
-    const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
-      if (cancelled) return;
-      if (isDemoMode()) return;
-      setState(session ? { status: "supabase", session } : { status: "signedout" });
-    });
+      const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
+        if (cancelled || isDemoMode()) return;
+        setState(session ? { status: "supabase", session } : { status: "signedout" });
+      });
+      unsubscribe = () => sub.subscription.unsubscribe();
+    })();
 
     return () => {
       cancelled = true;
-      sub.subscription.unsubscribe();
+      unsubscribe?.();
     };
   }, []);
 
