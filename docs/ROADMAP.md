@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-13 (Phase 4 shipped: recurring bills + shared shopping list — milestone M3)
+**Last updated:** 2026-07-16 (Josh's backlog additions recorded in Phase 6: household mgmt, invite comms rework, fixed-split recurring from expense sheet)
 
 ## Where we are
 
@@ -42,7 +42,8 @@ offline-first.
       localhost in the redirect allow list
 - [ ] **Manual (Josh, optional):** custom SMTP (e.g. free Resend) so OTP emails
       contain a real 6-digit code — free tier can't edit templates on the default
-      sender; magic-link sign-in works meanwhile
+      sender; magic-link sign-in works meanwhile. *(Decision now tracked inside
+      Phase 6 → "Invite / joining flow comms rework".)*
 - [x] PWA installs to a phone home screen from the deployed URL (Josh, 2026-07-13)
 
 ## Phase 1 — Core ledger (MVP) → milestone M1 "It works for us"
@@ -127,6 +128,87 @@ offline-first.
 ## Phase 6 — Polish & hardening
 - [ ] Empty/error/loading states · a11y · security re-audit · performance pass
 
+### Added by Josh, 2026-07-16 (recorded for the backlog — flesh-outs below)
+
+- [ ] **Household (space) management** — users will realistically belong to
+      multiple households (home, a trip, a shared project). Today the app
+      silently uses the default/first group with no way to see or change it.
+      Build the design's Spaces model end-to-end:
+      - Header: the space name becomes tappable (chevron affordance per the
+        design) → **Spaces switcher bottom sheet** listing every space the
+        user belongs to, each with member subtitle and an active check;
+        tapping switches the whole app (balances, expenses, list, recurring
+        all re-scope) and persists as `profile.default_group_id`
+      - **"Create a space"** from the switcher → new-space sheet (name →
+        create → switch into it), so a trip/household can be spun up without
+        signing out or touching onboarding
+      - **Join a space** from the switcher via invite code (same
+        `redeem_invite` path as onboarding), so joining a second household
+        doesn't require a fresh account flow
+      - Always-visible context: which space you're in must be obvious on
+        every tab (name in header; consider it in the Expenses/List/Reports
+        headers too) so entries never land in the wrong household
+      - Done when: a user in 2+ spaces can tell at a glance which is active,
+        switch in ≤2 taps, create a new space, and join one by code — and an
+        expense added right after switching lands in the right space
+      *(Data layer already supports multiple groups; this is UI + routing.
+      Supersedes the "Spaces switcher" line in the fidelity backlog below.)*
+
+- [ ] **Invite / joining flow comms rework** — the flow technically works but
+      the communication around it fails a real user: the invite can be sent,
+      yet the recipient hits a **code/PIN prompt that nothing ever sent
+      them** (the sign-in email contains a magic *link*, not the 6-digit code
+      the verify screen asks for, because the free-tier default sender can't
+      customize templates — and the invite code itself is only visible on the
+      inviter's screen). Revisit end-to-end as one journey:
+      - Map the full recipient journey: receives share message → opens
+        `/join/<code>` → signs in (email) → lands in the household; kill
+        every step where the user is asked for something they were never
+        given
+      - Share payload must carry everything: the share/copy message includes
+        the link (code embedded) AND spells out what will happen ("tap, sign
+        in with your email, you're in") — recipient should never need to
+        type the invite code manually when they came via link
+      - Resolve the OTP mismatch decisively: either wire custom SMTP (free
+        Resend) so the email really contains the 6-digit code, or embrace
+        magic-link-only and rework the verify screen so it stops asking for
+        a code it knows can't arrive (show "check your email and tap the
+        link", with code entry only as a secondary affordance once SMTP
+        exists)
+      - Handle the edge cases: invite link opened on a phone where the
+        inviter is signed in; expired/used codes get a friendly error +
+        "ask for a new invite"; pending-invite survives the whole auth flow
+        (exists — needs real-phone testing)
+      - Done when: a non-technical partner can go from received message to
+        seeing the shared balance without asking the inviter a single
+        question — tested on two real phones
+      *(Absorbs the Phase-0 "Manual: custom SMTP" item — decide it here.)*
+
+- [ ] **Recurring payments from expense creation, with fixed split values** —
+      today recurring bills live in their own screen and only store a split
+      *method* (equal/proportional) that is re-computed at generation time.
+      Josh wants: while creating an expense, mark it as repeating monthly
+      with the **exact split locked in**:
+      - Add-expense sheet gains a "**Repeats monthly**" toggle (radio/switch
+        per Josh) → reveals day-of-month picker (defaults from the expense
+        date); saving creates BOTH the expense and the recurring rule in one
+        go
+      - **Fixed split values**: whatever the sheet shows at save time
+        (equal, exact amounts, or the proportional shares as computed that
+        day) is stored on the rule as concrete per-member cents and reused
+        verbatim every month — no re-computation drift when salaries change
+        (schema: add a fixed-shares mode to `recurring_expense`, e.g.
+        `split_method='fixed'` + stored shares jsonb/rows; generation
+        validates the stored shares still sum to the amount and the members
+        still exist, falling back to equal + a warning activity entry if not)
+      - Existing separate Recurring screen stays (management: pause/edit/
+        delete/add-now); rules created from the expense sheet appear there
+        like any other; method-based (recomputed) rules remain supported
+      - Done when: Josh can enter rent once — amount, exact R-values per
+        person, "repeats monthly on the 1st" — and it generates identically
+        every month with zero further input
+      *(Builds on Phase 4's generation job; needs one migration + sheet UI.)*
+
 ## Design-fidelity backlog (audit vs design handoff, 2026-07-13)
 Gaps between the built app and `design_handoff_settleup/README.md`, each with
 its target phase. The audit confirmed all iron rules hold and Phase-1 exit
@@ -141,7 +223,8 @@ criteria are met (bar the E6 trial); these are the visible deltas:
   bell → Activity, avatar → Settings (currently Invite/Sign-out pills) →
   **Phase 5/6**
 - Spaces switcher + create-space sheet (multi-space UI; data layer already
-  supports) → **Phase 6**
+  supports) → **Phase 6** *(now fully specced under Phase 6 → "Household
+  (space) management")*
 - Sync-state pill (synced/syncing/offline) → moves with **Phase 2 (end)**
 - Upcoming-recurring card on Home → **Phase 4**
 - Note input on Add/Edit sheet (schema + detail view support notes already) →
