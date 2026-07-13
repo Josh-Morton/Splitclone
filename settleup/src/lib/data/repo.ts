@@ -60,7 +60,20 @@ export interface Repo {
   // --- session / profile ---
   getCurrentUser(): Promise<User | null>;
   getProfile(userId: string): Promise<Profile | null>;
-  updateProfile(profile: Partial<Profile> & { userId: string }): Promise<Profile>;
+  updateProfile(
+    profile: Partial<Profile> & { userId: string; displayName?: string }
+  ): Promise<Profile>;
+
+  /**
+   * Salary-proportional shares for a prospective expense, computed without
+   * revealing anyone's salary (ADR-0010). Returns null when any participant
+   * has no salary — caller falls back to an equal split with a warning.
+   */
+  getSalaryShares(
+    groupId: string,
+    totalCents: Cents,
+    memberIds: string[]
+  ): Promise<ExpenseSplit[] | null>;
 
   // --- groups & members ---
   listGroups(): Promise<Group[]>;

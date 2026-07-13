@@ -91,7 +91,31 @@ export class MemoryRepo implements Repo {
     return this.profiles.get(userId) ?? null;
   }
 
-  async updateProfile(p: Partial<Profile> & { userId: string }): Promise<Profile> {
+  async getSalaryShares(
+    groupId: string,
+    totalCents: number,
+    memberIds: string[]
+  ): Promise<import("../domain").ExpenseSplit[] | null> {
+    this.mustGroup(groupId);
+    const salaries = memberIds.map((mid) => {
+      const m = this.members.find((x) => x.id === mid);
+      if (!m?.userId) return 0; // placeholders have no salary
+      return this.profiles.get(m.userId)?.monthlySalaryCents ?? 0;
+    });
+    if (salaries.some((s) => s <= 0)) return null;
+    const { splitWeighted } = await import("../domain");
+    return splitWeighted(totalCents, memberIds, salaries).map(({ memberId, shareCents }) => ({
+      memberId,
+      shareCents,
+    }));
+  }
+
+  async updateProfile(
+    p: Partial<Profile> & { userId: string; displayName?: string }
+  ): Promise<Profile> {
+    if (p.displayName !== undefined && p.userId === this.user.id) {
+      this.user.displayName = p.displayName;
+    }
     const existing = this.profiles.get(p.userId) ?? {
       userId: p.userId,
       monthlySalaryCents: null,

@@ -12,7 +12,7 @@ const HUES = ["#6FD7AC", "#E9BF73", "#C9A6F4", "#F39DC0", "#74D2E0", "#A9ABF8"];
 export function memberDisplayName(m: GroupMember | undefined, meUserId: string): string {
   if (!m) return "?";
   if (m.userId === meUserId) return "You";
-  return m.placeholderName ?? "Member";
+  return m.profileName || m.placeholderName || "Member";
 }
 
 function initials(name: string): string {
@@ -39,7 +39,7 @@ export function Avatar({
 }) {
   const you = member?.userId === meUserId;
   const name = memberDisplayName(member, meUserId);
-  const label = you ? "Me" : initials(member?.placeholderName ?? name);
+  const label = you ? "Me" : initials(name);
   return (
     <div
       aria-label={name}

@@ -13,6 +13,7 @@ import { AddExpenseSheet } from "@/components/add-expense-sheet";
 import { ExpenseDetail } from "@/components/expense-detail";
 import { ExpensesTab } from "@/components/expenses-tab";
 import { InviteSheet } from "@/components/invite-sheet";
+import { SettingsSheet } from "@/components/settings-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
 import { TabBar, type Tab } from "@/components/tab-bar";
 import { Button, Card, Screen, Spinner } from "@/components/ui";
@@ -22,7 +23,6 @@ import {
   computeBalances,
   fmt,
   simplifyDebts,
-  type Cents,
   type Expense,
   type GroupMember,
   type SettleTransaction,
@@ -41,7 +41,6 @@ interface HomeData {
   expenses: Expense[];
   yourNet: number;
   transactions: SettleTransaction[];
-  salaries: Record<string, Cents>;
   counterpartyName: string;
 }
 
@@ -58,12 +57,6 @@ async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string):
   const yourNet = you ? balances[you.id] : 0;
   const transactions = simplifyDebts(balances);
 
-  // Salaries for proportional splits: RLS only lets us read our own; other
-  // members' arrive with salary-sharing / real accounts (Phase 3).
-  const salaries: Record<string, Cents> = {};
-  const myProfile = await repo.getProfile(user!.id);
-  if (you && myProfile?.monthlySalaryCents) salaries[you.id] = myProfile.monthlySalaryCents;
-
   const other =
     yourNet > 0
       ? members.find((m) => m.id === transactions[0]?.fromMemberId)
@@ -79,8 +72,7 @@ async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string):
     expenses,
     yourNet,
     transactions,
-    salaries,
-    counterpartyName: other?.placeholderName ?? "your partner",
+    counterpartyName: other?.profileName || other?.placeholderName || "your partner",
   };
 }
 
@@ -90,7 +82,7 @@ export default function HomePage() {
   const [data, setData] = useState<HomeData | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("home");
-  const [sheet, setSheet] = useState<"none" | "add" | "settle" | "invite">("none");
+  const [sheet, setSheet] = useState<"none" | "add" | "settle" | "invite" | "settings">("none");
   const [editing, setEditing] = useState<Expense | null>(null);
   const [viewing, setViewing] = useState<Expense | null>(null);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
@@ -185,7 +177,7 @@ export default function HomePage() {
     const m = d.members.find((x) => x.id === id);
     if (!m) return "?";
     if (m.userId === d.user.id) return "You";
-    return m.placeholderName ?? "Member";
+    return m.profileName || m.placeholderName || "Member";
   };
 
   const heroText =
@@ -228,10 +220,8 @@ export default function HomePage() {
                 Invite
               </button>
               <button
-                onClick={async () => {
-                  await signOut();
-                  router.replace("/welcome");
-                }}
+                onClick={() => setSheet("settings")}
+                aria-label="Settings"
                 style={{
                   background: "var(--s2)",
                   border: "1px solid var(--line2)",
@@ -243,7 +233,7 @@ export default function HomePage() {
                   cursor: "pointer",
                 }}
               >
-                Sign out
+                Settings
               </button>
             </div>
           </header>
@@ -429,7 +419,6 @@ export default function HomePage() {
         groupId={d.groupId}
         members={d.members}
         meUserId={d.user.id}
-        salaries={d.salaries}
         editing={editing}
       />
       <InviteSheet
@@ -440,6 +429,21 @@ export default function HomePage() {
         groupId={d.groupId}
         members={d.members}
         meUserId={d.user.id}
+      />
+      <SettingsSheet
+        open={sheet === "settings"}
+        onClose={() => setSheet("none")}
+        onSaved={async () => {
+          setSheet("none");
+          await load();
+          showToast("Settings saved");
+        }}
+        onSignOut={async () => {
+          await signOut();
+          router.replace("/welcome");
+        }}
+        repo={d.repo}
+        user={d.user}
       />
       <SettleSheet
         open={sheet === "settle"}

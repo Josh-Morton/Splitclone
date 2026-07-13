@@ -19,3 +19,5 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | [0006](0006-passwordless-otp-auth.md) | Passwordless email OTP auth | Accepted |
 | [0007](0007-plain-css-design-tokens.md) | Plain CSS + design-token custom properties (no Tailwind/UI kit) | Accepted |
 | [0008](0008-auto-categorization.md) | Auto-categorization from description keywords; no manual picker | Accepted |
+| [0009](0009-offline-phase-deferred.md) | Offline-first phase moved to end of project (order: 1→3→4→5→2→6) | Accepted |
+| [0010](0010-salary-split-rpc.md) | Salary-proportional shares computed server-side (privacy-preserving RPC) | Accepted |

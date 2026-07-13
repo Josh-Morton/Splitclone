@@ -69,6 +69,8 @@ export interface GroupMember extends SyncMeta {
   userId: string | null;
   /** Used when userId is null. */
   placeholderName: string | null;
+  /** Real user's display name, hydrated from profile_public (Phase 3). */
+  profileName?: string | null;
   role: MemberRole;
   status: MemberStatus;
 }

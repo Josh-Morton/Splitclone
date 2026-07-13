@@ -9,18 +9,17 @@
  * Multi-payer and editing land in the full E4 pass.
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Repo } from "@/lib/data";
 import {
   autoCategory,
   CATEGORY_META,
-  computeSplit,
   fmt,
   parseCents,
-  salaryFallsBackToEqual,
+  splitEqual,
   splitsReconcile,
-  type Cents,
   type Expense,
+  type ExpenseSplit,
   type GroupMember,
   type SplitMethod,
 } from "@/lib/domain";
@@ -29,7 +28,7 @@ import { Pill, Sheet } from "./sheet";
 
 type Method = Extract<SplitMethod, "equal" | "exact" | "salary">;
 
-const centsToInput = (c: Cents) => (c / 100).toFixed(2).replace(".", ",");
+const centsToInput = (c: number) => (c / 100).toFixed(2).replace(".", ",");
 const isoToDateInput = (iso: string) => iso.slice(0, 10);
 const todayDateInput = () => new Date().toISOString().slice(0, 10);
 
@@ -41,7 +40,6 @@ export function AddExpenseSheet({
   groupId,
   members,
   meUserId,
-  salaries,
   editing = null,
 }: {
   open: boolean;
@@ -51,7 +49,6 @@ export function AddExpenseSheet({
   groupId: string;
   members: GroupMember[];
   meUserId: string;
-  salaries: Record<string, Cents>; // memberId -> salary cents (0 = unknown)
   /** When set, the sheet edits this expense instead of creating one. */
   editing?: Expense | null;
 }) {
@@ -92,18 +89,46 @@ export function AddExpenseSheet({
   const category = autoCategory(desc);
 
   const memberName = (m: GroupMember) =>
-    m.userId === meUserId ? "You" : m.placeholderName ?? "Member";
+    m.userId === meUserId ? "You" : m.profileName || m.placeholderName || "Member";
+
+  // Salary-proportional shares come from the server (ADR-0010: salaries never
+  // leave the database). Debounced; null = someone has no salary -> equal.
+  const [salaryShares, setSalaryShares] = useState<ExpenseSplit[] | null>(null);
+  const salaryReq = useRef(0);
+  const partsKey = parts.join(",");
+  useEffect(() => {
+    if (!open || method !== "salary" || total <= 0 || parts.length === 0) return;
+    const reqId = ++salaryReq.current;
+    const timer = setTimeout(async () => {
+      try {
+        const shares = await repo.getSalaryShares(groupId, total, parts);
+        if (salaryReq.current === reqId) setSalaryShares(shares);
+      } catch {
+        if (salaryReq.current === reqId) setSalaryShares(null);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- parts tracked via partsKey
+  }, [open, method, total, partsKey, groupId, repo]);
 
   const splits = useMemo(() => {
     if (total <= 0 || parts.length === 0) return [];
     if (method === "exact") {
       return parts.map((id) => ({ memberId: id, shareCents: parseCents(exact[id] ?? "") }));
     }
-    return computeSplit(method, total, parts, { salaries });
-  }, [method, total, parts, exact, salaries]);
+    if (method === "salary") {
+      const valid =
+        salaryShares &&
+        salaryShares.length === parts.length &&
+        parts.every((id) => salaryShares.some((s) => s.memberId === id)) &&
+        salaryShares.reduce((a, s) => a + s.shareCents, 0) === total;
+      return valid ? salaryShares : splitEqual(total, parts);
+    }
+    return splitEqual(total, parts);
+  }, [method, total, parts, exact, salaryShares]);
 
   const exactRemaining = total - splits.reduce((a, s) => a + s.shareCents, 0);
-  const proportionalFallsBack = method === "salary" && salaryFallsBackToEqual(parts, salaries);
+  const proportionalFallsBack = method === "salary" && total > 0 && salaryShares === null;
 
   const payers = multiPayer
     ? members
@@ -339,7 +364,8 @@ export function AddExpenseSheet({
       </div>
       {proportionalFallsBack && (
         <p style={{ fontSize: 12, color: "var(--amber)", marginTop: 8 }}>
-          Splitting equally for now — proportional needs everyone&apos;s salary (Settings, later build).
+          Splitting equally for now — proportional needs every participant to have a salary set
+          (in Settings), and doesn&apos;t work with placeholder members.
         </p>
       )}
 

@@ -13,6 +13,7 @@ import { v4 as uuid } from "uuid";
 import type {
   Activity,
   Expense,
+  ExpenseSplit,
   Group,
   GroupMember,
   Profile,
@@ -255,7 +256,36 @@ export class SupabaseRepo implements Repo {
       .neq("status", "left")
       .order("created_at");
     if (error) this.fail(error);
-    return (data ?? []).map(mapMember);
+    const members = (data ?? []).map(mapMember);
+    // Hydrate real users' display names from the salary-stripped public view.
+    const userIds = members.map((m) => m.userId).filter((x): x is string => Boolean(x));
+    if (userIds.length > 0) {
+      const { data: profs } = await this.sb
+        .from("profile_public")
+        .select("user_id, display_name")
+        .in("user_id", userIds);
+      const names = new Map((profs ?? []).map((p: any) => [p.user_id, p.display_name]));
+      for (const m of members) {
+        if (m.userId) m.profileName = names.get(m.userId) || null;
+      }
+    }
+    return members;
+  }
+
+  async getSalaryShares(
+    groupId: string,
+    totalCents: number,
+    memberIds: string[]
+  ): Promise<ExpenseSplit[] | null> {
+    const { data, error } = await this.sb.rpc("salary_split_shares", {
+      p_group_id: groupId,
+      p_total: totalCents,
+      p_member_ids: memberIds,
+    });
+    if (error) this.fail(error);
+    const rows: any[] = data ?? [];
+    if (rows.length === 0 || rows.some((r) => !r.has_salary)) return null;
+    return rows.map((r) => ({ memberId: r.member_id, shareCents: Number(r.share_cents) }));
   }
 
   async addPlaceholderMember(groupId: string, name: string): Promise<GroupMember> {
