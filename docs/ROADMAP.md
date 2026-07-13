@@ -43,7 +43,7 @@ offline-first.
 - [ ] **Manual (Josh, optional):** custom SMTP (e.g. free Resend) so OTP emails
       contain a real 6-digit code — free tier can't edit templates on the default
       sender; magic-link sign-in works meanwhile
-- [ ] Verify PWA installs to an Android home screen from the deployed URL
+- [x] PWA installs to a phone home screen from the deployed URL (Josh, 2026-07-13)
 
 ## Phase 1 — Core ledger (MVP) → milestone M1 "It works for us"
 
@@ -76,12 +76,7 @@ offline-first.
 - [ ] **E6 Verification** — balance scenario tests vs hand calcs; one-week
       real-data trial with both users
 
-## Phase 2 — Offline-first → M2 "Works anywhere"
-- [ ] Dexie local store behind the Repo · outbox + sync engine · SW precache +
-      background sync · LWW conflict resolution · sync-state pill (synced /
-      pending / offline per design)
-
-## Phase 3 — Fair-share & richer splits
+## Phase 3 — Fair-share & richer splits ← NEXT (execution order is 1 → 3 → 4 → 5 → 2 → 6 per ADR-0009)
 - [ ] Salary plumbing + privacy toggle · percentage & shares methods ·
       (salary-proportional maths already done in Phase 0 domain layer)
 
@@ -93,8 +88,43 @@ offline-first.
 - [ ] Reports tab (trend chart, category breakdown, who-paid-what) · activity
       feed · Excel/CSV export · receipt photos · settle-up simplification UI for 3+
 
+## Phase 2 — Offline-first → M2 "Works anywhere" (MOVED TO END — ADR-0009, Josh 2026-07-13)
+- [ ] Dexie local store behind the Repo · outbox + sync engine · SW precache +
+      background sync · LWW conflict resolution · sync-state pill (synced /
+      pending / offline per design) · offline fallbacks for the server RPCs
+      (expenses, invites, salary shares)
+
 ## Phase 6 — Polish & hardening
 - [ ] Empty/error/loading states · a11y · security re-audit · performance pass
+
+## Design-fidelity backlog (audit vs design handoff, 2026-07-13)
+Gaps between the built app and `design_handoff_settleup/README.md`, each with
+its target phase. The audit confirmed all iron rules hold and Phase-1 exit
+criteria are met (bar the E6 trial); these are the visible deltas:
+
+- **Salary-proportional split doesn't work for a real couple yet** — only the
+  signed-in user's salary is read, so it always falls back to equal → **Phase 3
+  (in progress)** via a privacy-preserving server RPC
+- Partner's real display name never shown (members show placeholder name or
+  "Member") → **Phase 3** (hydrate names via `profile_public`)
+- Settings screen (editable name/salary, privacy + simplify-debts toggles) →
+  **Phase 3** (basic sheet), full screen fidelity in Phase 6
+- Header per design: tappable space name → Spaces switcher sheet, notification
+  bell → Activity, avatar → Settings (currently Invite/Sign-out pills) →
+  **Phase 5/6**
+- Spaces switcher + create-space sheet (multi-space UI; data layer already
+  supports) → **Phase 6**
+- Sync-state pill (synced/syncing/offline) → moves with **Phase 2 (end)**
+- Upcoming-recurring card on Home → **Phase 4**
+- Note input on Add/Edit sheet (schema + detail view support notes already) →
+  **Phase 4**
+- Avatar photos (add-photo affordance in onboarding/settings) → **Phase 5**
+  (needs Storage)
+- Group rename UI; member-leave-with-zero-balance rule → **Phase 6**
+- Percentage/shares split methods: implemented + tested in the domain layer but
+  deliberately **not surfaced** — the final design's segmented control has
+  exactly three options (Equal · Exact · Proportional); design supersedes scope
+  §6.5 here. Revisit only if a real need appears.
 
 ## Working agreements
 - Ship the correct ledger before anything clever; offline is architectural and

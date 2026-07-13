@@ -36,11 +36,15 @@ when unsure.
   auto-category), fully unit-tested. The worked examples from scope doc §7 are
   encoded as tests.
 - `src/lib/data/repo.ts` — **the only data boundary.** UI code never touches
-  Supabase/fetch/IndexedDB directly (ADR-0005). `MemoryRepo` is the demo +
-  reference implementation; `SupabaseRepo` is the next one to build (E4).
+  Supabase/fetch/IndexedDB directly (ADR-0005). `MemoryRepo` powers the demo
+  household; `SupabaseRepo` is live in production.
 - `src/app/` — screens. Styling only via tokens in `globals.css` (ADR-0007).
-- `supabase/migrations/20260702000000_phase1_schema.sql` — schema + RLS, written, not
-  yet applied (needs the Supabase project, docs/SETUP.md).
+- `supabase/migrations/` — **applied to the live project** (`zgoinuagmornkwgqomhq`).
+  New migrations: this network blocks port 5432, so apply via the Management
+  API `database/query` endpoint (see ROADMAP notes), then record the version in
+  `supabase_migrations.schema_migrations`.
+- Production: https://splitclone-joshprojects13.vercel.app — pushes to `main`
+  auto-deploy.
 
 ## Iron rules (from the ADRs — violating these breaks the product)
 - Money = **integer cents**, always. Display via `fmt()` → `R1 200,00`.

@@ -17,8 +17,9 @@
 │  Repo interface (src/lib/data/repo.ts)       │
 │      │  implementations:                     │
 │      ├─ MemoryRepo    (demo household, done) │
-│      ├─ SupabaseRepo  (Phase 1, E1–E5)       │
-│      └─ LocalFirstRepo(Phase 2: Dexie+outbox)│
+│      ├─ SupabaseRepo  (live in production)   │
+│      └─ LocalFirstRepo(offline phase — moved │
+│         to end of project, ADR-0009)         │
 │      │                                       │
 │  Domain maths (src/lib/domain) — pure fns    │
 │    money · splits · balances · simplify ·    │
@@ -51,8 +52,12 @@ Everything is a pure function; everything is unit-tested (`__tests__/`).
 ### 2. Data (`settleup/src/lib/data/`) — the only I/O boundary
 UI never talks to Supabase/IndexedDB directly (ADR-0005). `repo.ts` defines the
 contract including validation semantics (amount > 0, payers and splits must sum
-to the total → `ValidationError`). `getRepo()` selects the implementation;
-currently the seeded `MemoryRepo` demo until Supabase env vars exist.
+to the total → `ValidationError`). `getSupabaseRepo()` is the production repo
+(signed-in sessions); `getDemoRepo()` is the seeded in-memory demo household
+("Skip — explore the demo household"). Multi-row expense writes go through the
+`create_expense`/`update_expense` Postgres RPCs so the deferred reconciliation
+triggers see the complete set atomically; invite redemption goes through
+`redeem_invite` (SECURITY DEFINER — the code is the capability).
 
 ### 3. Screens (`settleup/src/app/`)
 App Router, dark-only, mobile-first (~430px column). Styling uses only the
@@ -86,12 +91,15 @@ activity) with:
    server-only (Phase 4 jobs). RLS is the real security boundary.
 8. **Styling:** tokens from `globals.css` only; dark-mode-only; system fonts.
 
-## Offline strategy (Phase 2 preview)
-Phase 1 is online-first behind the Repo. Phase 2 adds: Dexie (IndexedDB)
-mirror of the schema → durable outbox of local writes → sync engine (push
-outbox, pull by cursor) → per-field LWW via `version` + `updated_by` →
-service-worker precache + background sync. The schema already carries
-everything this needs (ADR-0004).
+## Offline strategy (deferred to end of project — ADR-0009)
+The app is online-first behind the Repo. The offline-first phase (originally
+Phase 2) was moved to the end of the project by Josh (2026-07-13). When it
+lands: Dexie (IndexedDB) mirror of the schema → durable outbox of local writes
+→ sync engine (push outbox, pull by cursor) → per-field LWW via `version` +
+`updated_by` → service-worker precache + background sync. The schema and data
+layer already carry everything this needs (ADR-0004), so deferral costs no
+rework — but note the salary-split RPC and invite RPCs are server-dependent
+and will need offline fallbacks then.
 
 ## Testing strategy
 - Domain: exhaustive unit tests incl. the scope doc's worked examples and
