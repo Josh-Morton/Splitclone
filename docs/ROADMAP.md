@@ -115,13 +115,11 @@ Gaps between the built app and `design_handoff_settleup/README.md`, each with
 its target phase. The audit confirmed all iron rules hold and Phase-1 exit
 criteria are met (bar the E6 trial); these are the visible deltas:
 
-- **Salary-proportional split doesn't work for a real couple yet** — only the
-  signed-in user's salary is read, so it always falls back to equal → **Phase 3
-  (in progress)** via a privacy-preserving server RPC
-- Partner's real display name never shown (members show placeholder name or
-  "Member") → **Phase 3** (hydrate names via `profile_public`)
-- Settings screen (editable name/salary, privacy + simplify-debts toggles) →
-  **Phase 3** (basic sheet), full screen fidelity in Phase 6
+- ~~Salary-proportional split doesn't work for a real couple~~ → **fixed in
+  Phase 3** (privacy-preserving server RPC, ADR-0010)
+- ~~Partner's real display name never shown~~ → **fixed in Phase 3**
+- ~~Settings (editable name/salary, privacy toggle)~~ → **basic sheet shipped
+  in Phase 3**; simplify-debts toggle + full-screen fidelity in Phase 6
 - Header per design: tappable space name → Spaces switcher sheet, notification
   bell → Activity, avatar → Settings (currently Invite/Sign-out pills) →
   **Phase 5/6**
