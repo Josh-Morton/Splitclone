@@ -64,6 +64,12 @@ export function AddExpenseSheet({
   const [payerId, setPayerId] = useState(
     editing?.payers[0]?.memberId ?? meMember?.id ?? members[0]?.id ?? ""
   );
+  const [multiPayer, setMultiPayer] = useState((editing?.payers.length ?? 0) > 1);
+  const [paidBy, setPaidBy] = useState<Record<string, string>>(() =>
+    editing && editing.payers.length > 1
+      ? Object.fromEntries(editing.payers.map((p) => [p.memberId, centsToInput(p.paidCents)]))
+      : {}
+  );
   const [method, setMethod] = useState<Method>(() => {
     if (!editing) return "salary";
     // percent/shares expenses edit as exact amounts
@@ -99,6 +105,13 @@ export function AddExpenseSheet({
   const exactRemaining = total - splits.reduce((a, s) => a + s.shareCents, 0);
   const proportionalFallsBack = method === "salary" && salaryFallsBackToEqual(parts, salaries);
 
+  const payers = multiPayer
+    ? members
+        .map((m) => ({ memberId: m.id, paidCents: parseCents(paidBy[m.id] ?? "") }))
+        .filter((p) => p.paidCents > 0)
+    : [{ memberId: payerId, paidCents: total }];
+  const paidRemaining = total - payers.reduce((a, p) => a + p.paidCents, 0);
+
   function toggleParticipant(id: string) {
     setParts((p) => (p.includes(id) ? (p.length > 1 ? p.filter((x) => x !== id) : p) : [...p, id]));
   }
@@ -110,6 +123,8 @@ export function AddExpenseSheet({
     setMethod("salary");
     setParts(members.map((m) => m.id));
     setExact({});
+    setMultiPayer(false);
+    setPaidBy({});
     setError("");
   }
 
@@ -131,6 +146,12 @@ export function AddExpenseSheet({
       );
       return;
     }
+    if (multiPayer && paidRemaining !== 0) {
+      setError(
+        `Payments must add up to the total (${paidRemaining > 0 ? fmt(paidRemaining) + " left" : fmt(-paidRemaining) + " over"})`
+      );
+      return;
+    }
     setBusy(true);
     try {
       // Keep the original time-of-day when editing; noon for new back-dated
@@ -147,7 +168,7 @@ export function AddExpenseSheet({
         spentAt,
         // Proportional that fell back is stored as what it actually was.
         splitMethod: (method === "salary" && proportionalFallsBack ? "equal" : method) as SplitMethod,
-        payers: [{ memberId: payerId, paidCents: total }],
+        payers,
         splits,
       };
       if (editing) await repo.updateExpense(editing.id, input);
@@ -225,11 +246,58 @@ export function AddExpenseSheet({
       <Label>Paid by</Label>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {members.map((m) => (
-          <Pill key={m.id} active={payerId === m.id} onClick={() => setPayerId(m.id)}>
+          <Pill
+            key={m.id}
+            active={!multiPayer && payerId === m.id}
+            onClick={() => {
+              setMultiPayer(false);
+              setPayerId(m.id);
+            }}
+          >
             {memberName(m)}
           </Pill>
         ))}
+        <Pill active={multiPayer} onClick={() => setMultiPayer(true)}>
+          Multiple
+        </Pill>
       </div>
+      {multiPayer && (
+        <div style={{ marginTop: 10 }}>
+          {members.map((m) => (
+            <div
+              key={m.id}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}
+            >
+              <p style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{memberName(m)}</p>
+              <div style={{ width: 130 }}>
+                <Input
+                  value={paidBy[m.id] ?? ""}
+                  onChange={(v) => setPaidBy((p) => ({ ...p, [m.id]: v }))}
+                  placeholder="0,00"
+                  inputMode="decimal"
+                  prefix="R"
+                />
+              </div>
+            </div>
+          ))}
+          {total > 0 && (
+            <p
+              style={{
+                fontSize: 12.5,
+                fontWeight: 700,
+                marginTop: 4,
+                color: paidRemaining === 0 ? "var(--green)" : "var(--red)",
+              }}
+            >
+              {paidRemaining === 0
+                ? "Adds up ✓"
+                : paidRemaining > 0
+                  ? `${fmt(paidRemaining)} left to assign`
+                  : `${fmt(-paidRemaining)} over`}
+            </p>
+          )}
+        </div>
+      )}
 
       <div style={{ height: 18 }} />
       <Label>Split</Label>

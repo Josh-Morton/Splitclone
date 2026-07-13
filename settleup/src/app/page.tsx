@@ -1,17 +1,20 @@
 "use client";
 
 /**
- * Home (Phase-1): auth-guarded balance hero with Settle up / Add expense,
- * recent expenses with soft-delete + 4s undo, the + FAB, and the Add-Expense
- * and Settle-Up sheets — all through the Repo (demo or Supabase). The full
- * tabbed shell (Expenses / List / Reports) lands with the rest of E4–E5.
+ * The app shell (Phase-1): bottom tabs (Home / Expenses / List / Reports per
+ * the design; List and Reports light up in Phases 4–5), balance hero,
+ * date-grouped Expenses tab, expense detail overlay, Add/Edit + Settle +
+ * Invite sheets — all through the Repo (demo or Supabase).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddExpenseSheet } from "@/components/add-expense-sheet";
+import { ExpenseDetail } from "@/components/expense-detail";
+import { ExpensesTab } from "@/components/expenses-tab";
 import { InviteSheet } from "@/components/invite-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
+import { TabBar, type Tab } from "@/components/tab-bar";
 import { Button, Card, Screen, Spinner } from "@/components/ui";
 import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
 import {
@@ -86,16 +89,19 @@ export default function HomePage() {
   const session = useSessionState();
   const [data, setData] = useState<HomeData | null>(null);
   const [error, setError] = useState("");
+  const [tab, setTab] = useState<Tab>("home");
   const [sheet, setSheet] = useState<"none" | "add" | "settle" | "invite">("none");
   const [editing, setEditing] = useState<Expense | null>(null);
+  const [viewing, setViewing] = useState<Expense | null>(null);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     try {
+      let next: HomeData | null = null;
       if (session.status === "demo") {
         const { repo, groupId } = await getDemoRepo();
-        setData(await loadHome(repo, "demo", groupId));
+        next = await loadHome(repo, "demo", groupId);
       } else if (session.status === "supabase") {
         const repo = getSupabaseRepo();
         const user = await repo.getCurrentUser();
@@ -110,7 +116,12 @@ export default function HomePage() {
         }
         const profile = await repo.getProfile(user.id);
         const groupId = groups.find((g) => g.id === profile?.defaultGroupId)?.id ?? groups[0].id;
-        setData(await loadHome(repo, "supabase", groupId));
+        next = await loadHome(repo, "supabase", groupId);
+      }
+      if (next) {
+        setData(next);
+        // Keep an open detail view in sync with fresh data (or close if gone).
+        setViewing((v) => (v ? (next.expenses.find((e) => e.id === v.id) ?? null) : null));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -137,6 +148,7 @@ export default function HomePage() {
 
   async function handleDelete(e: Expense) {
     const d = data!;
+    setViewing(null);
     await d.repo.deleteExpense(e.id);
     await load();
     showToast("Expense deleted", async () => {
@@ -183,157 +195,182 @@ export default function HomePage() {
         ? `${d.counterpartyName} owes you`
         : `You owe ${d.counterpartyName}`;
   const heroColor = d.yourNet === 0 ? "var(--muted)" : d.yourNet > 0 ? "var(--green)" : "var(--red)";
+  const recent = d.expenses.slice(0, 5);
 
   return (
     <Screen>
-      <header
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}
-      >
-        <div>
-          <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>{d.groupName}</h1>
-          <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-            {d.members.length} member{d.members.length === 1 ? "" : "s"}
-            {d.mode === "demo" ? " · demo household" : ""}
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            onClick={() => setSheet("invite")}
-            style={{
-              background: "var(--bluebg)",
-              border: "1px solid var(--primary)",
-              borderRadius: 999,
-              color: "var(--primary)",
-              fontSize: 12,
-              fontWeight: 700,
-              padding: "8px 14px",
-              cursor: "pointer",
-            }}
+      {tab === "home" && (
+        <>
+          <header
+            style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}
           >
-            Invite
-          </button>
-          <button
-            onClick={async () => {
-              await signOut();
-              router.replace("/welcome");
-            }}
-            style={{
-              background: "var(--s2)",
-              border: "1px solid var(--line2)",
-              borderRadius: 999,
-              color: "var(--muted)",
-              fontSize: 12,
-              fontWeight: 700,
-              padding: "8px 14px",
-              cursor: "pointer",
-            }}
-          >
-            Sign out
-          </button>
-        </div>
-      </header>
+            <div>
+              <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>{d.groupName}</h1>
+              <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                {d.members.length} member{d.members.length === 1 ? "" : "s"}
+                {d.mode === "demo" ? " · demo household" : ""}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setSheet("invite")}
+                style={{
+                  background: "var(--bluebg)",
+                  border: "1px solid var(--primary)",
+                  borderRadius: 999,
+                  color: "var(--primary)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: "8px 14px",
+                  cursor: "pointer",
+                }}
+              >
+                Invite
+              </button>
+              <button
+                onClick={async () => {
+                  await signOut();
+                  router.replace("/welcome");
+                }}
+                style={{
+                  background: "var(--s2)",
+                  border: "1px solid var(--line2)",
+                  borderRadius: 999,
+                  color: "var(--muted)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: "8px 14px",
+                  cursor: "pointer",
+                }}
+              >
+                Sign out
+              </button>
+            </div>
+          </header>
 
-      {d.mode === "demo" && (
-        <p
-          style={{
-            fontSize: 12.5,
-            color: "var(--amber)",
-            background: "rgba(227,165,60,.12)",
-            border: "1px solid rgba(227,165,60,.3)",
-            borderRadius: 10,
-            padding: "8px 12px",
-            marginBottom: 14,
-          }}
-        >
-          Demo data — nothing is saved. Sign in from the welcome screen to start your real household.
-        </p>
+          {d.mode === "demo" && (
+            <p
+              style={{
+                fontSize: 12.5,
+                color: "var(--amber)",
+                background: "rgba(227,165,60,.12)",
+                border: "1px solid rgba(227,165,60,.3)",
+                borderRadius: 10,
+                padding: "8px 12px",
+                marginBottom: 14,
+              }}
+            >
+              Demo data — nothing is saved. Sign in from the welcome screen to start your real household.
+            </p>
+          )}
+
+          <Card style={{ marginBottom: 16, textAlign: "center" }}>
+            <p
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: "0.05em",
+                color: "var(--faint)",
+              }}
+            >
+              {heroText}
+            </p>
+            <p style={{ fontSize: 42, fontWeight: 800, letterSpacing: "-1.2px", color: heroColor, marginBottom: 14 }}>
+              {fmt(Math.abs(d.yourNet))}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <Button onClick={() => setSheet("settle")} variant="secondary" style={{ flex: 1 }}>
+                Settle up
+              </Button>
+              <Button onClick={() => setSheet("add")} style={{ flex: 1 }}>
+                Add expense
+              </Button>
+            </div>
+            {d.members.length === 1 && (
+              <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 12 }}>
+                It&apos;s just you so far — tap Invite to add your partner (or a placeholder member).
+              </p>
+            )}
+          </Card>
+
+          <Card style={{ padding: 14, marginBottom: 90 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <h2 style={{ fontSize: 14.5, fontWeight: 700 }}>Recent activity</h2>
+              {d.expenses.length > 0 && (
+                <button
+                  onClick={() => setTab("expenses")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "var(--primary)",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  See all
+                </button>
+              )}
+            </div>
+            {recent.length === 0 && (
+              <p style={{ fontSize: 13.5, color: "var(--muted)", padding: "6px 0 10px" }}>
+                No expenses yet — tap <span style={{ color: "var(--ink)", fontWeight: 700 }}>Add expense</span> to
+                record the first one.
+              </p>
+            )}
+            {recent.map((e) => (
+              <div
+                key={e.id}
+                role="button"
+                aria-label={`Open ${e.description}`}
+                onClick={() => setViewing(e)}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  padding: "10px 0",
+                  borderTop: "1px solid var(--line)",
+                  gap: 8,
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14.5, fontWeight: 600 }}>{e.description}</p>
+                  <p style={{ fontSize: 12, color: "var(--muted)" }}>
+                    {CATEGORY_META[e.category].label} · {memberName(e.payers[0]?.memberId ?? "")}
+                    {e.payers.length > 1 ? ` +${e.payers.length - 1}` : ""} paid
+                  </p>
+                </div>
+                <p style={{ fontSize: 14.5, fontWeight: 700 }}>{fmt(e.amountCents)}</p>
+              </div>
+            ))}
+          </Card>
+        </>
       )}
 
-      <Card style={{ marginBottom: 16, textAlign: "center" }}>
-        <p
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            color: "var(--faint)",
-          }}
-        >
-          {heroText}
-        </p>
-        <p style={{ fontSize: 42, fontWeight: 800, letterSpacing: "-1.2px", color: heroColor, marginBottom: 14 }}>
-          {fmt(Math.abs(d.yourNet))}
-        </p>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Button onClick={() => setSheet("settle")} variant="secondary" style={{ flex: 1 }}>
-            Settle up
-          </Button>
-          <Button onClick={() => setSheet("add")} style={{ flex: 1 }}>
-            Add expense
-          </Button>
+      {tab === "expenses" && (
+        <div style={{ marginBottom: 90 }}>
+          <ExpensesTab expenses={d.expenses} members={d.members} meUserId={d.user.id} onOpen={setViewing} />
         </div>
-        {d.members.length === 1 && (
-          <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 12 }}>
-            It&apos;s just you so far — add your partner as a member from the next build, or split
-            with a placeholder meanwhile.
-          </p>
-        )}
-      </Card>
+      )}
 
-      <Card style={{ padding: 14, marginBottom: 80 }}>
-        <h2 style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 10 }}>Recent activity</h2>
-        {d.expenses.length === 0 && (
-          <p style={{ fontSize: 13.5, color: "var(--muted)", padding: "6px 0 10px" }}>
-            No expenses yet — tap <span style={{ color: "var(--ink)", fontWeight: 700 }}>Add expense</span> to
-            record the first one.
-          </p>
-        )}
-        {d.expenses.map((e) => (
-          <div
-            key={e.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "10px 0",
-              borderTop: "1px solid var(--line)",
-              gap: 8,
-            }}
-          >
-            <div
-              role="button"
-              aria-label={`Edit ${e.description}`}
-              onClick={() => {
-                setEditing(e);
-                setSheet("add");
-              }}
-              style={{ flex: 1, minWidth: 0, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{ fontSize: 14.5, fontWeight: 600 }}>{e.description}</p>
-                <p style={{ fontSize: 12, color: "var(--muted)" }}>
-                  {CATEGORY_META[e.category].label} · {memberName(e.payers[0]?.memberId ?? "")} paid
-                </p>
-              </div>
-              <p style={{ fontSize: 14.5, fontWeight: 700 }}>{fmt(e.amountCents)}</p>
-            </div>
-            <button
-              aria-label={`Delete ${e.description}`}
-              onClick={() => handleDelete(e)}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--faint)",
-                fontSize: 16,
-                cursor: "pointer",
-                padding: "4px 2px",
-              }}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </Card>
+      {(tab === "list" || tab === "reports") && (
+        <div style={{ marginBottom: 90 }}>
+          <header style={{ marginBottom: 16 }}>
+            <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>
+              {tab === "list" ? "Shopping list" : "Reports"}
+            </h1>
+          </header>
+          <Card>
+            <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
+              {tab === "list"
+                ? "The shared shopping list arrives in Phase 4 — add items together, tick them off in the shop, and turn the cart into a single expense."
+                : "Reports arrive in Phase 5 — monthly trends, category breakdowns, who-paid-what, and Excel export."}
+            </p>
+          </Card>
+        </div>
+      )}
 
       <button
         aria-label="Add expense"
@@ -341,7 +378,7 @@ export default function HomePage() {
         style={{
           position: "fixed",
           right: "max(18px, calc(50% - 215px + 18px))",
-          bottom: "calc(env(safe-area-inset-bottom) + 22px)",
+          bottom: "calc(env(safe-area-inset-bottom) + 86px)",
           width: 56,
           height: 56,
           borderRadius: "50%",
@@ -357,6 +394,22 @@ export default function HomePage() {
       >
         +
       </button>
+
+      <TabBar active={tab} onChange={setTab} />
+
+      {viewing && (
+        <ExpenseDetail
+          expense={viewing}
+          members={d.members}
+          meUserId={d.user.id}
+          onBack={() => setViewing(null)}
+          onEdit={() => {
+            setEditing(viewing);
+            setSheet("add");
+          }}
+          onDelete={() => handleDelete(viewing)}
+        />
+      )}
 
       <AddExpenseSheet
         key={editing?.id ?? "new"}
@@ -407,7 +460,7 @@ export default function HomePage() {
         <div
           style={{
             position: "fixed",
-            bottom: "calc(env(safe-area-inset-bottom) + 90px)",
+            bottom: "calc(env(safe-area-inset-bottom) + 150px)",
             left: "50%",
             transform: "translateX(-50%)",
             background: "var(--s3)",

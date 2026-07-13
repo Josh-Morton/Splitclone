@@ -42,14 +42,17 @@ export function autoCategory(description: string | null | undefined): Category {
   return "other";
 }
 
-/** Display metadata per category (labels + accent colors from the design tokens). */
-export const CATEGORY_META: Record<Category, { label: string; color: string }> = {
-  groceries: { label: "Groceries", color: "#7FB6F5" },
-  rent: { label: "Rent", color: "#A9ABF8" },
-  utilities: { label: "Utilities", color: "#E9BF73" },
-  eatingout: { label: "Eating out", color: "#6FD7AC" },
-  transport: { label: "Transport", color: "#74D2E0" },
-  household: { label: "Household", color: "#C9A6F4" },
-  entertainment: { label: "Entertainment", color: "#F39DC0" },
-  other: { label: "Other", color: "#AEB9CC" },
+/**
+ * Display metadata per category: labels + accent colors from the design
+ * tokens; emoji glyphs shown in tinted tiles per the prototype.
+ */
+export const CATEGORY_META: Record<Category, { label: string; color: string; icon: string }> = {
+  groceries: { label: "Groceries", color: "#7FB6F5", icon: "🛒" },
+  rent: { label: "Rent", color: "#A9ABF8", icon: "🏠" },
+  utilities: { label: "Utilities", color: "#E9BF73", icon: "💡" },
+  eatingout: { label: "Eating out", color: "#6FD7AC", icon: "🍽️" },
+  transport: { label: "Transport", color: "#74D2E0", icon: "🚗" },
+  household: { label: "Household", color: "#C9A6F4", icon: "🧺" },
+  entertainment: { label: "Entertainment", color: "#F39DC0", icon: "🎬" },
+  other: { label: "Other", color: "#AEB9CC", icon: "🧾" },
 };

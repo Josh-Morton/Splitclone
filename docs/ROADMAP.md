@@ -5,15 +5,16 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-13 (E3 invites + E4 edit shipped)
+**Last updated:** 2026-07-13 (E4 complete: tab shell, Expenses tab, detail, multi-payer)
 
 ## Where we are
 
 **The app is live and couple-ready:** https://splitclone-joshprojects13.vercel.app.
-Auth, onboarding, invites (with placeholder-history transfer), add/edit/delete
-expenses, and settle-up all work against the live Supabase backend. Remaining
-for M1: multi-payer UI + Expenses tab/detail (E4 tail), then the E6 week-long
-real-data trial by Josh + partner. SMTP for real OTP codes is backlogged (Josh,
+Auth, onboarding, invites (with placeholder-history transfer), the full tabbed
+shell with Expenses tab + detail screen, add/edit/delete with multi-payer, and
+settle-up all work against the live Supabase backend. **All Phase-1 build epics
+(E0–E5) are done** — remaining for M1 is E6: the week-long real-data trial by
+Josh + partner. SMTP for real OTP codes is backlogged (Josh,
 2026-07-13) — magic-link sign-in is the flow for now. After M1: Phase 2
 offline-first.
 
@@ -60,10 +61,14 @@ offline-first.
       history** (redeem_invite/invite_preview SECURITY DEFINER RPCs; E2E-tested
       live with two users incl. idempotent re-redeem, 2026-07-10). Join-by-code
       also on the onboarding space step.
-- [ ] **E4 Expenses** — SupabaseRepo, Add-expense sheet, soft-delete + undo,
-      **edit expense** (tap row → prefilled sheet) and **date picker** all done
-      (browser-verified 2026-07-10). Remaining: multi-payer UI, dedicated
-      Expenses tab + detail screen (currently list on Home + edit sheet)
+- [x] **E4 Expenses — complete** — SupabaseRepo, Add/Edit sheet (equal · exact ·
+      proportional, auto-category, date picker), **multi-payer** with per-payer
+      amounts + remaining validation, soft-delete + undo, **bottom tab bar**
+      (Home/Expenses/List/Reports; List & Reports are Phase 4/5 placeholders),
+      **Expenses tab** (date-grouped, category tiles, "your share %",
+      lent/borrowed nets), **expense detail screen** (paid-by + split cards
+      with % pills and member nets, edit/delete). Browser-verified incl.
+      hand-checked balances (2026-07-13)
 - [x] **E5 Balances & settle up (basic)** — Home balance hero with live nets,
       settle-up sheet (fewest-payments list, record payment → balance clears;
       verified in browser 2026-07-09). Pairwise view for 3+ members comes with
