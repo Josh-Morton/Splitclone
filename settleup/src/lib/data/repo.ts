@@ -44,6 +44,17 @@ export interface NewExpenseInput {
   recurringId?: string | null;
 }
 
+export interface NewRecurringInput {
+  groupId: string;
+  description: string;
+  amountCents: Cents;
+  /** Day of month the bill repeats on, clamped 1–28 (monthly only in v1 UI). */
+  dayOfMonth: number;
+  payerMemberId: string;
+  splitMethod: "equal" | "salary";
+  participantMemberIds: string[];
+}
+
 export interface NewSettlementInput {
   id?: string;
   groupId: string;
@@ -112,16 +123,27 @@ export interface Repo {
   listSettlements(groupId: string): Promise<Settlement[]>;
   recordSettlement(input: NewSettlementInput): Promise<Settlement>;
 
-  // --- shopping list (Phase 4) ---
+  // --- shopping list ---
   listShoppingItems(groupId: string): Promise<ShoppingItem[]>;
   addShoppingItem(
     item: Pick<ShoppingItem, "groupId" | "name"> & Partial<Pick<ShoppingItem, "qty" | "estPriceCents">>
   ): Promise<ShoppingItem>;
   setShoppingItemChecked(id: string, checked: boolean): Promise<void>;
   removeShoppingItem(id: string): Promise<void>;
+  /** Soft-remove all checked ("in cart") items — used by Clear and cart→expense. */
+  clearCheckedShoppingItems(groupId: string): Promise<void>;
+  /** Realtime: invoke cb when another device changes the list. Returns unsubscribe. */
+  subscribeShoppingItems(groupId: string, cb: () => void): () => void;
 
-  // --- recurring (Phase 4) ---
+  // --- recurring bills ---
   listRecurring(groupId: string): Promise<RecurringExpense[]>;
+  createRecurring(input: NewRecurringInput): Promise<RecurringExpense>;
+  setRecurringPaused(id: string, paused: boolean): Promise<void>;
+  deleteRecurring(id: string): Promise<void>;
+  /** "Add now": generate the expense immediately and advance next-run. */
+  runRecurringNow(id: string): Promise<void>;
+  /** Catch-up: generate any missed occurrences for this group. Returns count. */
+  processDueRecurring(groupId: string): Promise<number>;
 
   // --- activity (Phase 5) ---
   listActivity(groupId: string): Promise<Activity[]>;

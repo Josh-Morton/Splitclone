@@ -13,6 +13,8 @@ import { AddExpenseSheet } from "@/components/add-expense-sheet";
 import { ExpenseDetail } from "@/components/expense-detail";
 import { ExpensesTab } from "@/components/expenses-tab";
 import { InviteSheet } from "@/components/invite-sheet";
+import { ListTab, type CartDraft } from "@/components/list-tab";
+import { RecurringOverlay } from "@/components/recurring";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
 import { TabBar, type Tab } from "@/components/tab-bar";
@@ -25,6 +27,7 @@ import {
   simplifyDebts,
   type Expense,
   type GroupMember,
+  type RecurringExpense,
   type SettleTransaction,
   type User,
 } from "@/lib/domain";
@@ -41,16 +44,21 @@ interface HomeData {
   expenses: Expense[];
   yourNet: number;
   transactions: SettleTransaction[];
+  recurring: RecurringExpense[];
   counterpartyName: string;
 }
 
 async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string): Promise<HomeData> {
-  const [user, members, expenses, settlements, groups] = await Promise.all([
+  // Catch-up first so bills that came due while no one had the app open
+  // appear in this load (the daily server cron is the primary generator).
+  await repo.processDueRecurring(groupId).catch(() => 0);
+  const [user, members, expenses, settlements, groups, recurring] = await Promise.all([
     repo.getCurrentUser(),
     repo.listMembers(groupId),
     repo.listExpenses(groupId),
     repo.listSettlements(groupId),
     repo.listGroups(),
+    repo.listRecurring(groupId),
   ]);
   const you = members.find((m) => m.userId === user!.id);
   const balances = computeBalances(members.map((m) => m.id), expenses, settlements);
@@ -72,6 +80,7 @@ async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string):
     expenses,
     yourNet,
     transactions,
+    recurring,
     counterpartyName: other?.profileName || other?.placeholderName || "your partner",
   };
 }
@@ -84,6 +93,9 @@ export default function HomePage() {
   const [tab, setTab] = useState<Tab>("home");
   const [sheet, setSheet] = useState<"none" | "add" | "settle" | "invite" | "settings">("none");
   const [editing, setEditing] = useState<Expense | null>(null);
+  const [cartDraft, setCartDraft] = useState<CartDraft | null>(null);
+  const [recurringOpen, setRecurringOpen] = useState(false);
+  const [listRefresh, setListRefresh] = useState(0);
   const [viewing, setViewing] = useState<Expense | null>(null);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -284,6 +296,48 @@ export default function HomePage() {
             )}
           </Card>
 
+          {(() => {
+            const next = d.recurring.filter((r) => !r.paused)[0];
+            return (
+              <Card
+                style={{ padding: 14, marginBottom: 16, cursor: "pointer" }}
+              >
+                <div
+                  role="button"
+                  aria-label="Recurring bills"
+                  onClick={() => setRecurringOpen(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 12 }}
+                >
+                  {next ? (
+                    <>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p
+                          style={{
+                            fontSize: 11.5,
+                            fontWeight: 700,
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            color: "var(--faint)",
+                          }}
+                        >
+                          Upcoming · {new Date(next.nextRun + "T00:00:00").getDate()}{" "}
+                          {new Date(next.nextRun + "T00:00:00").toLocaleDateString("en-ZA", { month: "short" })}
+                        </p>
+                        <p style={{ fontSize: 14.5, fontWeight: 600 }}>{next.description}</p>
+                      </div>
+                      <p style={{ fontSize: 14.5, fontWeight: 700 }}>{fmt(next.amountCents ?? 0)}</p>
+                    </>
+                  ) : (
+                    <p style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: "var(--muted)" }}>
+                      Set up recurring bills (rent, fibre…)
+                    </p>
+                  )}
+                  <span style={{ color: "var(--faint)", fontSize: 18 }}>›</span>
+                </div>
+              </Card>
+            );
+          })()}
+
           <Card style={{ padding: 14, marginBottom: 90 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <h2 style={{ fontSize: 14.5, fontWeight: 700 }}>Recent activity</h2>
@@ -345,18 +399,30 @@ export default function HomePage() {
         </div>
       )}
 
-      {(tab === "list" || tab === "reports") && (
+      {tab === "list" && (
+        <div style={{ marginBottom: 90 }}>
+          <ListTab
+            key={listRefresh}
+            repo={d.repo}
+            groupId={d.groupId}
+            live={d.mode === "supabase"}
+            onCartToExpense={(draft) => {
+              setCartDraft(draft);
+              setSheet("add");
+            }}
+          />
+        </div>
+      )}
+
+      {tab === "reports" && (
         <div style={{ marginBottom: 90 }}>
           <header style={{ marginBottom: 16 }}>
-            <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>
-              {tab === "list" ? "Shopping list" : "Reports"}
-            </h1>
+            <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Reports</h1>
           </header>
           <Card>
             <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
-              {tab === "list"
-                ? "The shared shopping list arrives in Phase 4 — add items together, tick them off in the shop, and turn the cart into a single expense."
-                : "Reports arrive in Phase 5 — monthly trends, category breakdowns, who-paid-what, and Excel export."}
+              Reports arrive in Phase 5 — monthly trends, category breakdowns, who-paid-what, and
+              Excel export.
             </p>
           </Card>
         </div>
@@ -402,24 +468,32 @@ export default function HomePage() {
       )}
 
       <AddExpenseSheet
-        key={editing?.id ?? "new"}
+        key={editing?.id ?? (cartDraft ? "cart" : "new")}
         open={sheet === "add"}
         onClose={() => {
           setSheet("none");
           setEditing(null);
+          setCartDraft(null);
         }}
         onSaved={async () => {
           const wasEdit = Boolean(editing);
+          const wasCart = Boolean(cartDraft);
           setSheet("none");
           setEditing(null);
+          setCartDraft(null);
+          if (wasCart) {
+            await d.repo.clearCheckedShoppingItems(d.groupId);
+            setListRefresh((k) => k + 1);
+          }
           await load();
-          showToast(wasEdit ? "Expense updated" : "Expense added");
+          showToast(wasCart ? "Cart converted to an expense" : wasEdit ? "Expense updated" : "Expense added");
         }}
         repo={d.repo}
         groupId={d.groupId}
         members={d.members}
         meUserId={d.user.id}
         editing={editing}
+        draft={cartDraft}
       />
       <InviteSheet
         open={sheet === "invite"}
@@ -458,6 +532,20 @@ export default function HomePage() {
         members={d.members}
         meUserId={d.user.id}
         transactions={d.transactions}
+      />
+
+      <RecurringOverlay
+        open={recurringOpen}
+        onClose={() => setRecurringOpen(false)}
+        onChanged={async (msg) => {
+          await load();
+          showToast(msg);
+        }}
+        repo={d.repo}
+        groupId={d.groupId}
+        members={d.members}
+        meUserId={d.user.id}
+        rules={d.recurring}
       />
 
       {toast && (

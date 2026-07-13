@@ -41,6 +41,7 @@ export function AddExpenseSheet({
   members,
   meUserId,
   editing = null,
+  draft = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,12 +52,16 @@ export function AddExpenseSheet({
   meUserId: string;
   /** When set, the sheet edits this expense instead of creating one. */
   editing?: Expense | null;
+  /** Prefill for a new expense (cart→expense). Ignored when editing. */
+  draft?: { amountCents: number | null; description: string; note: string } | null;
 }) {
   const meMember = members.find((m) => m.userId === meUserId);
-  // Initial values come straight from `editing`; the parent passes a `key`
-  // (expense id or "new") so switching targets remounts with fresh state.
-  const [amount, setAmount] = useState(editing ? centsToInput(editing.amountCents) : "");
-  const [desc, setDesc] = useState(editing?.description ?? "");
+  // Initial values come straight from `editing`/`draft`; the parent passes a
+  // `key` (expense id / "cart" / "new") so switching targets remounts fresh.
+  const [amount, setAmount] = useState(
+    editing ? centsToInput(editing.amountCents) : draft?.amountCents ? centsToInput(draft.amountCents) : ""
+  );
+  const [desc, setDesc] = useState(editing?.description ?? draft?.description ?? "");
   const [date, setDate] = useState(editing ? isoToDateInput(editing.spentAt) : todayDateInput());
   const [payerId, setPayerId] = useState(
     editing?.payers[0]?.memberId ?? meMember?.id ?? members[0]?.id ?? ""
@@ -195,6 +200,7 @@ export function AddExpenseSheet({
         splitMethod: (method === "salary" && proportionalFallsBack ? "equal" : method) as SplitMethod,
         payers,
         splits,
+        note: editing ? editing.note : (draft?.note ?? null),
       };
       if (editing) await repo.updateExpense(editing.id, input);
       else await repo.createExpense(input);

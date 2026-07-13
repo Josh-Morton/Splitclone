@@ -25,10 +25,22 @@ import type {
 import { autoCategory } from "../domain";
 import {
   type NewExpenseInput,
+  type NewRecurringInput,
   type NewSettlementInput,
   type Repo,
   ValidationError,
 } from "./repo";
+import { nextMonthlyRun } from "./supabase-repo";
+
+/** Advance an ISO date one month forward onto the anchor day (mirrors SQL). */
+function advanceMonthly(isoDate: string, anchor: number): string {
+  const [y, m] = isoDate.split("-").map(Number);
+  const next = new Date(y, m, Math.max(1, Math.min(28, anchor))); // m is 0-based+1 = next month
+  const yy = next.getFullYear();
+  const mm = String(next.getMonth() + 1).padStart(2, "0");
+  const dd = String(next.getDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -367,9 +379,108 @@ export class MemoryRepo implements Repo {
     touch(i, this.user.id);
   }
 
-  // --- recurring / activity ---
+  async clearCheckedShoppingItems(groupId: string): Promise<void> {
+    for (const i of this.shopping) {
+      if (i.groupId === groupId && i.checked && !i.deletedAt) {
+        i.deletedAt = nowIso();
+        touch(i, this.user.id);
+      }
+    }
+  }
+
+  subscribeShoppingItems(): () => void {
+    return () => {}; // single-device demo: nothing to push
+  }
+
+  // --- recurring bills ---
   async listRecurring(groupId: string): Promise<RecurringExpense[]> {
-    return this.recurring.filter((r) => r.groupId === groupId && !r.deletedAt);
+    return this.recurring
+      .filter((r) => r.groupId === groupId && !r.deletedAt)
+      .sort((a, b) => a.nextRun.localeCompare(b.nextRun));
+  }
+
+  async createRecurring(input: NewRecurringInput): Promise<RecurringExpense> {
+    this.mustGroup(input.groupId);
+    if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
+      throw new ValidationError("Amount must be positive cents");
+    }
+    const day = Math.max(1, Math.min(28, Math.round(input.dayOfMonth)));
+    const r: RecurringExpense = {
+      id: uuid(),
+      groupId: input.groupId,
+      description: input.description,
+      category: autoCategory(input.description),
+      amountCents: input.amountCents,
+      frequency: "monthly",
+      anchor: day,
+      nextRun: nextMonthlyRun(day),
+      endDate: null,
+      payerMemberId: input.payerMemberId,
+      splitMethod: input.splitMethod,
+      participantMemberIds: input.participantMemberIds,
+      paused: false,
+      ...meta(this.user.id),
+    };
+    this.recurring.push(r);
+    return r;
+  }
+
+  async setRecurringPaused(id: string, paused: boolean): Promise<void> {
+    const r = this.recurring.find((x) => x.id === id);
+    if (!r) return;
+    r.paused = paused;
+    touch(r, this.user.id);
+  }
+
+  async deleteRecurring(id: string): Promise<void> {
+    const r = this.recurring.find((x) => x.id === id);
+    if (!r) return;
+    r.deletedAt = nowIso();
+    touch(r, this.user.id);
+  }
+
+  async runRecurringNow(id: string): Promise<void> {
+    const r = this.recurring.find((x) => x.id === id && !x.deletedAt);
+    if (!r) throw new ValidationError("Recurring rule not found");
+    await this.generateFromRule(r, nowIso());
+    r.nextRun = advanceMonthly(r.nextRun, r.anchor);
+    touch(r, this.user.id);
+  }
+
+  async processDueRecurring(groupId: string): Promise<number> {
+    const today = nowIso().slice(0, 10);
+    let generated = 0;
+    for (const r of this.recurring) {
+      if (r.groupId !== groupId || r.paused || r.deletedAt) continue;
+      let guard = 0;
+      while (r.nextRun <= today && guard < 24) {
+        await this.generateFromRule(r, r.nextRun + "T08:00:00.000Z");
+        r.nextRun = advanceMonthly(r.nextRun, r.anchor);
+        generated++;
+        guard++;
+      }
+    }
+    return generated;
+  }
+
+  private async generateFromRule(r: RecurringExpense, spentAt: string): Promise<void> {
+    const shares =
+      r.splitMethod === "salary"
+        ? await this.getSalaryShares(r.groupId, r.amountCents!, r.participantMemberIds)
+        : null;
+    const { splitEqual } = await import("../domain");
+    const splits = shares ?? splitEqual(r.amountCents!, r.participantMemberIds);
+    await this.createExpense({
+      groupId: r.groupId,
+      description: r.description,
+      category: r.category,
+      amountCents: r.amountCents!,
+      spentAt,
+      splitMethod: shares ? "salary" : "equal",
+      payers: [{ memberId: r.payerMemberId, paidCents: r.amountCents! }],
+      splits,
+      recurringId: r.id,
+    });
   }
 
   async listActivity(groupId: string): Promise<Activity[]> {
@@ -457,6 +568,16 @@ export async function seedDemo(repo: MemoryRepo): Promise<{ groupId: string }> {
   await repo.addShoppingItem({ groupId: group.id, name: "Milk", qty: 2 });
   await repo.addShoppingItem({ groupId: group.id, name: "Bread" });
   await repo.addShoppingItem({ groupId: group.id, name: "Coffee beans", estPriceCents: 18000 });
+
+  await repo.createRecurring({
+    groupId: group.id,
+    description: "Rent",
+    amountCents: 1200000,
+    dayOfMonth: 1,
+    payerMemberId: josh.id,
+    splitMethod: "salary",
+    participantMemberIds: [josh.id, sam.id],
+  });
 
   return { groupId: group.id };
 }

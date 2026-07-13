@@ -25,10 +25,23 @@ import type {
 import { autoCategory } from "../domain";
 import {
   type NewExpenseInput,
+  type NewRecurringInput,
   type NewSettlementInput,
   type Repo,
   ValidationError,
 } from "./repo";
+
+/** First occurrence of day-of-month `day` that is today or later (ISO date). */
+export function nextMonthlyRun(day: number, from = new Date()): string {
+  const d = Math.max(1, Math.min(28, Math.round(day)));
+  const candidate = new Date(from.getFullYear(), from.getMonth(), d);
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  if (candidate < today) candidate.setMonth(candidate.getMonth() + 1);
+  const y = candidate.getFullYear();
+  const m = String(candidate.getMonth() + 1).padStart(2, "0");
+  const dd = String(candidate.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- row mapping from PostgREST */
 
@@ -466,21 +479,170 @@ export class SupabaseRepo implements Repo {
     return mapSettlement(data);
   }
 
-  // --- shopping list / recurring: Phase 4 (tables not yet migrated) ---
-  async listShoppingItems(): Promise<ShoppingItem[]> {
-    return [];
+  // --- shopping list ---
+  async listShoppingItems(groupId: string): Promise<ShoppingItem[]> {
+    const { data, error } = await this.sb
+      .from("shopping_item")
+      .select("*")
+      .eq("group_id", groupId)
+      .is("deleted_at", null)
+      .order("created_at");
+    if (error) this.fail(error);
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      groupId: row.group_id,
+      name: row.name,
+      qty: row.qty != null ? Number(row.qty) : null,
+      estPriceCents: row.est_price_cents != null ? Number(row.est_price_cents) : null,
+      checked: row.checked,
+      addedBy: row.added_by,
+      ...syncMeta(row),
+    }));
   }
-  async addShoppingItem(): Promise<ShoppingItem> {
-    throw new ValidationError("Shopping list arrives in Phase 4");
+
+  async addShoppingItem(
+    item: Pick<ShoppingItem, "groupId" | "name"> &
+      Partial<Pick<ShoppingItem, "qty" | "estPriceCents">>
+  ): Promise<ShoppingItem> {
+    const userId = await this.uid();
+    const { data, error } = await this.sb
+      .from("shopping_item")
+      .insert({
+        id: uuid(),
+        group_id: item.groupId,
+        name: item.name,
+        qty: item.qty ?? null,
+        est_price_cents: item.estPriceCents ?? null,
+        added_by: userId,
+        updated_by: userId,
+      })
+      .select()
+      .single();
+    if (error) this.fail(error);
+    return {
+      id: data.id,
+      groupId: data.group_id,
+      name: data.name,
+      qty: data.qty != null ? Number(data.qty) : null,
+      estPriceCents: data.est_price_cents != null ? Number(data.est_price_cents) : null,
+      checked: data.checked,
+      addedBy: data.added_by,
+      ...syncMeta(data),
+    };
   }
-  async setShoppingItemChecked(): Promise<void> {
-    throw new ValidationError("Shopping list arrives in Phase 4");
+
+  async setShoppingItemChecked(id: string, checked: boolean): Promise<void> {
+    const { error } = await this.sb.from("shopping_item").update({ checked }).eq("id", id);
+    if (error) this.fail(error);
   }
-  async removeShoppingItem(): Promise<void> {
-    throw new ValidationError("Shopping list arrives in Phase 4");
+
+  async removeShoppingItem(id: string): Promise<void> {
+    const { error } = await this.sb
+      .from("shopping_item")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) this.fail(error);
   }
-  async listRecurring(): Promise<RecurringExpense[]> {
-    return [];
+
+  async clearCheckedShoppingItems(groupId: string): Promise<void> {
+    const { error } = await this.sb
+      .from("shopping_item")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("group_id", groupId)
+      .eq("checked", true)
+      .is("deleted_at", null);
+    if (error) this.fail(error);
+  }
+
+  subscribeShoppingItems(groupId: string, cb: () => void): () => void {
+    const channel = this.sb
+      .channel(`shopping:${groupId}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "shopping_item", filter: `group_id=eq.${groupId}` },
+        () => cb()
+      )
+      .subscribe();
+    return () => {
+      void this.sb.removeChannel(channel);
+    };
+  }
+
+  // --- recurring bills ---
+  async listRecurring(groupId: string): Promise<RecurringExpense[]> {
+    const { data, error } = await this.sb
+      .from("recurring_expense")
+      .select("*")
+      .eq("group_id", groupId)
+      .is("deleted_at", null)
+      .order("next_run");
+    if (error) this.fail(error);
+    return (data ?? []).map((row: any) => ({
+      id: row.id,
+      groupId: row.group_id,
+      description: row.description,
+      category: row.category,
+      amountCents: Number(row.amount_cents),
+      frequency: row.frequency,
+      anchor: row.anchor,
+      nextRun: row.next_run,
+      endDate: row.end_date,
+      payerMemberId: row.payer_member_id,
+      splitMethod: row.split_method,
+      participantMemberIds: row.participant_member_ids ?? [],
+      paused: row.paused,
+      ...syncMeta(row),
+    }));
+  }
+
+  async createRecurring(input: NewRecurringInput): Promise<RecurringExpense> {
+    const userId = await this.uid();
+    const day = Math.max(1, Math.min(28, Math.round(input.dayOfMonth)));
+    const { data, error } = await this.sb
+      .from("recurring_expense")
+      .insert({
+        id: uuid(),
+        group_id: input.groupId,
+        description: input.description,
+        category: autoCategory(input.description),
+        amount_cents: input.amountCents,
+        frequency: "monthly",
+        anchor: day,
+        next_run: nextMonthlyRun(day),
+        payer_member_id: input.payerMemberId,
+        split_method: input.splitMethod,
+        participant_member_ids: input.participantMemberIds,
+        created_by: userId,
+        updated_by: userId,
+      })
+      .select()
+      .single();
+    if (error) this.fail(error);
+    return (await this.listRecurring(input.groupId)).find((r) => r.id === data.id)!;
+  }
+
+  async setRecurringPaused(id: string, paused: boolean): Promise<void> {
+    const { error } = await this.sb.from("recurring_expense").update({ paused }).eq("id", id);
+    if (error) this.fail(error);
+  }
+
+  async deleteRecurring(id: string): Promise<void> {
+    const { error } = await this.sb
+      .from("recurring_expense")
+      .update({ deleted_at: new Date().toISOString() })
+      .eq("id", id);
+    if (error) this.fail(error);
+  }
+
+  async runRecurringNow(id: string): Promise<void> {
+    const { error } = await this.sb.rpc("run_recurring_now", { p_id: id });
+    if (error) this.fail(error);
+  }
+
+  async processDueRecurring(groupId: string): Promise<number> {
+    const { data, error } = await this.sb.rpc("process_due_recurring", { p_group_id: groupId });
+    if (error) this.fail(error);
+    return Number(data ?? 0);
   }
 
   // --- activity ---
