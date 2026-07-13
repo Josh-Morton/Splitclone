@@ -9,13 +9,13 @@
 
 ## Where we are
 
-**Phase 0 is done and the backend is live.** Supabase project
-`zgoinuagmornkwgqomhq` has the schema + RLS applied and verified end-to-end
-(two-user RLS isolation test passed). E1 auth/onboarding screens and the
-SupabaseRepo are built and verified. Remaining before M1 work continues:
-Vercel deploy settings (root dir `settleup/` + env vars — needs Josh's
-dashboard), optional SMTP for real 6-digit OTP codes (magic link works
-meanwhile), then E3 invites and E4 expense-entry UI.
+**The app is live and couple-ready:** https://splitclone-joshprojects13.vercel.app.
+Auth, onboarding, invites (with placeholder-history transfer), add/edit/delete
+expenses, and settle-up all work against the live Supabase backend. Remaining
+for M1: multi-payer UI + Expenses tab/detail (E4 tail), then the E6 week-long
+real-data trial by Josh + partner. SMTP for real OTP codes is backlogged (Josh,
+2026-07-13) — magic-link sign-in is the flow for now. After M1: Phase 2
+offline-first.
 
 ## Phase 0 — Foundations
 
