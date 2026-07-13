@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AddExpenseSheet } from "@/components/add-expense-sheet";
+import { InviteSheet } from "@/components/invite-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
 import { Button, Card, Screen, Spinner } from "@/components/ui";
 import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
@@ -85,7 +86,8 @@ export default function HomePage() {
   const session = useSessionState();
   const [data, setData] = useState<HomeData | null>(null);
   const [error, setError] = useState("");
-  const [sheet, setSheet] = useState<"none" | "add" | "settle">("none");
+  const [sheet, setSheet] = useState<"none" | "add" | "settle" | "invite">("none");
+  const [editing, setEditing] = useState<Expense | null>(null);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -194,24 +196,41 @@ export default function HomePage() {
             {d.mode === "demo" ? " · demo household" : ""}
           </p>
         </div>
-        <button
-          onClick={async () => {
-            await signOut();
-            router.replace("/welcome");
-          }}
-          style={{
-            background: "var(--s2)",
-            border: "1px solid var(--line2)",
-            borderRadius: 999,
-            color: "var(--muted)",
-            fontSize: 12,
-            fontWeight: 700,
-            padding: "8px 14px",
-            cursor: "pointer",
-          }}
-        >
-          Sign out
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={() => setSheet("invite")}
+            style={{
+              background: "var(--bluebg)",
+              border: "1px solid var(--primary)",
+              borderRadius: 999,
+              color: "var(--primary)",
+              fontSize: 12,
+              fontWeight: 700,
+              padding: "8px 14px",
+              cursor: "pointer",
+            }}
+          >
+            Invite
+          </button>
+          <button
+            onClick={async () => {
+              await signOut();
+              router.replace("/welcome");
+            }}
+            style={{
+              background: "var(--s2)",
+              border: "1px solid var(--line2)",
+              borderRadius: 999,
+              color: "var(--muted)",
+              fontSize: 12,
+              fontWeight: 700,
+              padding: "8px 14px",
+              cursor: "pointer",
+            }}
+          >
+            Sign out
+          </button>
+        </div>
       </header>
 
       {d.mode === "demo" && (
@@ -281,13 +300,23 @@ export default function HomePage() {
               gap: 8,
             }}
           >
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{ fontSize: 14.5, fontWeight: 600 }}>{e.description}</p>
-              <p style={{ fontSize: 12, color: "var(--muted)" }}>
-                {CATEGORY_META[e.category].label} · {memberName(e.payers[0]?.memberId ?? "")} paid
-              </p>
+            <div
+              role="button"
+              aria-label={`Edit ${e.description}`}
+              onClick={() => {
+                setEditing(e);
+                setSheet("add");
+              }}
+              style={{ flex: 1, minWidth: 0, cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 14.5, fontWeight: 600 }}>{e.description}</p>
+                <p style={{ fontSize: 12, color: "var(--muted)" }}>
+                  {CATEGORY_META[e.category].label} · {memberName(e.payers[0]?.memberId ?? "")} paid
+                </p>
+              </div>
+              <p style={{ fontSize: 14.5, fontWeight: 700 }}>{fmt(e.amountCents)}</p>
             </div>
-            <p style={{ fontSize: 14.5, fontWeight: 700 }}>{fmt(e.amountCents)}</p>
             <button
               aria-label={`Delete ${e.description}`}
               onClick={() => handleDelete(e)}
@@ -330,18 +359,34 @@ export default function HomePage() {
       </button>
 
       <AddExpenseSheet
+        key={editing?.id ?? "new"}
         open={sheet === "add"}
-        onClose={() => setSheet("none")}
-        onSaved={async () => {
+        onClose={() => {
           setSheet("none");
+          setEditing(null);
+        }}
+        onSaved={async () => {
+          const wasEdit = Boolean(editing);
+          setSheet("none");
+          setEditing(null);
           await load();
-          showToast("Expense added");
+          showToast(wasEdit ? "Expense updated" : "Expense added");
         }}
         repo={d.repo}
         groupId={d.groupId}
         members={d.members}
         meUserId={d.user.id}
         salaries={d.salaries}
+        editing={editing}
+      />
+      <InviteSheet
+        open={sheet === "invite"}
+        onClose={() => setSheet("none")}
+        onMembersChanged={() => void load()}
+        repo={d.repo}
+        groupId={d.groupId}
+        members={d.members}
+        meUserId={d.user.id}
       />
       <SettleSheet
         open={sheet === "settle"}

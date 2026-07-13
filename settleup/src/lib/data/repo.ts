@@ -70,6 +70,18 @@ export interface Repo {
   listMembers(groupId: string): Promise<GroupMember[]>;
   addPlaceholderMember(groupId: string, name: string): Promise<GroupMember>;
 
+  // --- invites (E3) ---
+  /**
+   * Creates a shareable invite code (e.g. "SAM-4K2Q"). If upgradesMemberId is
+   * given, redeeming upgrades that placeholder member so their history
+   * transfers to the joining account.
+   */
+  createInvite(groupId: string, upgradesMemberId?: string | null): Promise<{ code: string }>;
+  /** Group + inviter names for a code, or null if invalid/expired. Works signed out. */
+  previewInvite(code: string): Promise<{ groupName: string; inviterName: string } | null>;
+  /** Joins (or upgrades into) the invite's group. Idempotent for existing members. */
+  redeemInvite(code: string): Promise<{ groupId: string; groupName: string }>;
+
   // --- expenses ---
   listExpenses(groupId: string): Promise<Expense[]>; // live (non-deleted), newest first
   getExpense(id: string): Promise<Expense | null>;

@@ -165,6 +165,54 @@ export class MemoryRepo implements Repo {
     return m;
   }
 
+  // --- invites (demo: codes work within this session's memory) ---
+  private invites = new Map<string, { groupId: string; upgradesMemberId: string | null }>();
+
+  async createInvite(groupId: string, upgradesMemberId?: string | null): Promise<{ code: string }> {
+    this.mustGroup(groupId);
+    const code = "DEM-" + Math.random().toString(36).slice(2, 6).toUpperCase();
+    this.invites.set(code, { groupId, upgradesMemberId: upgradesMemberId ?? null });
+    return { code };
+  }
+
+  async previewInvite(code: string): Promise<{ groupName: string; inviterName: string } | null> {
+    const inv = this.invites.get(code.trim().toUpperCase());
+    if (!inv) return null;
+    const g = this.groups.find((x) => x.id === inv.groupId);
+    return g ? { groupName: g.name, inviterName: this.user.displayName } : null;
+  }
+
+  async redeemInvite(code: string): Promise<{ groupId: string; groupName: string }> {
+    const inv = this.invites.get(code.trim().toUpperCase());
+    if (!inv) throw new ValidationError("Invalid invite code");
+    const g = this.mustGroup(inv.groupId);
+    const existing = this.members.find(
+      (m) => m.groupId === inv.groupId && m.userId === this.user.id && !m.deletedAt
+    );
+    if (!existing) {
+      const placeholder = inv.upgradesMemberId
+        ? this.members.find((m) => m.id === inv.upgradesMemberId && !m.userId && !m.deletedAt)
+        : undefined;
+      if (placeholder) {
+        placeholder.userId = this.user.id;
+        placeholder.placeholderName = null;
+        touch(placeholder, this.user.id);
+      } else {
+        this.members.push({
+          id: uuid(),
+          groupId: inv.groupId,
+          userId: this.user.id,
+          placeholderName: null,
+          role: "member",
+          status: "active",
+          ...meta(this.user.id),
+        });
+      }
+      this.log("member_joined", inv.groupId, inv.groupId);
+    }
+    return { groupId: g.id, groupName: g.name };
+  }
+
   // --- expenses ---
   async listExpenses(groupId: string): Promise<Expense[]> {
     return this.expenses

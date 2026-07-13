@@ -20,6 +20,7 @@ import {
   salaryFallsBackToEqual,
   splitsReconcile,
   type Cents,
+  type Expense,
   type GroupMember,
   type SplitMethod,
 } from "@/lib/domain";
@@ -27,6 +28,10 @@ import { Button, ErrorText, Input, Label } from "./ui";
 import { Pill, Sheet } from "./sheet";
 
 type Method = Extract<SplitMethod, "equal" | "exact" | "salary">;
+
+const centsToInput = (c: Cents) => (c / 100).toFixed(2).replace(".", ",");
+const isoToDateInput = (iso: string) => iso.slice(0, 10);
+const todayDateInput = () => new Date().toISOString().slice(0, 10);
 
 export function AddExpenseSheet({
   open,
@@ -37,6 +42,7 @@ export function AddExpenseSheet({
   members,
   meUserId,
   salaries,
+  editing = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -46,14 +52,33 @@ export function AddExpenseSheet({
   members: GroupMember[];
   meUserId: string;
   salaries: Record<string, Cents>; // memberId -> salary cents (0 = unknown)
+  /** When set, the sheet edits this expense instead of creating one. */
+  editing?: Expense | null;
 }) {
   const meMember = members.find((m) => m.userId === meUserId);
-  const [amount, setAmount] = useState("");
-  const [desc, setDesc] = useState("");
-  const [payerId, setPayerId] = useState(meMember?.id ?? members[0]?.id ?? "");
-  const [method, setMethod] = useState<Method>("salary");
-  const [parts, setParts] = useState<string[]>(members.map((m) => m.id));
-  const [exact, setExact] = useState<Record<string, string>>({});
+  // Initial values come straight from `editing`; the parent passes a `key`
+  // (expense id or "new") so switching targets remounts with fresh state.
+  const [amount, setAmount] = useState(editing ? centsToInput(editing.amountCents) : "");
+  const [desc, setDesc] = useState(editing?.description ?? "");
+  const [date, setDate] = useState(editing ? isoToDateInput(editing.spentAt) : todayDateInput());
+  const [payerId, setPayerId] = useState(
+    editing?.payers[0]?.memberId ?? meMember?.id ?? members[0]?.id ?? ""
+  );
+  const [method, setMethod] = useState<Method>(() => {
+    if (!editing) return "salary";
+    // percent/shares expenses edit as exact amounts
+    return editing.splitMethod === "exact" || editing.splitMethod === "equal" || editing.splitMethod === "salary"
+      ? editing.splitMethod
+      : "exact";
+  });
+  const [parts, setParts] = useState<string[]>(
+    editing ? editing.splits.map((s) => s.memberId) : members.map((m) => m.id)
+  );
+  const [exact, setExact] = useState<Record<string, string>>(() =>
+    editing
+      ? Object.fromEntries(editing.splits.map((s) => [s.memberId, centsToInput(s.shareCents)]))
+      : {}
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -81,6 +106,7 @@ export function AddExpenseSheet({
   function reset() {
     setAmount("");
     setDesc("");
+    setDate(todayDateInput());
     setMethod("salary");
     setParts(members.map((m) => m.id));
     setExact({});
@@ -107,17 +133,25 @@ export function AddExpenseSheet({
     }
     setBusy(true);
     try {
-      await repo.createExpense({
+      // Keep the original time-of-day when editing; noon for new back-dated
+      // entries so timezones can't shift the calendar day.
+      const spentAt =
+        editing && isoToDateInput(editing.spentAt) === date
+          ? editing.spentAt
+          : `${date}T12:00:00.000Z`;
+      const input = {
         groupId,
         description: desc.trim(),
         category,
         amountCents: total,
-        spentAt: new Date().toISOString(),
+        spentAt,
         // Proportional that fell back is stored as what it actually was.
-        splitMethod: method === "salary" && proportionalFallsBack ? "equal" : method,
+        splitMethod: (method === "salary" && proportionalFallsBack ? "equal" : method) as SplitMethod,
         payers: [{ memberId: payerId, paidCents: total }],
         splits,
-      });
+      };
+      if (editing) await repo.updateExpense(editing.id, input);
+      else await repo.createExpense(input);
       reset();
       onSaved();
     } catch (e) {
@@ -134,7 +168,7 @@ export function AddExpenseSheet({
         reset();
         onClose();
       }}
-      title="Add expense"
+      title={editing ? "Edit expense" : "Add expense"}
       headerRight={
         <button
           onClick={save}
@@ -166,6 +200,26 @@ export function AddExpenseSheet({
           (auto-detected)
         </p>
       )}
+      <div style={{ height: 10 }} />
+      <input
+        type="date"
+        value={date}
+        max={todayDateInput()}
+        onChange={(e) => setDate(e.target.value)}
+        aria-label="Expense date"
+        style={{
+          width: "100%",
+          background: "var(--s2)",
+          border: "1px solid var(--line2)",
+          borderRadius: "var(--r-input)",
+          color: "var(--ink)",
+          colorScheme: "dark",
+          fontSize: 15,
+          fontWeight: 600,
+          padding: "12px 16px",
+          fontFamily: "inherit",
+        }}
+      />
 
       <div style={{ height: 18 }} />
       <Label>Paid by</Label>
@@ -302,7 +356,7 @@ export function AddExpenseSheet({
       <ErrorText>{error}</ErrorText>
       <div style={{ height: 16 }} />
       <Button onClick={save} disabled={busy}>
-        {busy ? "Saving…" : "Save expense"}
+        {busy ? "Saving…" : editing ? "Save changes" : "Save expense"}
       </Button>
     </Sheet>
   );

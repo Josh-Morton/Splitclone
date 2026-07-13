@@ -122,6 +122,16 @@ function mapSettlement(row: any): Settlement {
 
 const EXPENSE_SELECT = "*, expense_payer(*), expense_split(*)";
 
+/** Short shareable code like "KWM-4T2Q" — unambiguous alphabet (no 0/O/1/I). */
+export function generateInviteCode(): string {
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const pick = (n: number) =>
+    Array.from(crypto.getRandomValues(new Uint8Array(n)))
+      .map((b) => alphabet[b % alphabet.length])
+      .join("");
+  return `${pick(3)}-${pick(4)}`;
+}
+
 export class SupabaseRepo implements Repo {
   constructor(private sb: SupabaseClient) {}
 
@@ -265,6 +275,36 @@ export class SupabaseRepo implements Repo {
       .single();
     if (error) this.fail(error);
     return mapMember(data);
+  }
+
+  // --- invites ---
+  async createInvite(groupId: string, upgradesMemberId?: string | null): Promise<{ code: string }> {
+    const userId = await this.uid();
+    const code = generateInviteCode();
+    const { error } = await this.sb.from("invite").insert({
+      code,
+      group_id: groupId,
+      created_by: userId,
+      upgrades_member_id: upgradesMemberId ?? null,
+    });
+    if (error) this.fail(error);
+    return { code };
+  }
+
+  async previewInvite(code: string): Promise<{ groupName: string; inviterName: string } | null> {
+    const { data, error } = await this.sb.rpc("invite_preview", { p_code: code });
+    if (error) this.fail(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) return null;
+    return { groupName: row.group_name, inviterName: row.inviter_name };
+  }
+
+  async redeemInvite(code: string): Promise<{ groupId: string; groupName: string }> {
+    const { data, error } = await this.sb.rpc("redeem_invite", { p_code: code });
+    if (error) this.fail(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new ValidationError("Invalid invite code");
+    return { groupId: row.group_id, groupName: row.group_name };
   }
 
   // --- expenses ---

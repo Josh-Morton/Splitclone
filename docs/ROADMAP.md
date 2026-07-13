@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-10 (deployed to Vercel — app is live)
+**Last updated:** 2026-07-13 (E3 invites + E4 edit shipped)
 
 ## Where we are
 
@@ -53,14 +53,17 @@ meanwhile), then E3 invites and E4 expense-entry UI.
 - [x] **E2 Schema live** — migration + expense RPCs applied; RLS verified with
       two test users via REST (cross-tenant reads AND writes blocked; salary
       private; unbalanced expenses rejected by deferred triggers) (2026-07-09)
-- [ ] **E3 Groups & members** — invite link/code flow UI, placeholder-member
-      management UI, upgrade-on-invite (backend `invite` table ready)
-- [ ] **E4 Expenses** — SupabaseRepo done (atomic RPCs); **Add-expense sheet
-      done** (equal · exact · proportional defaulting proportional, auto-category,
-      payer pills, participant chips, live shares + %, exact-remaining validation);
-      **soft-delete + 4s undo done** (all verified in browser 2026-07-09).
-      Remaining: edit expense, multi-payer UI, Expenses tab + detail screen,
-      date picker
+- [x] **E3 Groups & members** — invite codes + share links (`/join/<code>`),
+      invite-accept screen with group/inviter preview (works signed-out; code
+      remembered through auth), placeholder members addable from the
+      Members & invite sheet, **upgrade-on-invite transfers the placeholder's
+      history** (redeem_invite/invite_preview SECURITY DEFINER RPCs; E2E-tested
+      live with two users incl. idempotent re-redeem, 2026-07-10). Join-by-code
+      also on the onboarding space step.
+- [ ] **E4 Expenses** — SupabaseRepo, Add-expense sheet, soft-delete + undo,
+      **edit expense** (tap row → prefilled sheet) and **date picker** all done
+      (browser-verified 2026-07-10). Remaining: multi-payer UI, dedicated
+      Expenses tab + detail screen (currently list on Home + edit sheet)
 - [x] **E5 Balances & settle up (basic)** — Home balance hero with live nets,
       settle-up sheet (fewest-payments list, record payment → balance clears;
       verified in browser 2026-07-09). Pairwise view for 3+ members comes with

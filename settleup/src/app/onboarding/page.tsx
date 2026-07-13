@@ -13,7 +13,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, ErrorText, Input, Label, Screen } from "@/components/ui";
 import { getSupabaseRepo } from "@/lib/data";
 import { parseCents, fmt } from "@/lib/domain";
-import { useSessionState } from "@/lib/session";
+import { clearPendingInviteCode, getPendingInviteCode, useSessionState } from "@/lib/session";
 
 type Step = "name" | "salary" | "space";
 
@@ -45,6 +45,7 @@ function OnboardingFlow() {
   const [name, setName] = useState("");
   const [salary, setSalary] = useState("");
   const [space, setSpace] = useState("Our household");
+  const [joinCode, setJoinCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -92,6 +93,12 @@ function OnboardingFlow() {
         }
         await repo.updateProfile({ userId: user!.id, monthlySalaryCents: cents });
       }
+      // Arrived via an invite link? Accepting it replaces the space step.
+      const pending = getPendingInviteCode();
+      if (pending) {
+        router.replace(`/join/${encodeURIComponent(pending)}`);
+        return;
+      }
       setStep("space");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -111,6 +118,25 @@ function OnboardingFlow() {
       const group = await repo.createGroup(space.trim());
       const user = await repo.getCurrentUser();
       await repo.updateProfile({ userId: user!.id, defaultGroupId: group.id });
+      router.replace("/");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
+  }
+
+  async function joinWithCode() {
+    if (!joinCode.trim()) {
+      setError("Enter the invite code you received");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const { groupId } = await repo.redeemInvite(joinCode.trim());
+      const user = await repo.getCurrentUser();
+      await repo.updateProfile({ userId: user!.id, defaultGroupId: groupId });
+      clearPendingInviteCode();
       router.replace("/");
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -189,6 +215,27 @@ function OnboardingFlow() {
           <Button onClick={createSpace} disabled={busy}>
             {busy ? "Creating…" : "Create household"}
           </Button>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>
+            <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+            <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700 }}>OR</span>
+            <div style={{ flex: 1, height: 1, background: "var(--line)" }} />
+          </div>
+
+          <Label>Join with an invite code</Label>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <Input
+                value={joinCode}
+                onChange={(v) => setJoinCode(v.toUpperCase())}
+                placeholder="e.g. KWM-4T2Q"
+                onEnter={joinWithCode}
+              />
+            </div>
+            <Button variant="secondary" onClick={joinWithCode} disabled={busy} style={{ width: 84 }}>
+              Join
+            </Button>
+          </div>
           <ErrorText>{error}</ErrorText>
         </Card>
       )}

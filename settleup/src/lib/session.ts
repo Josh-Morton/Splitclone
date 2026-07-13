@@ -15,6 +15,20 @@ import type { Session } from "@supabase/supabase-js";
 import { getSupabase, isSupabaseConfigured } from "./supabase/client";
 
 const DEMO_KEY = "settleup:demo";
+const INVITE_KEY = "settleup:invite";
+
+/** Invite code captured before sign-in; redeemed right after auth. */
+export function setPendingInviteCode(code: string): void {
+  sessionStorage.setItem(INVITE_KEY, code);
+}
+
+export function getPendingInviteCode(): string | null {
+  return typeof window !== "undefined" ? sessionStorage.getItem(INVITE_KEY) : null;
+}
+
+export function clearPendingInviteCode(): void {
+  sessionStorage.removeItem(INVITE_KEY);
+}
 
 export function enterDemoMode(): void {
   sessionStorage.setItem(DEMO_KEY, "1");
