@@ -9,12 +9,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { ActivityOverlay } from "@/components/activity-overlay";
 import { AddExpenseSheet } from "@/components/add-expense-sheet";
 import { ExpenseDetail } from "@/components/expense-detail";
 import { ExpensesTab } from "@/components/expenses-tab";
 import { InviteSheet } from "@/components/invite-sheet";
 import { ListTab, type CartDraft } from "@/components/list-tab";
 import { RecurringOverlay } from "@/components/recurring";
+import { ReportsTab } from "@/components/reports-tab";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
 import { TabBar, type Tab } from "@/components/tab-bar";
@@ -42,6 +44,7 @@ interface HomeData {
   groupName: string;
   members: GroupMember[];
   expenses: Expense[];
+  settlements: import("@/lib/domain").Settlement[];
   yourNet: number;
   transactions: SettleTransaction[];
   recurring: RecurringExpense[];
@@ -78,6 +81,7 @@ async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string):
     groupName: groups.find((g) => g.id === groupId)?.name ?? "Household",
     members,
     expenses,
+    settlements,
     yourNet,
     transactions,
     recurring,
@@ -95,6 +99,7 @@ export default function HomePage() {
   const [editing, setEditing] = useState<Expense | null>(null);
   const [cartDraft, setCartDraft] = useState<CartDraft | null>(null);
   const [recurringOpen, setRecurringOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
   const [listRefresh, setListRefresh] = useState(0);
   const [viewing, setViewing] = useState<Expense | null>(null);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
@@ -216,6 +221,22 @@ export default function HomePage() {
               </p>
             </div>
             <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={() => setActivityOpen(true)}
+                aria-label="Activity"
+                style={{
+                  background: "var(--s2)",
+                  border: "1px solid var(--line2)",
+                  borderRadius: 999,
+                  color: "var(--muted)",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  padding: "8px 12px",
+                  cursor: "pointer",
+                }}
+              >
+                🔔
+              </button>
               <button
                 onClick={() => setSheet("invite")}
                 style={{
@@ -416,15 +437,13 @@ export default function HomePage() {
 
       {tab === "reports" && (
         <div style={{ marginBottom: 90 }}>
-          <header style={{ marginBottom: 16 }}>
-            <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Reports</h1>
-          </header>
-          <Card>
-            <p style={{ fontSize: 14, color: "var(--muted)", lineHeight: 1.6 }}>
-              Reports arrive in Phase 5 — monthly trends, category breakdowns, who-paid-what, and
-              Excel export.
-            </p>
-          </Card>
+          <ReportsTab
+            groupName={d.groupName}
+            expenses={d.expenses}
+            settlements={d.settlements}
+            members={d.members}
+            meUserId={d.user.id}
+          />
         </div>
       )}
 
@@ -458,6 +477,8 @@ export default function HomePage() {
           expense={viewing}
           members={d.members}
           meUserId={d.user.id}
+          repo={d.repo}
+          onReceiptChanged={() => void load()}
           onBack={() => setViewing(null)}
           onEdit={() => {
             setEditing(viewing);
@@ -534,6 +555,19 @@ export default function HomePage() {
         transactions={d.transactions}
       />
 
+      <ActivityOverlay
+        open={activityOpen}
+        onClose={() => setActivityOpen(false)}
+        onOpenExpense={(e) => {
+          setActivityOpen(false);
+          setViewing(e);
+        }}
+        repo={d.repo}
+        groupId={d.groupId}
+        members={d.members}
+        meUserId={d.user.id}
+        expenses={d.expenses}
+      />
       <RecurringOverlay
         open={recurringOpen}
         onClose={() => setRecurringOpen(false)}

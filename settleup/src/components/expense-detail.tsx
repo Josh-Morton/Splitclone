@@ -6,7 +6,10 @@
  * amounts, Split card labeled by method with % pills, shares and nets).
  */
 
+import { useEffect, useRef, useState } from "react";
+import type { Repo } from "@/lib/data";
 import { CATEGORY_META, fmt, type Expense, type GroupMember } from "@/lib/domain";
+import { compressImage } from "@/lib/image";
 import { Avatar, memberDisplayName } from "./avatar";
 import { CategoryTile } from "./expenses-tab";
 import { Card } from "./ui";
@@ -23,18 +26,73 @@ export function ExpenseDetail({
   expense,
   members,
   meUserId,
+  repo,
   onBack,
   onEdit,
   onDelete,
+  onReceiptChanged,
 }: {
   expense: Expense;
   members: GroupMember[];
   meUserId: string;
+  repo: Repo;
   onBack: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onReceiptChanged: () => void;
 }) {
   const member = (id: string) => members.find((m) => m.id === id);
+  const fileRef = useRef<HTMLInputElement>(null);
+  // Signed URL cached with the path it belongs to — a stale entry for a
+  // different path simply renders as "loading" (no sync setState in effect).
+  const [signed, setSigned] = useState<{ path: string; url: string } | null>(null);
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [receiptError, setReceiptError] = useState("");
+  const receiptUrl = signed && signed.path === expense.receiptUrl ? signed.url : null;
+
+  useEffect(() => {
+    if (!expense.receiptUrl) return;
+    const path = expense.receiptUrl;
+    let cancelled = false;
+    void repo
+      .getReceiptUrl(path)
+      .then((url) => {
+        if (!cancelled) setSigned({ path, url });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [expense.receiptUrl, repo]);
+
+  async function onFilePicked(file: File | undefined) {
+    if (!file) return;
+    setReceiptBusy(true);
+    setReceiptError("");
+    try {
+      const blob = await compressImage(file);
+      await repo.attachReceipt(expense.id, blob);
+      onReceiptChanged();
+    } catch (e) {
+      setReceiptError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReceiptBusy(false);
+    }
+  }
+
+  async function removeReceipt() {
+    setReceiptBusy(true);
+    setReceiptError("");
+    try {
+      await repo.removeReceipt(expense.id);
+      setSigned(null);
+      onReceiptChanged();
+    } catch (e) {
+      setReceiptError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setReceiptBusy(false);
+    }
+  }
   const fullDate = new Date(expense.spentAt).toLocaleDateString("en-ZA", {
     weekday: "long",
     day: "numeric",
@@ -202,6 +260,81 @@ export function ExpenseDetail({
             <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 10, borderTop: "1px solid var(--line)", paddingTop: 10 }}>
               {expense.note}
             </p>
+          )}
+        </Card>
+
+        {/* Receipt */}
+        <Card style={{ padding: 16, marginTop: 14 }}>
+          <p
+            style={{
+              fontSize: 11.5,
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: "var(--faint)",
+              marginBottom: 10,
+            }}
+          >
+            Receipt
+          </p>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            style={{ display: "none" }}
+            onChange={(e) => void onFilePicked(e.target.files?.[0])}
+          />
+          {expense.receiptUrl && receiptUrl ? (
+            <>
+              <a href={receiptUrl} target="_blank" rel="noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element -- signed/blob URL, next/image not applicable */}
+                <img
+                  src={receiptUrl}
+                  alt="Receipt"
+                  style={{ width: "100%", borderRadius: 12, border: "1px solid var(--line)" }}
+                />
+              </a>
+              <button
+                onClick={removeReceipt}
+                disabled={receiptBusy}
+                style={{
+                  marginTop: 10,
+                  background: "none",
+                  border: "none",
+                  color: "var(--red)",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Remove receipt
+              </button>
+            </>
+          ) : expense.receiptUrl ? (
+            <p style={{ fontSize: 13, color: "var(--muted)" }}>Loading receipt…</p>
+          ) : (
+            <button
+              onClick={() => fileRef.current?.click()}
+              disabled={receiptBusy}
+              style={{
+                width: "100%",
+                padding: 14,
+                borderRadius: 12,
+                border: "2px dashed var(--line2)",
+                background: "transparent",
+                color: "var(--primary)",
+                fontSize: 13.5,
+                fontWeight: 700,
+                cursor: "pointer",
+                opacity: receiptBusy ? 0.6 : 1,
+              }}
+            >
+              {receiptBusy ? "Uploading…" : "📷 Add a receipt photo"}
+            </button>
+          )}
+          {receiptError && (
+            <p style={{ color: "var(--red)", fontSize: 12.5, fontWeight: 600, marginTop: 8 }}>{receiptError}</p>
           )}
         </Card>
       </div>

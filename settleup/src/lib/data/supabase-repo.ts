@@ -645,6 +645,35 @@ export class SupabaseRepo implements Repo {
     return Number(data ?? 0);
   }
 
+  // --- receipts ---
+  async attachReceipt(expenseId: string, image: Blob): Promise<void> {
+    const expense = await this.getExpense(expenseId);
+    if (!expense) throw new ValidationError("Expense not found");
+    const path = `${expense.groupId}/${expenseId}.jpg`;
+    const { error: upErr } = await this.sb.storage
+      .from("receipts")
+      .upload(path, image, { upsert: true, contentType: "image/jpeg" });
+    if (upErr) this.fail(upErr);
+    const { error } = await this.sb.from("expense").update({ receipt_url: path }).eq("id", expenseId);
+    if (error) this.fail(error);
+  }
+
+  async removeReceipt(expenseId: string): Promise<void> {
+    const expense = await this.getExpense(expenseId);
+    if (!expense?.receiptUrl) return;
+    await this.sb.storage.from("receipts").remove([expense.receiptUrl]);
+    const { error } = await this.sb.from("expense").update({ receipt_url: null }).eq("id", expenseId);
+    if (error) this.fail(error);
+  }
+
+  async getReceiptUrl(receiptPath: string): Promise<string> {
+    const { data, error } = await this.sb.storage
+      .from("receipts")
+      .createSignedUrl(receiptPath, 3600);
+    if (error || !data?.signedUrl) this.fail(error ?? { message: "Could not sign receipt URL" });
+    return data.signedUrl;
+  }
+
   // --- activity ---
   async listActivity(groupId: string): Promise<Activity[]> {
     const { data, error } = await this.sb

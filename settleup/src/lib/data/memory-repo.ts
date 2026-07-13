@@ -483,6 +483,37 @@ export class MemoryRepo implements Repo {
     });
   }
 
+  // --- receipts (demo: object URLs held in memory) ---
+  private receipts = new Map<string, string>();
+
+  async attachReceipt(expenseId: string, image: Blob): Promise<void> {
+    const e = this.expenses.find((x) => x.id === expenseId);
+    if (!e) throw new ValidationError("Expense not found");
+    const old = this.receipts.get(expenseId);
+    if (old) URL.revokeObjectURL(old);
+    const url = URL.createObjectURL(image);
+    this.receipts.set(expenseId, url);
+    e.receiptUrl = `demo:${expenseId}`;
+    touch(e, this.user.id);
+  }
+
+  async removeReceipt(expenseId: string): Promise<void> {
+    const e = this.expenses.find((x) => x.id === expenseId);
+    const old = this.receipts.get(expenseId);
+    if (old) URL.revokeObjectURL(old);
+    this.receipts.delete(expenseId);
+    if (e) {
+      e.receiptUrl = null;
+      touch(e, this.user.id);
+    }
+  }
+
+  async getReceiptUrl(receiptPath: string): Promise<string> {
+    const url = this.receipts.get(receiptPath.replace(/^demo:/, ""));
+    if (!url) throw new ValidationError("No receipt stored");
+    return url;
+  }
+
   async listActivity(groupId: string): Promise<Activity[]> {
     return this.activity
       .filter((a) => a.groupId === groupId)

@@ -145,6 +145,12 @@ export interface Repo {
   /** Catch-up: generate any missed occurrences for this group. Returns count. */
   processDueRecurring(groupId: string): Promise<number>;
 
-  // --- activity (Phase 5) ---
+  // --- activity ---
   listActivity(groupId: string): Promise<Activity[]>;
+
+  // --- receipts (one image per expense; pre-compressed by the caller) ---
+  attachReceipt(expenseId: string, image: Blob): Promise<void>;
+  removeReceipt(expenseId: string): Promise<void>;
+  /** Short-lived viewable URL for an expense's stored receipt path. */
+  getReceiptUrl(receiptPath: string): Promise<string>;
 }
