@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-18 (Josh's researched backlog: detailed categories, report filters, no-date-on-add → Phase 6; NEW Phase 7 receipt line-item scanning)
+**Last updated:** 2026-07-18 (Phase 6 batch 1 shipped: spaces management, magic-link-first invite journey, no-date-on-add)
 
 ## Where we are
 
@@ -147,7 +147,15 @@ offline-first.
 
 ### Added by Josh, 2026-07-16 (recorded for the backlog — flesh-outs below)
 
-- [ ] **Household (space) management** — users will realistically belong to
+- [x] **Household (space) management** ✅ (2026-07-18) — shipped: tappable
+      header space name (chevron) → Spaces switcher sheet with active check;
+      switching persists as default and re-scopes the whole app (works in demo
+      too); Create-a-space and Join-with-a-code inside the sheet; space name
+      now shown on Expenses/List/Reports headers + "N spaces" subtitle.
+      Browser-verified: create "Cape Town trip" → switch → empty ledger →
+      switch back → balances restored. Deferred: per-space member subtitle in
+      the switcher rows. Original spec follows:
+      users will realistically belong to
       multiple households (home, a trip, a shared project). Today the app
       silently uses the default/first group with no way to see or change it.
       Build the design's Spaces model end-to-end:
@@ -171,7 +179,16 @@ offline-first.
       *(Data layer already supports multiple groups; this is UI + routing.
       Supersedes the "Spaces switcher" line in the fidelity backlog below.)*
 
-- [ ] **Invite / joining flow comms rework** — the flow technically works but
+- [x] **Invite / joining flow comms rework** ✅ client-side journey (2026-07-18) —
+      shipped: verify screen is magic-link-first ("Open the email and tap the
+      link" card; 6-digit entry demoted behind "Got a code instead?"), welcome
+      button says "sign-in link", the invite share payload is a full
+      instruction message (link + 3 steps + code as fallback) with native
+      Share on mobile + copy, and a verify tab left open auto-advances when
+      the link is tapped (cross-tab session broadcast). Remaining: optional
+      SMTP (Resend) if real codes are ever wanted; two-real-phones test folds
+      into the E6 trial. Original spec follows:
+      the flow technically works but
       the communication around it fails a real user: the invite can be sent,
       yet the recipient hits a **code/PIN prompt that nothing ever sent
       them** (the sign-in email contains a magic *link*, not the 6-digit code
@@ -266,11 +283,10 @@ offline-first.
       Done when: "what did Sam pay for groceries between March and May" is
       three taps + an export.
 
-- [ ] **Remove the date field when adding an expense (assume today)** — quick
-      win: the Add-expense sheet drops the date input entirely and stamps
-      `now`; the date field remains available in **edit** mode so backdating
-      is still possible (enter, then edit if it wasn't today). Recurring
-      generation and cart→expense already set their own dates — unaffected.
+- [x] **Remove the date field when adding an expense (assume today)** ✅
+      (2026-07-18) — Add-expense sheet stamps `now`; the date field remains in
+      **edit** mode for backdating. Recurring generation and cart→expense set
+      their own dates — unaffected. Browser-verified both modes.
 
 ## Phase 7 — Receipt line-item scanning (NEW, Josh 2026-07-18) → M5 "Scan the slip"
 

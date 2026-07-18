@@ -104,7 +104,7 @@ export function ReportsTab({
           <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Reports</h1>
           <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
             This month · {fmt(monthTotal)} across {monthExpenses.length} expense
-            {monthExpenses.length === 1 ? "" : "s"}
+            {monthExpenses.length === 1 ? "" : "s"} · {groupName}
           </p>
         </div>
         <button

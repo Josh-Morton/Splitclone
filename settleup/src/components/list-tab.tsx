@@ -21,11 +21,13 @@ export interface CartDraft {
 export function ListTab({
   repo,
   groupId,
+  groupName,
   live,
   onCartToExpense,
 }: {
   repo: Repo;
   groupId: string;
+  groupName: string;
   /** True when backed by Supabase — enables the realtime subscription. */
   live: boolean;
   onCartToExpense: (draft: CartDraft) => void;
@@ -145,7 +147,7 @@ export function ListTab({
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Shopping list</h1>
         <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-          Shared — you both see the same list{live ? ", live" : ""}.
+          {groupName} — you both see the same list{live ? ", live" : ""}.
         </p>
       </header>
 

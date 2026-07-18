@@ -44,11 +44,13 @@ export function ExpensesTab({
   expenses,
   members,
   meUserId,
+  groupName,
   onOpen,
 }: {
   expenses: Expense[];
   members: GroupMember[];
   meUserId: string;
+  groupName: string;
   onOpen: (e: Expense) => void;
 }) {
   const meMember = members.find((m) => m.userId === meUserId);
@@ -67,7 +69,7 @@ export function ExpensesTab({
       <header style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Expenses</h1>
         <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-          {expenses.length} expense{expenses.length === 1 ? "" : "s"} · {fmt(total)}
+          {expenses.length} expense{expenses.length === 1 ? "" : "s"} · {fmt(total)} · {groupName}
         </p>
       </header>
 

@@ -18,6 +18,7 @@ import { ListTab, type CartDraft } from "@/components/list-tab";
 import { RecurringOverlay } from "@/components/recurring";
 import { ReportsTab } from "@/components/reports-tab";
 import { SettingsSheet } from "@/components/settings-sheet";
+import { SpacesSheet } from "@/components/spaces-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
 import { TabBar, type Tab } from "@/components/tab-bar";
 import { Button, Card, Screen, Spinner } from "@/components/ui";
@@ -28,6 +29,7 @@ import {
   fmt,
   simplifyDebts,
   type Expense,
+  type Group,
   type GroupMember,
   type RecurringExpense,
   type SettleTransaction,
@@ -42,6 +44,7 @@ interface HomeData {
   groupId: string;
   user: User;
   groupName: string;
+  groups: Group[];
   members: GroupMember[];
   expenses: Expense[];
   settlements: import("@/lib/domain").Settlement[];
@@ -79,6 +82,7 @@ async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string):
     groupId,
     user: user!,
     groupName: groups.find((g) => g.id === groupId)?.name ?? "Household",
+    groups,
     members,
     expenses,
     settlements,
@@ -95,7 +99,7 @@ export default function HomePage() {
   const [data, setData] = useState<HomeData | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("home");
-  const [sheet, setSheet] = useState<"none" | "add" | "settle" | "invite" | "settings">("none");
+  const [sheet, setSheet] = useState<"none" | "add" | "settle" | "invite" | "settings" | "spaces">("none");
   const [editing, setEditing] = useState<Expense | null>(null);
   const [cartDraft, setCartDraft] = useState<CartDraft | null>(null);
   const [recurringOpen, setRecurringOpen] = useState(false);
@@ -110,7 +114,11 @@ export default function HomePage() {
       let next: HomeData | null = null;
       if (session.status === "demo") {
         const { repo, groupId } = await getDemoRepo();
-        next = await loadHome(repo, "demo", groupId);
+        const user = await repo.getCurrentUser();
+        const profile = user ? await repo.getProfile(user.id) : null;
+        const groups = await repo.listGroups();
+        const gid = groups.find((g) => g.id === profile?.defaultGroupId)?.id ?? groupId;
+        next = await loadHome(repo, "demo", gid);
       } else if (session.status === "supabase") {
         const repo = getSupabaseRepo();
         const user = await repo.getCurrentUser();
@@ -213,13 +221,20 @@ export default function HomePage() {
           <header
             style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}
           >
-            <div>
-              <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>{d.groupName}</h1>
+            <button
+              onClick={() => setSheet("spaces")}
+              aria-label="Switch space"
+              style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer", color: "var(--ink)" }}
+            >
+              <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>
+                {d.groupName} <span style={{ color: "var(--faint)", fontSize: 16 }}>▾</span>
+              </h1>
               <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
                 {d.members.length} member{d.members.length === 1 ? "" : "s"}
+                {d.groups.length > 1 ? ` · ${d.groups.length} spaces` : ""}
                 {d.mode === "demo" ? " · demo household" : ""}
               </p>
-            </div>
+            </button>
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => setActivityOpen(true)}
@@ -416,7 +431,13 @@ export default function HomePage() {
 
       {tab === "expenses" && (
         <div style={{ marginBottom: 90 }}>
-          <ExpensesTab expenses={d.expenses} members={d.members} meUserId={d.user.id} onOpen={setViewing} />
+          <ExpensesTab
+            expenses={d.expenses}
+            members={d.members}
+            meUserId={d.user.id}
+            groupName={d.groupName}
+            onOpen={setViewing}
+          />
         </div>
       )}
 
@@ -426,6 +447,7 @@ export default function HomePage() {
             key={listRefresh}
             repo={d.repo}
             groupId={d.groupId}
+            groupName={d.groupName}
             live={d.mode === "supabase"}
             onCartToExpense={(draft) => {
               setCartDraft(draft);
@@ -522,7 +544,22 @@ export default function HomePage() {
         onMembersChanged={() => void load()}
         repo={d.repo}
         groupId={d.groupId}
+        groupName={d.groupName}
         members={d.members}
+        meUserId={d.user.id}
+      />
+      <SpacesSheet
+        open={sheet === "spaces"}
+        onClose={() => setSheet("none")}
+        onSwitched={async (name) => {
+          setSheet("none");
+          setViewing(null);
+          await load();
+          showToast(`Switched to ${name}`);
+        }}
+        repo={d.repo}
+        groups={d.groups}
+        activeGroupId={d.groupId}
         meUserId={d.user.id}
       />
       <SettingsSheet

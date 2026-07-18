@@ -64,7 +64,7 @@ export default function WelcomePage() {
       />
       <div style={{ height: 12 }} />
       <Button onClick={sendCode} disabled={busy}>
-        {busy ? "Sending…" : "Email me a sign-in code"}
+        {busy ? "Sending…" : "Email me a sign-in link"}
       </Button>
       <ErrorText>{error}</ErrorText>
 

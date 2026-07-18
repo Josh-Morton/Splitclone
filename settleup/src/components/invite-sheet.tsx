@@ -19,6 +19,7 @@ export function InviteSheet({
   onMembersChanged,
   repo,
   groupId,
+  groupName,
   members,
   meUserId,
 }: {
@@ -27,6 +28,7 @@ export function InviteSheet({
   onMembersChanged: () => void;
   repo: Repo;
   groupId: string;
+  groupName: string;
   members: GroupMember[];
   meUserId: string;
 }) {
@@ -39,7 +41,7 @@ export function InviteSheet({
 
   const placeholders = members.filter((m) => !m.userId);
   const memberName = (m: GroupMember) =>
-    m.userId === meUserId ? "You" : m.placeholderName ?? "Member";
+    m.userId === meUserId ? "You" : m.profileName || m.placeholderName || "Member";
 
   async function addPlaceholder() {
     if (!newName.trim()) return;
@@ -71,10 +73,29 @@ export function InviteSheet({
   }
 
   const link = code && typeof window !== "undefined" ? `${window.location.origin}/join/${code}` : "";
+  // The share payload carries everything the recipient needs — they should
+  // never be asked for something they weren't sent (Phase 6 comms rework).
+  const shareMessage = link
+    ? `Join "${groupName}" on SettleUp — our shared expenses app.\n\n` +
+      `1. Tap this link: ${link}\n` +
+      `2. Sign in with your email address\n` +
+      `3. Open the sign-in email and tap the link in it — that's it, you're in.\n\n` +
+      `(No password needed. If you're asked for an invite code, it's ${code}.)`
+    : "";
 
-  async function copyLink() {
+  const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
+
+  async function shareInvite() {
     try {
-      await navigator.clipboard.writeText(link);
+      await navigator.share({ title: "Join me on SettleUp", text: shareMessage });
+    } catch {
+      /* user dismissed the share sheet — not an error */
+    }
+  }
+
+  async function copyMessage() {
+    try {
+      await navigator.clipboard.writeText(shareMessage);
       setCopied(true);
     } catch {
       setError("Couldn't copy — long-press the link instead");
@@ -163,11 +184,18 @@ export function InviteSheet({
           >
             {link}
           </p>
-          <Button variant="secondary" onClick={copyLink}>
-            {copied ? "Copied ✓" : "Copy link"}
+          {canNativeShare && (
+            <>
+              <Button onClick={shareInvite}>Share invite…</Button>
+              <div style={{ height: 8 }} />
+            </>
+          )}
+          <Button variant="secondary" onClick={copyMessage}>
+            {copied ? "Copied ✓" : "Copy invite message"}
           </Button>
           <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 10 }}>
-            Send this to your partner — they sign in and land straight in this household.
+            The message includes the link and exactly what to do — your partner taps it, signs in
+            with their email, taps the sign-in link, and lands in this household.
           </p>
         </div>
       )}

@@ -184,10 +184,12 @@ export function AddExpenseSheet({
     }
     setBusy(true);
     try {
-      // Keep the original time-of-day when editing; noon for new back-dated
-      // entries so timezones can't shift the calendar day.
-      const spentAt =
-        editing && isoToDateInput(editing.spentAt) === date
+      // New expenses are stamped "now" (no date field — Josh, Phase 6 quick
+      // win); editing keeps the original time unless the date was changed,
+      // in which case noon prevents timezones shifting the calendar day.
+      const spentAt = !editing
+        ? new Date().toISOString()
+        : isoToDateInput(editing.spentAt) === date
           ? editing.spentAt
           : `${date}T12:00:00.000Z`;
       const input = {
@@ -252,26 +254,30 @@ export function AddExpenseSheet({
           (auto-detected)
         </p>
       )}
-      <div style={{ height: 10 }} />
-      <input
-        type="date"
-        value={date}
-        max={todayDateInput()}
-        onChange={(e) => setDate(e.target.value)}
-        aria-label="Expense date"
-        style={{
-          width: "100%",
-          background: "var(--s2)",
-          border: "1px solid var(--line2)",
-          borderRadius: "var(--r-input)",
-          color: "var(--ink)",
-          colorScheme: "dark",
-          fontSize: 15,
-          fontWeight: 600,
-          padding: "12px 16px",
-          fontFamily: "inherit",
-        }}
-      />
+      {editing && (
+        <>
+          <div style={{ height: 10 }} />
+          <input
+            type="date"
+            value={date}
+            max={todayDateInput()}
+            onChange={(e) => setDate(e.target.value)}
+            aria-label="Expense date"
+            style={{
+              width: "100%",
+              background: "var(--s2)",
+              border: "1px solid var(--line2)",
+              borderRadius: "var(--r-input)",
+              color: "var(--ink)",
+              colorScheme: "dark",
+              fontSize: 15,
+              fontWeight: 600,
+              padding: "12px 16px",
+              fontFamily: "inherit",
+            }}
+          />
+        </>
+      )}
 
       <div style={{ height: 18 }} />
       <Label>Paid by</Label>
