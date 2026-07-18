@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-16 (Phase 5 shipped: reports, Excel export, activity feed, receipts — milestone M4 'Complete v1')
+**Last updated:** 2026-07-18 (Josh's researched backlog: detailed categories, report filters, no-date-on-add → Phase 6; NEW Phase 7 receipt line-item scanning)
 
 ## Where we are
 
@@ -225,6 +225,98 @@ offline-first.
         person, "repeats monthly on the 1st" — and it generates identically
         every month with zero further input
       *(Builds on Phase 4's generation job; needs one migration + sheet UI.)*
+
+### Added by Josh, 2026-07-18 (researched + scoped; nice-to-haves)
+
+- [ ] **Detailed expense categorisation (two-level taxonomy, auto + override)** —
+      replace the flat 8-category list with a researched two-level taxonomy.
+      Research: Splitwise itself uses parent categories with subcategories
+      (expenses must carry a subcategory); the industry-standard reference is
+      Plaid's Personal Finance Category taxonomy (16 primary / 104 detailed,
+      refined from 600+ down to what PFM users actually want). For a household
+      app, full PFC is overkill — curate ~35–45 subcategories under our 8
+      existing groups (which become parents, keeping their accent colors), e.g.
+      Groceries → {Supermarket, Butcher/deli, Liquor, Household consumables};
+      Utilities → {Electricity/prepaid, Water & municipal, Internet/fibre,
+      Mobile/airtime, TV/streaming}; Household → {Cleaning & domestic help,
+      Maintenance/hardware, Furniture & decor, Garden}; plus SA-specific
+      entries (municipal rates, DSTV, medical aid, security/armed response).
+      Behaviour per Josh: **system auto-assigns** (extend the ADR-0008 keyword
+      map to subcategory level, order-sensitive) **but the category is always
+      changeable at creation/edit** — the auto-detected chip in the sheet
+      becomes tappable → a grouped category-picker sheet. Storage: category
+      column stays text (already is); values become subcategory slugs with a
+      parent lookup in `CATEGORY_META`; existing 8 old values map to sensible
+      defaults, no data migration needed. Reports roll up by parent with
+      tap-to-drill-down into subcategories. Amend ADR-0008 when built (auto
+      stays the default; manual override is new).
+      Done when: "Woolworths groceries" auto-lands on Supermarket, Josh can
+      flip it to Liquor in two taps, and Reports shows both levels.
+
+- [ ] **Report filters: date range · person · category** — a filter pill row
+      on the Reports tab (and reusable on Expenses later): date range presets
+      (This month · Last month · Last 3 months · This year · All time ·
+      Custom from–to), person (any member — filters to expenses they paid OR
+      share in, with paid/share figures re-scoped), category (multi-select,
+      parent or subcategory once the taxonomy lands). Filters combine (AND),
+      are reflected in the header ("Jun · Groceries · Sam"), and **the Excel
+      export respects the active filters** (filename gains the range). Charts,
+      category breakdown and who-paid-what all recompute client-side from the
+      already-loaded ledger — no backend work needed.
+      Done when: "what did Sam pay for groceries between March and May" is
+      three taps + an export.
+
+- [ ] **Remove the date field when adding an expense (assume today)** — quick
+      win: the Add-expense sheet drops the date input entirely and stamps
+      `now`; the date field remains available in **edit** mode so backdating
+      is still possible (enter, then edit if it wasn't today). Recurring
+      generation and cart→expense already set their own dates — unaffected.
+
+## Phase 7 — Receipt line-item scanning (NEW, Josh 2026-07-18) → M5 "Scan the slip"
+
+A separate, detailed flow: photograph a till slip, extract **per-line items
+with their prices**, review/correct them, and turn them into an expense.
+
+**Research (2026-07):** two viable free-at-our-scale approaches:
+1. **Multimodal LLM extraction (recommended):** Google **Gemini Flash free
+   tier** — 10 req/min, 1,500 req/day *including vision*, R0, no card — vastly
+   more than a household's ~30 slips/month. Strong at returning structured
+   JSON line items from receipt photos. Anthropic has no free API tier;
+   OpenAI vision is paid — Gemini is the only R0 fit.
+2. **Dedicated receipt-OCR APIs (fallback/benchmark):** AWS Textract
+   AnalyzeExpense (~93% field / 89% line-item accuracy, pay-per-page),
+   Google Document AI (1,000 pages/mo free — the most generous non-LLM
+   free tier), Taggun (from ~$4/mo, strong grocery line items), Mindee
+   (easiest REST integration, paid after trial), Veryfi (top accuracy,
+   $500/mo — out). If Gemini extraction quality disappoints on SA slips
+   (Checkers/PnP/Woolies formats), Document AI's free 1,000 pages/mo is
+   the fallback.
+
+**Architecture (keeps every key server-side):**
+- Reuse the existing receipt capture + compression + private `receipts`
+  bucket (Phase 5) — scanning starts from an already-stored image
+- New Supabase **Edge Function `scan-receipt`**: authenticated caller sends a
+  receipt path; the function (service-role, verifies group membership) pulls
+  the image, calls Gemini with a strict JSON schema prompt →
+  `{merchant, date, total_cents, items: [{name, qty, unit_price_cents,
+  line_total_cents}]}`; Gemini API key lives only in Edge Function secrets
+- **Review screen (mandatory):** OCR is never 100% — show editable line rows
+  (name/qty/price, include-toggle per row), a reconciliation banner (Σ items
+  vs printed total, same exact-cents discipline as everywhere), merchant →
+  auto-category, date → expense date
+- Confirm → creates the expense (amount = confirmed total, line items as the
+  note or a future `expense_item` table if itemised reporting is ever wanted)
+  and keeps the photo attached
+- Stretch: match scanned items against ticked shopping-list items to close
+  the loop (list → shop → scan → expense)
+
+**Build order:** Edge Function + prompt harness with 10 real SA slips →
+review UI → create-expense wiring → E2E + on-phone testing.
+**Deps/asks:** a free Gemini API key (Josh's Google account, no card) set as
+an Edge Function secret; Edge Functions are already free-tier included.
+**Risks:** slip quality (crumpled/faded) → mitigate with capture guidance +
+manual edit; free-tier limits are per-day, fine at our volume; keep the
+extraction prompt versioned in the repo so quality is reproducible.
 
 ## Design-fidelity backlog (audit vs design handoff, 2026-07-13)
 Gaps between the built app and `design_handoff_settleup/README.md`, each with
