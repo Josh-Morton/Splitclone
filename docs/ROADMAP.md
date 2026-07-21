@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-18 (Phase 6 batch 1 shipped: spaces management, magic-link-first invite journey, no-date-on-add)
+**Last updated:** 2026-07-18 (Phase 6 batch 2 shipped: fixed-split recurring from expense sheet, report filters)
 
 ## Where we are
 
@@ -218,7 +218,17 @@ offline-first.
         question — tested on two real phones
       *(Absorbs the Phase-0 "Manual: custom SMTP" item — decide it here.)*
 
-- [ ] **Recurring payments from expense creation, with fixed split values** —
+- [x] **Recurring payments from expense creation, with fixed split values** ✅
+      (2026-07-18) — "Repeats monthly" toggle in the Add-expense sheet (new,
+      single-payer expenses) + day-of-month field; saving creates the expense
+      AND a recurring rule with the split shown at save time locked in as
+      concrete per-member cents. New `split_method='exact'` + `fixed_shares`
+      jsonb on recurring_expense; generation reuses stored shares verbatim,
+      falling back to equal (still cent-exact) if they no longer reconcile.
+      E2E-verified live: 700/300 generates verbatim; non-reconciling shares
+      fall back to equal. Method-based rules unchanged; management screen
+      unchanged. Original spec follows:
+      today recurring bills live in their own screen and only store a split
       today recurring bills live in their own screen and only store a split
       *method* (equal/proportional) that is re-computed at generation time.
       Josh wants: while creating an expense, mark it as repeating monthly
@@ -270,7 +280,15 @@ offline-first.
       Done when: "Woolworths groceries" auto-lands on Supermarket, Josh can
       flip it to Liquor in two taps, and Reports shows both levels.
 
-- [ ] **Report filters: date range · person · category** — a filter pill row
+- [x] **Report filters: date range · person · category** ✅ (2026-07-18) —
+      filter pill + sheet on Reports: date presets (This/Last month, Last 3
+      months, This year, All time, Custom from–to), person (paid OR share in),
+      multi-select category. Filters combine (AND), shown in the header +
+      pill, and the **Excel export respects them** (filename gains the label).
+      All sections (trend, category breakdown, who-paid-what) recompute
+      client-side. Browser-verified: "All time · Groceries" → 1 expense;
+      person + export while filtered. Original spec follows:
+      a filter pill row
       on the Reports tab (and reusable on Expenses later): date range presets
       (This month · Last month · Last 3 months · This year · All time ·
       Custom from–to), person (any member — filters to expenses they paid OR

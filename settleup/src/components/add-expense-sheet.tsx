@@ -87,6 +87,10 @@ export function AddExpenseSheet({
       ? Object.fromEntries(editing.splits.map((s) => [s.memberId, centsToInput(s.shareCents)]))
       : {}
   );
+  // "Repeats monthly" (new expenses only): also creates a recurring rule with
+  // the split shown at save time locked in verbatim (Josh, Phase 6).
+  const [repeats, setRepeats] = useState(false);
+  const [repeatDay, setRepeatDay] = useState(String(new Date().getDate()));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -155,6 +159,8 @@ export function AddExpenseSheet({
     setExact({});
     setMultiPayer(false);
     setPaidBy({});
+    setRepeats(false);
+    setRepeatDay(String(new Date().getDate()));
     setError("");
   }
 
@@ -204,8 +210,24 @@ export function AddExpenseSheet({
         splits,
         note: editing ? editing.note : (draft?.note ?? null),
       };
-      if (editing) await repo.updateExpense(editing.id, input);
-      else await repo.createExpense(input);
+      if (editing) {
+        await repo.updateExpense(editing.id, input);
+      } else {
+        await repo.createExpense(input);
+        // Lock the split shown right now into a monthly rule, if requested.
+        if (repeats && !multiPayer) {
+          await repo.createRecurring({
+            groupId,
+            description: desc.trim(),
+            amountCents: total,
+            dayOfMonth: Math.max(1, Math.min(28, parseInt(repeatDay) || 1)),
+            payerMemberId: payerId,
+            splitMethod: "exact",
+            participantMemberIds: parts,
+            fixedShares: splits,
+          });
+        }
+      }
       reset();
       onSaved();
     } catch (e) {
@@ -459,10 +481,85 @@ export function AddExpenseSheet({
         ))}
       </div>
 
+      {!editing && !multiPayer && (
+        <>
+          <div style={{ height: 16 }} />
+          <button
+            onClick={() => setRepeats((v) => !v)}
+            style={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "var(--s2)",
+              border: `1px solid ${repeats ? "var(--primary)" : "var(--line)"}`,
+              borderRadius: "var(--r-input)",
+              padding: "13px 16px",
+              cursor: "pointer",
+              color: "var(--ink)",
+            }}
+          >
+            <span style={{ fontSize: 14, fontWeight: 600, textAlign: "left" }}>
+              Repeats monthly
+              <span style={{ display: "block", fontSize: 11.5, color: "var(--faint)", fontWeight: 500 }}>
+                Locks in this exact split every month
+              </span>
+            </span>
+            <span
+              role="switch"
+              aria-checked={repeats}
+              style={{
+                width: 42,
+                height: 24,
+                borderRadius: 999,
+                background: repeats ? "var(--primary)" : "var(--s3)",
+                position: "relative",
+                flexShrink: 0,
+                transition: "background .16s",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: repeats ? 20 : 2,
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "left .16s",
+                }}
+              />
+            </span>
+          </button>
+          {repeats && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
+              <span style={{ fontSize: 13.5, color: "var(--muted)", fontWeight: 600 }}>on day</span>
+              <div style={{ width: 84 }}>
+                <Input
+                  value={repeatDay}
+                  onChange={(v) => setRepeatDay(v.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  placeholder="1"
+                  center
+                />
+              </div>
+              <span style={{ fontSize: 12, color: "var(--faint)" }}>of each month (1–28)</span>
+            </div>
+          )}
+        </>
+      )}
+
       <ErrorText>{error}</ErrorText>
       <div style={{ height: 16 }} />
       <Button onClick={save} disabled={busy}>
-        {busy ? "Saving…" : editing ? "Save changes" : "Save expense"}
+        {busy
+          ? "Saving…"
+          : editing
+            ? "Save changes"
+            : repeats && !multiPayer
+              ? "Save & repeat monthly"
+              : "Save expense"}
       </Button>
     </Sheet>
   );

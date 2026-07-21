@@ -132,6 +132,8 @@ export interface RecurringExpense extends SyncMeta {
   payerMemberId: string;
   splitMethod: SplitMethod;
   participantMemberIds: string[];
+  /** Locked per-member shares, used only when splitMethod === "exact". */
+  fixedShares?: ExpenseSplit[] | null;
   paused: boolean;
 }
 

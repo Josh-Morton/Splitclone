@@ -17,7 +17,15 @@ import {
   type Settlement,
 } from "@/lib/domain";
 import { exportExpensesXlsx } from "@/lib/export";
+import {
+  applyFilters,
+  DEFAULT_FILTERS,
+  filtersLabel,
+  isDefault,
+  type ReportFilters,
+} from "@/lib/report-filters";
 import { Avatar, memberDisplayName } from "./avatar";
+import { ReportFilterSheet } from "./report-filter-sheet";
 import { Card } from "./ui";
 
 function monthKey(iso: string): string {
@@ -44,40 +52,39 @@ export function ReportsTab({
 }) {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
+  const [filters, setFilters] = useState<ReportFilters>(DEFAULT_FILTERS);
+  const [filterOpen, setFilterOpen] = useState(false);
 
   const memberName = (id: string) => memberDisplayName(members.find((m) => m.id === id), meUserId);
+  const categoryLabel = (c: Category) => CATEGORY_META[c].label;
 
-  // --- Trend: last 6 months (including empty ones), oldest first ---
-  const now = new Date();
-  const monthKeys: string[] = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    monthKeys.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-  const monthTotals = monthKeys.map((k) => ({
+  // All sections + export operate on the filtered set (Phase 6 report filters).
+  const filtered = applyFilters(expenses, filters);
+  const label = filtersLabel(filters, memberName, categoryLabel);
+  const rangeTotal = filtered.reduce((a, e) => a + e.amountCents, 0);
+
+  // --- Trend: months spanned by the filtered set, up to the last 6 present ---
+  const presentMonths = [...new Set(filtered.map((e) => monthKey(e.spentAt)))].sort();
+  const trendKeys = presentMonths.slice(-6);
+  const monthTotals = trendKeys.map((k) => ({
     key: k,
-    total: expenses.filter((e) => monthKey(e.spentAt) === k).reduce((a, e) => a + e.amountCents, 0),
+    total: filtered.filter((e) => monthKey(e.spentAt) === k).reduce((a, e) => a + e.amountCents, 0),
   }));
   const maxMonth = Math.max(1, ...monthTotals.map((m) => m.total));
 
-  // --- This month ---
-  const thisKey = monthKeys[monthKeys.length - 1];
-  const monthExpenses = expenses.filter((e) => monthKey(e.spentAt) === thisKey);
-  const monthTotal = monthExpenses.reduce((a, e) => a + e.amountCents, 0);
-
   const byCategory = new Map<Category, number>();
-  for (const e of monthExpenses) {
+  for (const e of filtered) {
     byCategory.set(e.category, (byCategory.get(e.category) ?? 0) + e.amountCents);
   }
   const categories = [...byCategory.entries()].sort((a, b) => b[1] - a[1]);
 
   const perMember = members.map((m) => ({
     member: m,
-    paid: monthExpenses.reduce(
+    paid: filtered.reduce(
       (a, e) => a + e.payers.filter((p) => p.memberId === m.id).reduce((x, p) => x + p.paidCents, 0),
       0
     ),
-    share: monthExpenses.reduce(
+    share: filtered.reduce(
       (a, e) => a + (e.splits.find((s) => s.memberId === m.id)?.shareCents ?? 0),
       0
     ),
@@ -87,7 +94,15 @@ export function ReportsTab({
     setExporting(true);
     setError("");
     try {
-      await exportExpensesXlsx({ groupName, expenses, settlements, members, meUserId, memberName });
+      await exportExpensesXlsx({
+        groupName,
+        expenses: filtered,
+        settlements,
+        members,
+        meUserId,
+        memberName,
+        labelSuffix: label,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -103,13 +118,13 @@ export function ReportsTab({
         <div>
           <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Reports</h1>
           <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-            This month · {fmt(monthTotal)} across {monthExpenses.length} expense
-            {monthExpenses.length === 1 ? "" : "s"} · {groupName}
+            {label} · {fmt(rangeTotal)} across {filtered.length} expense
+            {filtered.length === 1 ? "" : "s"} · {groupName}
           </p>
         </div>
         <button
           onClick={doExport}
-          disabled={exporting || expenses.length === 0}
+          disabled={exporting || filtered.length === 0}
           style={{
             background: "var(--bluebg)",
             border: "1px solid var(--primary)",
@@ -119,18 +134,56 @@ export function ReportsTab({
             fontWeight: 700,
             padding: "8px 14px",
             cursor: "pointer",
-            opacity: exporting || expenses.length === 0 ? 0.55 : 1,
+            opacity: exporting || filtered.length === 0 ? 0.55 : 1,
           }}
         >
           {exporting ? "Exporting…" : "Export ⬇"}
         </button>
       </header>
+
+      <button
+        onClick={() => setFilterOpen(true)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          width: "100%",
+          marginBottom: 16,
+          background: isDefault(filters) ? "var(--s2)" : "var(--bluebg)",
+          border: `1px solid ${isDefault(filters) ? "var(--line)" : "var(--primary)"}`,
+          borderRadius: 999,
+          padding: "10px 16px",
+          cursor: "pointer",
+          color: isDefault(filters) ? "var(--muted)" : "var(--primary)",
+          fontSize: 13,
+          fontWeight: 700,
+        }}
+      >
+        <span>⚲</span>
+        <span style={{ flex: 1, textAlign: "left" }}>{isDefault(filters) ? "Filter" : label}</span>
+        {!isDefault(filters) && (
+          <span
+            role="button"
+            aria-label="Clear filters"
+            onClick={(ev) => {
+              ev.stopPropagation();
+              setFilters({ ...DEFAULT_FILTERS, categories: new Set() });
+            }}
+            style={{ color: "var(--faint)", fontWeight: 800 }}
+          >
+            ✕
+          </span>
+        )}
+      </button>
       {error && <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 10 }}>{error}</p>}
 
       {/* Monthly trend */}
       <Card style={{ marginBottom: 16, padding: 16 }}>
         <h2 style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 14 }}>Monthly spend</h2>
-        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: 140 }}>
+        {monthTotals.length === 0 && (
+          <p style={{ fontSize: 13.5, color: "var(--muted)" }}>Nothing in this range.</p>
+        )}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 8, height: monthTotals.length ? 140 : 0 }}>
           {monthTotals.map((m) => (
             <div
               key={m.key}
@@ -152,7 +205,7 @@ export function ReportsTab({
                 style={{
                   fontSize: 10.5,
                   fontWeight: 700,
-                  color: m.key === thisKey ? "var(--primary)" : "var(--faint)",
+                  color: "var(--faint)",
                 }}
               >
                 {monthLabel(m.key)}
@@ -164,13 +217,13 @@ export function ReportsTab({
 
       {/* By category */}
       <Card style={{ marginBottom: 16, padding: 16 }}>
-        <h2 style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 12 }}>By category · this month</h2>
+        <h2 style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 12 }}>By category</h2>
         {categories.length === 0 && (
-          <p style={{ fontSize: 13.5, color: "var(--muted)" }}>No expenses this month yet.</p>
+          <p style={{ fontSize: 13.5, color: "var(--muted)" }}>No expenses in this range.</p>
         )}
         {categories.map(([cat, cents]) => {
           const meta = CATEGORY_META[cat];
-          const pct = monthTotal > 0 ? Math.round((cents / monthTotal) * 100) : 0;
+          const pct = rangeTotal > 0 ? Math.round((cents / rangeTotal) * 100) : 0;
           return (
             <div key={cat} style={{ marginBottom: 12 }}>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
@@ -199,7 +252,7 @@ export function ReportsTab({
 
       {/* Who paid what */}
       <Card style={{ padding: 16 }}>
-        <h2 style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 12 }}>Who paid what · this month</h2>
+        <h2 style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 12 }}>Who paid what</h2>
         {perMember.map(({ member, paid, share }) => (
           <div
             key={member.id}
@@ -224,6 +277,18 @@ export function ReportsTab({
           </div>
         ))}
       </Card>
+
+      <ReportFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        onApply={(f) => {
+          setFilters(f);
+          setFilterOpen(false);
+        }}
+        filters={filters}
+        members={members}
+        meUserId={meUserId}
+      />
     </>
   );
 }

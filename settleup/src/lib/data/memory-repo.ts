@@ -418,6 +418,7 @@ export class MemoryRepo implements Repo {
       payerMemberId: input.payerMemberId,
       splitMethod: input.splitMethod,
       participantMemberIds: input.participantMemberIds,
+      fixedShares: input.splitMethod === "exact" ? (input.fixedShares ?? null) : null,
       paused: false,
       ...meta(this.user.id),
     };
@@ -464,20 +465,39 @@ export class MemoryRepo implements Repo {
   }
 
   private async generateFromRule(r: RecurringExpense, spentAt: string): Promise<void> {
-    const shares =
-      r.splitMethod === "salary"
-        ? await this.getSalaryShares(r.groupId, r.amountCents!, r.participantMemberIds)
-        : null;
     const { splitEqual } = await import("../domain");
-    const splits = shares ?? splitEqual(r.amountCents!, r.participantMemberIds);
+    const amount = r.amountCents!;
+    const live = new Set(
+      this.members.filter((m) => m.groupId === r.groupId && !m.deletedAt).map((m) => m.id)
+    );
+
+    // Fixed shares reuse the locked values verbatim, but only if they still
+    // reconcile (amount unchanged, no member left); otherwise fall back to
+    // equal — mirrors the SQL generator.
+    const fixedValid =
+      r.splitMethod === "exact" &&
+      r.fixedShares != null &&
+      r.fixedShares.every((s) => live.has(s.memberId)) &&
+      r.fixedShares.reduce((a, s) => a + s.shareCents, 0) === amount;
+
+    const salaryShares =
+      !fixedValid && r.splitMethod === "salary"
+        ? await this.getSalaryShares(r.groupId, amount, r.participantMemberIds)
+        : null;
+
+    const splits = fixedValid
+      ? r.fixedShares!
+      : (salaryShares ?? splitEqual(amount, r.participantMemberIds));
+    const splitMethod = fixedValid ? "exact" : salaryShares ? "salary" : "equal";
+
     await this.createExpense({
       groupId: r.groupId,
       description: r.description,
       category: r.category,
-      amountCents: r.amountCents!,
+      amountCents: amount,
       spentAt,
-      splitMethod: shares ? "salary" : "equal",
-      payers: [{ memberId: r.payerMemberId, paidCents: r.amountCents! }],
+      splitMethod,
+      payers: [{ memberId: r.payerMemberId, paidCents: amount }],
       splits,
       recurringId: r.id,
     });

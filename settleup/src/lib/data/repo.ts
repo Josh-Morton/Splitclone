@@ -51,8 +51,10 @@ export interface NewRecurringInput {
   /** Day of month the bill repeats on, clamped 1–28 (monthly only in v1 UI). */
   dayOfMonth: number;
   payerMemberId: string;
-  splitMethod: "equal" | "salary";
+  splitMethod: "equal" | "salary" | "exact";
   participantMemberIds: string[];
+  /** Required when splitMethod === "exact": the locked per-member shares. */
+  fixedShares?: ExpenseSplit[];
 }
 
 export interface NewSettlementInput {

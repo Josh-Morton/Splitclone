@@ -29,6 +29,8 @@ export async function exportExpensesXlsx(opts: {
   members: GroupMember[];
   meUserId: string;
   memberName: (memberId: string) => string;
+  /** Appended to the filename, e.g. a filter label like "Jun · Groceries". */
+  labelSuffix?: string;
 }): Promise<void> {
   const XLSX = await import("xlsx");
   const { expenses, settlements, members, memberName, groupName } = opts;
@@ -96,5 +98,6 @@ export async function exportExpensesXlsx(opts: {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows), "Expenses");
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), "Summary");
   const stamp = new Date().toISOString().slice(0, 10);
-  XLSX.writeFile(wb, `SettleUp ${groupName} ${stamp}.xlsx`);
+  const suffix = opts.labelSuffix ? ` ${opts.labelSuffix.replace(/[^\w\s·-]/g, "")}` : "";
+  XLSX.writeFile(wb, `SettleUp ${groupName}${suffix} ${stamp}.xlsx`);
 }

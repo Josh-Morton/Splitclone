@@ -590,6 +590,12 @@ export class SupabaseRepo implements Repo {
       payerMemberId: row.payer_member_id,
       splitMethod: row.split_method,
       participantMemberIds: row.participant_member_ids ?? [],
+      fixedShares: Array.isArray(row.fixed_shares)
+        ? row.fixed_shares.map((s: any) => ({
+            memberId: s.member_id,
+            shareCents: Number(s.share_cents),
+          }))
+        : null,
       paused: row.paused,
       ...syncMeta(row),
     }));
@@ -612,6 +618,11 @@ export class SupabaseRepo implements Repo {
         payer_member_id: input.payerMemberId,
         split_method: input.splitMethod,
         participant_member_ids: input.participantMemberIds,
+        // Stored as [{member_id, share_cents}] to match the SQL generator.
+        fixed_shares:
+          input.splitMethod === "exact" && input.fixedShares
+            ? input.fixedShares.map((s) => ({ member_id: s.memberId, share_cents: s.shareCents }))
+            : null,
         created_by: userId,
         updated_by: userId,
       })
