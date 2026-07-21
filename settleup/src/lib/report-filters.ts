@@ -4,7 +4,7 @@
  * Everything computes client-side from the already-loaded ledger.
  */
 
-import type { Category, Expense } from "./domain";
+import { parentOf, type Expense, type ParentCategory } from "./domain";
 
 export type RangePreset = "this_month" | "last_month" | "last_3_months" | "this_year" | "all" | "custom";
 
@@ -15,8 +15,8 @@ export interface ReportFilters {
   customTo: string;
   /** group_member id, or null for everyone. */
   memberId: string | null;
-  /** Empty set = all categories. */
-  categories: Set<Category>;
+  /** Parent categories to include. Empty set = all. */
+  categories: Set<ParentCategory>;
 }
 
 export const DEFAULT_FILTERS: ReportFilters = {
@@ -56,7 +56,7 @@ export function applyFilters(expenses: Expense[], f: ReportFilters, now = new Da
     const day = e.spentAt.slice(0, 10);
     if (from && day < from) return false;
     if (to && day > to) return false;
-    if (f.categories.size > 0 && !f.categories.has(e.category)) return false;
+    if (f.categories.size > 0 && !f.categories.has(parentOf(e.category))) return false;
     if (f.memberId) {
       const involved =
         e.payers.some((p) => p.memberId === f.memberId) ||
@@ -80,7 +80,7 @@ const RANGE_LABEL: Record<RangePreset, string> = {
 export function filtersLabel(
   f: ReportFilters,
   memberName: (id: string) => string,
-  categoryLabel: (c: Category) => string
+  categoryLabel: (c: ParentCategory) => string
 ): string {
   const parts: string[] = [f.range === "custom" ? `${f.customFrom || "…"}–${f.customTo || "…"}` : RANGE_LABEL[f.range]];
   if (f.categories.size > 0) parts.push([...f.categories].map(categoryLabel).join("/"));

@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { CATEGORY_META, type Category, type GroupMember } from "@/lib/domain";
+import { CATEGORY_META, PARENT_CATEGORIES, type GroupMember, type ParentCategory } from "@/lib/domain";
 import {
   DEFAULT_FILTERS,
   type RangePreset,
@@ -50,7 +50,7 @@ export function ReportFilterSheet({
   }
   if (!open && seenOpen) setSeenOpen(false);
 
-  const toggleCategory = (c: Category) =>
+  const toggleCategory = (c: ParentCategory) =>
     setDraft((d) => {
       const next = new Set(d.categories);
       if (next.has(c)) next.delete(c);
@@ -109,7 +109,7 @@ export function ReportFilterSheet({
       <div style={{ height: 18 }} />
       <Label>Categories {draft.categories.size > 0 ? `(${draft.categories.size})` : "(all)"}</Label>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {(Object.keys(CATEGORY_META) as Category[]).map((c) => (
+        {PARENT_CATEGORIES.map((c) => (
           <Pill key={c} active={draft.categories.has(c)} onClick={() => toggleCategory(c)}>
             {CATEGORY_META[c].icon} {CATEGORY_META[c].label}
           </Pill>

@@ -13,16 +13,18 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Repo } from "@/lib/data";
 import {
   autoCategory,
-  CATEGORY_META,
+  categoryMeta,
   fmt,
   parseCents,
   splitEqual,
   splitsReconcile,
+  type Category,
   type Expense,
   type ExpenseSplit,
   type GroupMember,
   type SplitMethod,
 } from "@/lib/domain";
+import { CategoryPickerSheet } from "./category-picker-sheet";
 import { Button, ErrorText, Input, Label } from "./ui";
 import { Pill, Sheet } from "./sheet";
 
@@ -95,7 +97,14 @@ export function AddExpenseSheet({
   const [error, setError] = useState("");
 
   const total = parseCents(amount);
-  const category = autoCategory(desc);
+  // Category auto-detects from the description unless the user overrides it
+  // (ADR-0011). Editing seeds the override with the stored value.
+  const [categoryOverride, setCategoryOverride] = useState<Category | null>(
+    editing ? editing.category : null
+  );
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const category: Category = categoryOverride ?? autoCategory(desc);
+  const catMeta = categoryMeta(category);
 
   const memberName = (m: GroupMember) =>
     m.userId === meUserId ? "You" : m.profileName || m.placeholderName || "Member";
@@ -161,6 +170,7 @@ export function AddExpenseSheet({
     setPaidBy({});
     setRepeats(false);
     setRepeatDay(String(new Date().getDate()));
+    setCategoryOverride(null);
     setError("");
   }
 
@@ -267,15 +277,32 @@ export function AddExpenseSheet({
       <Input value={amount} onChange={setAmount} placeholder="0,00" inputMode="decimal" prefix="R" autoFocus />
       <div style={{ height: 10 }} />
       <Input value={desc} onChange={setDesc} placeholder="What was it for?" />
-      {desc.trim() && (
-        <p style={{ fontSize: 12.5, marginTop: 8, color: "var(--muted)" }}>
-          Category:{" "}
-          <span style={{ color: CATEGORY_META[category].color, fontWeight: 700 }}>
-            {CATEGORY_META[category].label}
-          </span>{" "}
-          (auto-detected)
-        </p>
-      )}
+      <button
+        onClick={() => setPickerOpen(true)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          marginTop: 10,
+          background: `${catMeta.color}1f`,
+          border: `1px solid ${catMeta.color}`,
+          borderRadius: 999,
+          padding: "7px 12px",
+          cursor: "pointer",
+          color: catMeta.color,
+          fontWeight: 700,
+          fontSize: 13,
+        }}
+      >
+        <span>{catMeta.icon}</span>
+        <span>
+          {catMeta.parentLabel}
+          <span style={{ opacity: 0.85 }}> · {catMeta.label}</span>
+        </span>
+        <span style={{ color: "var(--faint)", fontSize: 11, fontWeight: 600 }}>
+          {categoryOverride ? "· tap to change" : "· auto · tap to change"}
+        </span>
+      </button>
       {editing && (
         <>
           <div style={{ height: 10 }} />
@@ -561,6 +588,16 @@ export function AddExpenseSheet({
               ? "Save & repeat monthly"
               : "Save expense"}
       </Button>
+
+      <CategoryPickerSheet
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        selected={category}
+        onPick={(slug) => {
+          setCategoryOverride(slug);
+          setPickerOpen(false);
+        }}
+      />
     </Sheet>
   );
 }

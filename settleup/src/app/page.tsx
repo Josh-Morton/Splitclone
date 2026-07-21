@@ -24,7 +24,7 @@ import { TabBar, type Tab } from "@/components/tab-bar";
 import { Button, Card, Screen, Spinner } from "@/components/ui";
 import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
 import {
-  CATEGORY_META,
+  categoryMeta,
   computeBalances,
   fmt,
   simplifyDebts,
@@ -418,7 +418,7 @@ export default function HomePage() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <p style={{ fontSize: 14.5, fontWeight: 600 }}>{e.description}</p>
                   <p style={{ fontSize: 12, color: "var(--muted)" }}>
-                    {CATEGORY_META[e.category].label} · {memberName(e.payers[0]?.memberId ?? "")}
+                    {categoryMeta(e.category).label} · {memberName(e.payers[0]?.memberId ?? "")}
                     {e.payers.length > 1 ? ` +${e.payers.length - 1}` : ""} paid
                   </p>
                 </div>

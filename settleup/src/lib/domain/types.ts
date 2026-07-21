@@ -11,15 +11,9 @@ export type Cents = number;
 
 export type SplitMethod = "equal" | "exact" | "percent" | "shares" | "salary";
 
-export type Category =
-  | "groceries"
-  | "rent"
-  | "utilities"
-  | "eatingout"
-  | "transport"
-  | "household"
-  | "entertainment"
-  | "other";
+// Category (a subcategory/parent slug) is owned by ./category.ts; the domain
+// index re-exports it, so `import { Category } from "../domain"` still works.
+import type { Category } from "./category";
 
 export type MemberRole = "owner" | "member";
 export type MemberStatus = "active" | "invited" | "left";

@@ -8,12 +8,14 @@
 
 import { useState } from "react";
 import {
+  categoryMeta,
   CATEGORY_META,
   fmt,
   fmtR,
-  type Category,
+  parentOf,
   type Expense,
   type GroupMember,
+  type ParentCategory,
   type Settlement,
 } from "@/lib/domain";
 import { exportExpensesXlsx } from "@/lib/export";
@@ -54,9 +56,10 @@ export function ReportsTab({
   const [error, setError] = useState("");
   const [filters, setFilters] = useState<ReportFilters>(DEFAULT_FILTERS);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [expanded, setExpanded] = useState<ParentCategory | null>(null);
 
   const memberName = (id: string) => memberDisplayName(members.find((m) => m.id === id), meUserId);
-  const categoryLabel = (c: Category) => CATEGORY_META[c].label;
+  const categoryLabel = (c: ParentCategory) => CATEGORY_META[c].label;
 
   // All sections + export operate on the filtered set (Phase 6 report filters).
   const filtered = applyFilters(expenses, filters);
@@ -72,11 +75,18 @@ export function ReportsTab({
   }));
   const maxMonth = Math.max(1, ...monthTotals.map((m) => m.total));
 
-  const byCategory = new Map<Category, number>();
+  // Category breakdown rolls up by parent; each parent keeps its subcategory
+  // totals for tap-to-drill-down (ADR-0011).
+  const byParent = new Map<ParentCategory, number>();
+  const bySub = new Map<ParentCategory, Map<string, number>>();
   for (const e of filtered) {
-    byCategory.set(e.category, (byCategory.get(e.category) ?? 0) + e.amountCents);
+    const parent = parentOf(e.category);
+    byParent.set(parent, (byParent.get(parent) ?? 0) + e.amountCents);
+    const subs = bySub.get(parent) ?? new Map<string, number>();
+    subs.set(e.category, (subs.get(e.category) ?? 0) + e.amountCents);
+    bySub.set(parent, subs);
   }
-  const categories = [...byCategory.entries()].sort((a, b) => b[1] - a[1]);
+  const categories = [...byParent.entries()].sort((a, b) => b[1] - a[1]);
 
   const perMember = members.map((m) => ({
     member: m,
@@ -215,7 +225,7 @@ export function ReportsTab({
         </div>
       </Card>
 
-      {/* By category */}
+      {/* By category — parent rollup, tap to drill into subcategories */}
       <Card style={{ marginBottom: 16, padding: 16 }}>
         <h2 style={{ fontSize: 14.5, fontWeight: 700, marginBottom: 12 }}>By category</h2>
         {categories.length === 0 && (
@@ -224,27 +234,58 @@ export function ReportsTab({
         {categories.map(([cat, cents]) => {
           const meta = CATEGORY_META[cat];
           const pct = rangeTotal > 0 ? Math.round((cents / rangeTotal) * 100) : 0;
+          const subs = [...(bySub.get(cat) ?? new Map()).entries()].sort((a, b) => b[1] - a[1]);
+          const isOpen = expanded === cat;
+          const canDrill = subs.length > 1;
           return (
             <div key={cat} style={{ marginBottom: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
-                <p style={{ fontSize: 13.5, fontWeight: 600 }}>
-                  {meta.icon} {meta.label}
-                  <span style={{ color: "var(--faint)", fontWeight: 700, marginLeft: 8, fontSize: 11.5 }}>
-                    {pct}%
-                  </span>
-                </p>
-                <p style={{ fontSize: 13.5, fontWeight: 700 }}>{fmt(cents)}</p>
+              <div
+                role={canDrill ? "button" : undefined}
+                onClick={canDrill ? () => setExpanded(isOpen ? null : cat) : undefined}
+                style={{ cursor: canDrill ? "pointer" : "default" }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+                  <p style={{ fontSize: 13.5, fontWeight: 600 }}>
+                    {meta.icon} {meta.label}
+                    <span style={{ color: "var(--faint)", fontWeight: 700, marginLeft: 8, fontSize: 11.5 }}>
+                      {pct}%
+                    </span>
+                    {canDrill && (
+                      <span style={{ color: "var(--faint)", marginLeft: 6, fontSize: 11 }}>
+                        {isOpen ? "▾" : "▸"}
+                      </span>
+                    )}
+                  </p>
+                  <p style={{ fontSize: 13.5, fontWeight: 700 }}>{fmt(cents)}</p>
+                </div>
+                <div style={{ height: 7, borderRadius: 999, background: "var(--s2)", overflow: "hidden" }}>
+                  <div
+                    style={{
+                      width: `${Math.max(pct, 2)}%`,
+                      height: "100%",
+                      borderRadius: 999,
+                      background: meta.color,
+                    }}
+                  />
+                </div>
               </div>
-              <div style={{ height: 7, borderRadius: 999, background: "var(--s2)", overflow: "hidden" }}>
-                <div
-                  style={{
-                    width: `${Math.max(pct, 2)}%`,
-                    height: "100%",
-                    borderRadius: 999,
-                    background: meta.color,
-                  }}
-                />
-              </div>
+              {isOpen && (
+                <div style={{ marginTop: 8, paddingLeft: 12 }}>
+                  {subs.map(([slug, subCents]) => (
+                    <div
+                      key={slug}
+                      style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}
+                    >
+                      <span style={{ fontSize: 12.5, color: "var(--muted)" }}>
+                        {categoryMeta(slug).label}
+                      </span>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: "var(--muted)" }}>
+                        {fmt(subCents)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

@@ -10,7 +10,7 @@
  * SheetJS is dynamically imported so the ~400KB library only loads on demand.
  */
 
-import { CATEGORY_META, type Expense, type GroupMember, type Settlement } from "./domain";
+import { categoryMeta, type Expense, type GroupMember, type Settlement } from "./domain";
 
 const METHOD_LABEL: Record<string, string> = {
   equal: "Equal",
@@ -39,10 +39,12 @@ export async function exportExpensesXlsx(opts: {
   const rows = [...expenses]
     .sort((a, b) => a.spentAt.localeCompare(b.spentAt))
     .map((e) => {
+      const cm = categoryMeta(e.category);
       const row: Record<string, string | number> = {
         Date: e.spentAt.slice(0, 10),
         Description: e.description,
-        Category: CATEGORY_META[e.category].label,
+        Category: cm.parentLabel,
+        Subcategory: cm.label,
         "Amount (R)": rands(e.amountCents),
         "Paid by": e.payers.map((p) => `${memberName(p.memberId)} ${rands(p.paidCents)}`).join(", "),
         Split: METHOD_LABEL[e.splitMethod] ?? e.splitMethod,
@@ -55,16 +57,17 @@ export async function exportExpensesXlsx(opts: {
       return row;
     });
 
-  // --- Sheet 2: summary — category totals + per-person paid/share/net ---
+  // --- Sheet 2: summary — parent-category totals + per-person paid/share/net ---
   const catTotals = new Map<string, number>();
   for (const e of expenses) {
-    catTotals.set(e.category, (catTotals.get(e.category) ?? 0) + e.amountCents);
+    const parentLabel = categoryMeta(e.category).parentLabel;
+    catTotals.set(parentLabel, (catTotals.get(parentLabel) ?? 0) + e.amountCents);
   }
   const summary: Record<string, string | number>[] = [...catTotals.entries()]
     .sort((a, b) => b[1] - a[1])
-    .map(([cat, cents]) => ({
+    .map(([label, cents]) => ({
       Section: "Category totals",
-      Item: CATEGORY_META[cat as keyof typeof CATEGORY_META].label,
+      Item: label,
       "Amount (R)": rands(cents),
     }));
 

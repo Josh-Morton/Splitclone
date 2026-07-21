@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Repo } from "@/lib/data";
-import { CATEGORY_META, fmt, type Expense, type GroupMember } from "@/lib/domain";
+import { categoryMeta, fmt, type Expense, type GroupMember } from "@/lib/domain";
 import { compressImage } from "@/lib/image";
 import { Avatar, memberDisplayName } from "./avatar";
 import { CategoryTile } from "./expenses-tab";
@@ -174,7 +174,7 @@ export function ExpenseDetail({
             {fmt(expense.amountCents)}
           </p>
           <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-            {CATEGORY_META[expense.category].label} · {fullDate}
+            {categoryMeta(expense.category).label} · {fullDate}
           </p>
         </div>
 

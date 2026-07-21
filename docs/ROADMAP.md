@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-18 (Phase 6 batch 2 shipped: fixed-split recurring from expense sheet, report filters)
+**Last updated:** 2026-07-18 (Phase 6 batch 3 shipped: detailed two-level category taxonomy, ADR-0011)
 
 ## Where we are
 
@@ -255,7 +255,18 @@ offline-first.
 
 ### Added by Josh, 2026-07-18 (researched + scoped; nice-to-haves)
 
-- [ ] **Detailed expense categorisation (two-level taxonomy, auto + override)** —
+- [x] **Detailed expense categorisation (two-level taxonomy, auto + override)** ✅
+      (2026-07-18, ADR-0011) — 8 parents (unchanged colours/icons) over ~40
+      curated subcategories incl. SA-specific (prepaid electricity, DSTV,
+      airtime, e-tolls, domestic help, armed response, medical aid, municipal
+      rates). autoCategory returns a subcategory slug (order-sensitive); the
+      detected chip in Add/Edit is tappable → grouped category picker (manual
+      override). Reports roll up by parent with tap-to-drill-down; report
+      category filter is parent-level; export carries parent + subcategory
+      columns. No DB migration (category is text; legacy bare slugs resolve).
+      47 tests; browser-verified auto→override→reports drill-down. Original
+      spec follows:
+      replace the flat 8-category list with a researched two-level taxonomy.
       replace the flat 8-category list with a researched two-level taxonomy.
       Research: Splitwise itself uses parent categories with subcategories
       (expenses must carry a subcategory); the industry-standard reference is

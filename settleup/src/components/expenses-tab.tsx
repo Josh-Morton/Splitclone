@@ -6,7 +6,7 @@
  * sub-line "you paid · your share 50%", amount, and a lent/borrowed net line).
  */
 
-import { CATEGORY_META, fmt, type Expense, type GroupMember } from "@/lib/domain";
+import { categoryMeta, fmt, type Expense, type GroupMember } from "@/lib/domain";
 import { memberDisplayName } from "./avatar";
 
 export function dayLabel(iso: string): string {
@@ -20,7 +20,7 @@ export function dayLabel(iso: string): string {
 }
 
 export function CategoryTile({ category, size = 40 }: { category: Expense["category"]; size?: number }) {
-  const meta = CATEGORY_META[category];
+  const meta = categoryMeta(category);
   return (
     <div
       style={{
