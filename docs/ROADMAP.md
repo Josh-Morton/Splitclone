@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-19 (Josh tweaks: 7 intuitive parent categories + big keyword DB, weekly/monthly recurring)
+**Last updated:** 2026-07-22 (Phase 7 SHIPPED: receipt line-item scanning via Gemini Edge Function — M5)
 
 ## Where we are
 
@@ -328,7 +328,20 @@ offline-first.
       **edit** mode for backdating. Recurring generation and cart→expense set
       their own dates — unaffected. Browser-verified both modes.
 
-## Phase 7 — Receipt line-item scanning (Josh, spec finalised 2026-07-18) → M5 "Scan the slip"
+## Phase 7 — Receipt line-item scanning ✅ SHIPPED (2026-07-22) → M5 "Scan the slip"
+
+**Live:** scan-receipt Edge Function (Gemini `gemini-flash-latest`, central key
+as a Function secret, auth-gated) + in-flow client (capture → item checklist →
+tick → total copied into the editable amount → normal split/space flow; image
+never stored). ADR-0012. E2E-verified live (synthetic Checkers slip → 7 items
+exact to the cent, total matches; anon rejected 401) and in-browser (untick 2
+items → R374,44 → R211,46 → saved with only the ticked items in the note).
+MemoryRepo returns a canned slip for the demo. Offline: capture yes, extraction
+no (online-only, per the spec below).
+
+---
+
+### Original spec (2026-07-18)
 
 **Goal (Josh's words):** while creating an expense, optionally **scan a
 receipt**; the app extracts a **checklist of items with prices**; the user

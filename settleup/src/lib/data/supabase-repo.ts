@@ -28,6 +28,7 @@ import {
   type NewRecurringInput,
   type NewSettlementInput,
   type Repo,
+  type ScanResult,
   ValidationError,
 } from "./repo";
 
@@ -704,6 +705,35 @@ export class SupabaseRepo implements Repo {
       .createSignedUrl(receiptPath, 3600);
     if (error || !data?.signedUrl) this.fail(error ?? { message: "Could not sign receipt URL" });
     return data.signedUrl;
+  }
+
+  async scanReceipt(imageBase64: string, mimeType: string): Promise<ScanResult> {
+    const { data, error } = await this.sb.functions.invoke("scan-receipt", {
+      body: { image_base64: imageBase64, mime_type: mimeType },
+    });
+    if (error) {
+      // Surface the function's own error message (it lives on the Response).
+      let message = "Couldn't read the receipt";
+      const ctx = (error as { context?: Response }).context;
+      if (ctx && typeof ctx.json === "function") {
+        try {
+          const body = await ctx.json();
+          if (body?.error) message = body.error;
+        } catch {
+          /* fall through to the generic message */
+        }
+      }
+      throw new ValidationError(message);
+    }
+    return {
+      merchant: data?.merchant ?? null,
+      totalCents: Number(data?.total_cents ?? 0),
+      items: (data?.items ?? []).map((it: any) => ({
+        name: String(it.name),
+        qty: it.qty != null ? Number(it.qty) : null,
+        lineTotalCents: Number(it.line_total_cents),
+      })),
+    };
   }
 
   // --- activity ---

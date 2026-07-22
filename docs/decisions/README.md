@@ -22,3 +22,4 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | [0009](0009-offline-phase-deferred.md) | Offline-first phase moved to end of project (order: 1→3→4→5→2→6) | Accepted |
 | [0010](0010-salary-split-rpc.md) | Salary-proportional shares computed server-side (privacy-preserving RPC) | Accepted |
 | [0011](0011-two-level-categories.md) | Two-level category taxonomy (parent→subcategory), auto-assign + manual override | Accepted (amends 0008) |
+| [0012](0012-receipt-scanning.md) | Receipt line-item scanning via a central Gemini Edge Function (image never stored) | Accepted |

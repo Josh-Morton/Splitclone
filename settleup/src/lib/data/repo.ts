@@ -156,4 +156,24 @@ export interface Repo {
   removeReceipt(expenseId: string): Promise<void>;
   /** Short-lived viewable URL for an expense's stored receipt path. */
   getReceiptUrl(receiptPath: string): Promise<string>;
+
+  // --- receipt scanning (Phase 7; image never stored) ---
+  /**
+   * Extract line items + total from a receipt image (base64, no data: prefix).
+   * Runs server-side via the scan-receipt Edge Function; the image is used only
+   * for extraction and discarded.
+   */
+  scanReceipt(imageBase64: string, mimeType: string): Promise<ScanResult>;
+}
+
+export interface ScanItem {
+  name: string;
+  qty: number | null;
+  lineTotalCents: Cents;
+}
+
+export interface ScanResult {
+  merchant: string | null;
+  totalCents: Cents;
+  items: ScanItem[];
 }

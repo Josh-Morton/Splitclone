@@ -25,6 +25,7 @@ import {
   type SplitMethod,
 } from "@/lib/domain";
 import { CategoryPickerSheet } from "./category-picker-sheet";
+import { ReceiptScanSheet } from "./receipt-scan-sheet";
 import { Button, ErrorText, Input, Label } from "./ui";
 import { Pill, Sheet } from "./sheet";
 
@@ -100,6 +101,9 @@ export function AddExpenseSheet({
   const [repeatDow, setRepeatDow] = useState(new Date().getDay()); // day-of-week 0–6
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Receipt scan (Phase 7): prefills amount + note; image never stored.
+  const [scanOpen, setScanOpen] = useState(false);
+  const [scanNote, setScanNote] = useState<string | null>(null);
 
   const total = parseCents(amount);
   // Category auto-detects from the description unless the user overrides it
@@ -177,6 +181,7 @@ export function AddExpenseSheet({
     setRepeatFreq("monthly");
     setRepeatDom(String(new Date().getDate()));
     setRepeatDow(new Date().getDay());
+    setScanNote(null);
     setCategoryOverride(null);
     setError("");
   }
@@ -225,7 +230,7 @@ export function AddExpenseSheet({
         splitMethod: (method === "salary" && proportionalFallsBack ? "equal" : method) as SplitMethod,
         payers,
         splits,
-        note: editing ? editing.note : (draft?.note ?? null),
+        note: editing ? editing.note : (scanNote ?? draft?.note ?? null),
       };
       if (editing) {
         await repo.updateExpense(editing.id, input);
@@ -286,6 +291,25 @@ export function AddExpenseSheet({
       }
     >
       <Input value={amount} onChange={setAmount} placeholder="0,00" inputMode="decimal" prefix="R" autoFocus />
+      {!editing && (
+        <button
+          onClick={() => setScanOpen(true)}
+          style={{
+            width: "100%",
+            marginTop: 10,
+            background: "var(--bluebg)",
+            border: "1px solid var(--primary)",
+            borderRadius: "var(--r-input)",
+            color: "var(--primary)",
+            fontSize: 13.5,
+            fontWeight: 700,
+            padding: "11px 16px",
+            cursor: "pointer",
+          }}
+        >
+          📷 Scan a receipt to fill this in
+        </button>
+      )}
       <div style={{ height: 10 }} />
       <Input value={desc} onChange={setDesc} placeholder="What was it for?" />
       <button
@@ -630,6 +654,19 @@ export function AddExpenseSheet({
         onPick={(slug) => {
           setCategoryOverride(slug);
           setPickerOpen(false);
+        }}
+      />
+
+      <ReceiptScanSheet
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        repo={repo}
+        onAdd={({ amountCents, merchant, note }) => {
+          setAmount(centsToInput(amountCents));
+          if (!desc.trim()) setDesc(merchant || "Groceries");
+          setScanNote(note);
+          setCategoryOverride(null); // let it auto-detect from merchant/description
+          setScanOpen(false);
         }}
       />
     </Sheet>

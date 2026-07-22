@@ -538,6 +538,26 @@ export class MemoryRepo implements Repo {
     return url;
   }
 
+  // Demo scan: returns a canned Checkers slip so "explore the demo" can try the
+  // scan → checklist → expense flow without a backend.
+  async scanReceipt(): Promise<import("./repo").ScanResult> {
+    await new Promise((r) => setTimeout(r, 900)); // mimic the network round-trip
+    const items = [
+      { name: "Milk 2L Fresh", qty: null, lineTotalCents: 3299 },
+      { name: "Brown Bread", qty: null, lineTotalCents: 1799 },
+      { name: "Cheddar Cheese 400g", qty: null, lineTotalCents: 8999 },
+      { name: "Bananas 1kg", qty: null, lineTotalCents: 2450 },
+      { name: "Free Range Eggs 6", qty: null, lineTotalCents: 4599 },
+      { name: "Woolies Coffee 250g", qty: null, lineTotalCents: 12999 },
+      { name: "Dishwashing Liquid", qty: null, lineTotalCents: 3299 },
+    ];
+    return {
+      merchant: "Checkers Hyper",
+      totalCents: items.reduce((a, i) => a + i.lineTotalCents, 0),
+      items,
+    };
+  }
+
   async listActivity(groupId: string): Promise<Activity[]> {
     return this.activity
       .filter((a) => a.groupId === groupId)
