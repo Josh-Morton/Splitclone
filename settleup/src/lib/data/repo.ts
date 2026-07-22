@@ -93,6 +93,8 @@ export interface Repo {
   listGroups(): Promise<Group[]>;
   createGroup(name: string): Promise<Group>;
   renameGroup(groupId: string, name: string): Promise<Group>;
+  /** Soft-delete (archive) a space. Caller should switch to another space after. */
+  deleteGroup(groupId: string): Promise<void>;
   setSimplifyDebts(groupId: string, on: boolean): Promise<Group>;
   listMembers(groupId: string): Promise<GroupMember[]>;
   addPlaceholderMember(groupId: string, name: string): Promise<GroupMember>;

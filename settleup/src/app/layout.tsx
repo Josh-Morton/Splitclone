@@ -3,13 +3,17 @@ import "./globals.css";
 import { RegisterServiceWorker } from "./register-sw";
 
 export const metadata: Metadata = {
-  title: "SettleUp",
+  title: "Tally",
   description: "Shared expenses for your home — always know who owes whom.",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/icons/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "SettleUp",
+    title: "Tally",
   },
 };
 

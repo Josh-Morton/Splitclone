@@ -205,12 +205,20 @@ export default function HomePage() {
     return m.profileName || m.placeholderName || "Member";
   };
 
+  const multiParty = d.members.length > 2;
+  const meMemberId = d.members.find((m) => m.userId === d.user.id)?.id;
+  const owedToMe = d.transactions.filter((t) => t.toMemberId === meMemberId);
+  const iOwe = d.transactions.filter((t) => t.fromMemberId === meMemberId);
   const heroText =
     d.yourNet === 0
       ? "You're all settled"
       : d.yourNet > 0
-        ? `${d.counterpartyName} owes you`
-        : `You owe ${d.counterpartyName}`;
+        ? multiParty
+          ? "You're owed"
+          : `${d.counterpartyName} owes you`
+        : multiParty
+          ? "You owe"
+          : `You owe ${d.counterpartyName}`;
   const heroColor = d.yourNet === 0 ? "var(--muted)" : d.yourNet > 0 ? "var(--green)" : "var(--red)";
   const recent = d.expenses.slice(0, 5);
 
@@ -317,9 +325,39 @@ export default function HomePage() {
             <p style={{ fontSize: 42, fontWeight: 800, letterSpacing: "-1.2px", color: heroColor, marginBottom: 14 }}>
               {fmt(Math.abs(d.yourNet))}
             </p>
+            {/* 3+ members: break the net down per person */}
+            {multiParty && (owedToMe.length > 0 || iOwe.length > 0) && (
+              <div
+                style={{
+                  textAlign: "left",
+                  borderTop: "1px solid var(--line)",
+                  margin: "0 0 14px",
+                  paddingTop: 12,
+                }}
+              >
+                {owedToMe.map((t) => (
+                  <div
+                    key={t.fromMemberId + t.toMemberId}
+                    style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}
+                  >
+                    <span style={{ fontSize: 13, color: "var(--muted)" }}>{memberName(t.fromMemberId)} owes you</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>{fmt(t.amountCents)}</span>
+                  </div>
+                ))}
+                {iOwe.map((t) => (
+                  <div
+                    key={t.fromMemberId + t.toMemberId}
+                    style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}
+                  >
+                    <span style={{ fontSize: 13, color: "var(--muted)" }}>You owe {memberName(t.toMemberId)}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{fmt(t.amountCents)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 10 }}>
               <Button onClick={() => setSheet("settle")} variant="secondary" style={{ flex: 1 }}>
-                Settle up
+                Clear the tally
               </Button>
               <Button onClick={() => setSheet("add")} style={{ flex: 1 }}>
                 Add expense
@@ -331,48 +369,6 @@ export default function HomePage() {
               </p>
             )}
           </Card>
-
-          {(() => {
-            const next = d.recurring.filter((r) => !r.paused)[0];
-            return (
-              <Card
-                style={{ padding: 14, marginBottom: 16, cursor: "pointer" }}
-              >
-                <div
-                  role="button"
-                  aria-label="Recurring bills"
-                  onClick={() => setRecurringOpen(true)}
-                  style={{ display: "flex", alignItems: "center", gap: 12 }}
-                >
-                  {next ? (
-                    <>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p
-                          style={{
-                            fontSize: 11.5,
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                            letterSpacing: "0.05em",
-                            color: "var(--faint)",
-                          }}
-                        >
-                          Upcoming · {new Date(next.nextRun + "T00:00:00").getDate()}{" "}
-                          {new Date(next.nextRun + "T00:00:00").toLocaleDateString("en-ZA", { month: "short" })}
-                        </p>
-                        <p style={{ fontSize: 14.5, fontWeight: 600 }}>{next.description}</p>
-                      </div>
-                      <p style={{ fontSize: 14.5, fontWeight: 700 }}>{fmt(next.amountCents ?? 0)}</p>
-                    </>
-                  ) : (
-                    <p style={{ flex: 1, fontSize: 13.5, fontWeight: 600, color: "var(--muted)" }}>
-                      Set up recurring bills (rent, fibre…)
-                    </p>
-                  )}
-                  <span style={{ color: "var(--faint)", fontSize: 18 }}>›</span>
-                </div>
-              </Card>
-            );
-          })()}
 
           <Card style={{ padding: 14, marginBottom: 90 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -551,11 +547,13 @@ export default function HomePage() {
       <SpacesSheet
         open={sheet === "spaces"}
         onClose={() => setSheet("none")}
-        onSwitched={async (name) => {
-          setSheet("none");
-          setViewing(null);
+        onChanged={async (msg, close) => {
+          if (close) {
+            setSheet("none");
+            setViewing(null);
+          }
           await load();
-          showToast(`Switched to ${name}`);
+          showToast(msg);
         }}
         repo={d.repo}
         groups={d.groups}
@@ -573,6 +571,11 @@ export default function HomePage() {
         onSignOut={async () => {
           await signOut();
           router.replace("/welcome");
+        }}
+        onManageSpaces={() => setSheet("spaces")}
+        onManageRecurring={() => {
+          setSheet("none");
+          setRecurringOpen(true);
         }}
         repo={d.repo}
         user={d.user}

@@ -15,11 +15,52 @@ import { Sheet } from "./sheet";
 
 const centsToInput = (c: number) => (c / 100).toFixed(2).replace(".", ",");
 
+function SettingsRow({
+  icon,
+  label,
+  hint,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  hint: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        background: "var(--s2)",
+        border: "1px solid var(--line)",
+        borderRadius: "var(--r-input)",
+        padding: "13px 16px",
+        marginBottom: 8,
+        cursor: "pointer",
+        color: "var(--ink)",
+        textAlign: "left",
+      }}
+    >
+      <span style={{ fontSize: 18 }}>{icon}</span>
+      <span style={{ flex: 1 }}>
+        <span style={{ display: "block", fontSize: 14, fontWeight: 700 }}>{label}</span>
+        <span style={{ display: "block", fontSize: 11.5, color: "var(--faint)" }}>{hint}</span>
+      </span>
+      <span style={{ color: "var(--faint)", fontSize: 18 }}>›</span>
+    </button>
+  );
+}
+
 export function SettingsSheet({
   open,
   onClose,
   onSaved,
   onSignOut,
+  onManageSpaces,
+  onManageRecurring,
   repo,
   user,
 }: {
@@ -27,6 +68,8 @@ export function SettingsSheet({
   onClose: () => void;
   onSaved: () => void;
   onSignOut: () => void;
+  onManageSpaces: () => void;
+  onManageRecurring: () => void;
   repo: Repo;
   user: User;
 }) {
@@ -147,7 +190,13 @@ export function SettingsSheet({
           <Button onClick={save} disabled={busy}>
             {busy ? "Saving…" : "Save"}
           </Button>
-          <div style={{ height: 10 }} />
+
+          <div style={{ height: 22 }} />
+          <Label>Manage</Label>
+          <SettingsRow icon="🏠" label="Spaces" hint="Switch, create, rename or delete" onClick={onManageSpaces} />
+          <SettingsRow icon="🔁" label="Recurring bills" hint="Weekly & monthly auto-expenses" onClick={onManageRecurring} />
+
+          <div style={{ height: 18 }} />
           <Button variant="ghost" onClick={onSignOut}>
             Sign out
           </Button>

@@ -1,6 +1,6 @@
 {
-  "name": "SettleUp",
-  "short_name": "SettleUp",
+  "name": "Tally",
+  "short_name": "Tally",
   "description": "Shared expenses for your home — always know who owes whom.",
   "start_url": "/",
   "display": "standalone",

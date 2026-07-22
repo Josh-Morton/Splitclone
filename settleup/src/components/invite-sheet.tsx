@@ -76,7 +76,7 @@ export function InviteSheet({
   // The share payload carries everything the recipient needs — they should
   // never be asked for something they weren't sent (Phase 6 comms rework).
   const shareMessage = link
-    ? `Join "${groupName}" on SettleUp — our shared expenses app.\n\n` +
+    ? `Join "${groupName}" on Tally — our shared expenses app.\n\n` +
       `1. Tap this link: ${link}\n` +
       `2. Sign in with your email address\n` +
       `3. Open the sign-in email and tap the link in it — that's it, you're in.\n\n` +
@@ -87,7 +87,7 @@ export function InviteSheet({
 
   async function shareInvite() {
     try {
-      await navigator.share({ title: "Join me on SettleUp", text: shareMessage });
+      await navigator.share({ title: "Join me on Tally", text: shareMessage });
     } catch {
       /* user dismissed the share sheet — not an error */
     }

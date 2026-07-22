@@ -47,7 +47,7 @@ export default function WelcomePage() {
     <Screen padding={26} center>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 34 }}>
         <Logo />
-        <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px", marginTop: 18 }}>SettleUp</h1>
+        <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px", marginTop: 18 }}>Tally</h1>
         <p style={{ fontSize: 14, color: "var(--muted)", textAlign: "center", marginTop: 8, lineHeight: 1.5 }}>
           Shared expenses for your home —<br />
           always know who owes whom.

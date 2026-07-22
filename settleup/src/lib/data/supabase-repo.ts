@@ -268,6 +268,15 @@ export class SupabaseRepo implements Repo {
     return mapGroup(data);
   }
 
+  async deleteGroup(groupId: string): Promise<void> {
+    // Soft delete: archive + tombstone so it drops out of listGroups.
+    const { error } = await this.sb
+      .from("group")
+      .update({ archived: true, deleted_at: new Date().toISOString() })
+      .eq("id", groupId);
+    if (error) this.fail(error);
+  }
+
   async setSimplifyDebts(groupId: string, on: boolean): Promise<Group> {
     const { data, error } = await this.sb
       .from("group")

@@ -176,6 +176,14 @@ export class MemoryRepo implements Repo {
     return g;
   }
 
+  async deleteGroup(groupId: string): Promise<void> {
+    const g = this.groups.find((x) => x.id === groupId && !x.deletedAt);
+    if (!g) return;
+    g.archived = true;
+    g.deletedAt = nowIso();
+    touch(g, this.user.id);
+  }
+
   async setSimplifyDebts(groupId: string, on: boolean): Promise<Group> {
     const g = this.mustGroup(groupId);
     g.simplifyDebts = on;

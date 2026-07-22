@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * Spaces switcher bottom sheet (design "Spaces switcher" + Phase-6 household
- * management): every space the user belongs to with an active check; tapping
- * switches the whole app and persists as the default. Create a new space or
- * join one by invite code without leaving the sheet.
+ * Spaces manager (Phase 6 + Tally polish): every space the user belongs to with
+ * an active check; tap to switch (persists as default). Manage a space inline —
+ * rename or delete (with guards: at least one space must remain; deleting the
+ * active space switches to another first). Create a new space or join by code.
+ * Opened from the header ▾ and from Settings → Manage spaces.
  */
 
 import { useState } from "react";
@@ -16,7 +17,7 @@ import { Sheet } from "./sheet";
 export function SpacesSheet({
   open,
   onClose,
-  onSwitched,
+  onChanged,
   repo,
   groups,
   activeGroupId,
@@ -24,8 +25,8 @@ export function SpacesSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  /** Called after the default group changed (switch/create/join). */
-  onSwitched: (groupName: string) => void;
+  /** Reload after a change; close the sheet only for switch/create/join. */
+  onChanged: (message: string, close: boolean) => void;
   repo: Repo;
   groups: Group[];
   activeGroupId: string;
@@ -34,6 +35,9 @@ export function SpacesSheet({
   const [mode, setMode] = useState<"list" | "create" | "join">("list");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  const [manageId, setManageId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,68 +45,77 @@ export function SpacesSheet({
     setMode("list");
     setName("");
     setCode("");
+    setManageId(null);
+    setConfirmDelete(false);
     setError("");
   }
 
-  async function setDefault(groupId: string) {
-    await repo.updateProfile({ userId: meUserId, defaultGroupId: groupId });
-  }
+  const setDefault = (groupId: string) => repo.updateProfile({ userId: meUserId, defaultGroupId: groupId });
 
-  async function switchTo(g: Group) {
-    if (g.id === activeGroupId) {
-      onClose();
-      return;
-    }
+  async function run(fn: () => Promise<{ message: string; close: boolean }>) {
     setBusy(true);
     setError("");
     try {
-      await setDefault(g.id);
+      const { message, close } = await fn();
       reset();
-      onSwitched(g.name);
+      onChanged(message, close);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
     } finally {
       setBusy(false);
     }
   }
 
-  async function createSpace() {
-    if (!name.trim()) {
-      setError("Give the space a name");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
+  const switchTo = (g: Group) =>
+    g.id === activeGroupId
+      ? onClose()
+      : run(async () => {
+          await setDefault(g.id);
+          return { message: `Switched to ${g.name}`, close: true };
+        });
+
+  const createSpace = () => {
+    if (!name.trim()) return setError("Give the space a name");
+    return run(async () => {
       const g = await repo.createGroup(name.trim());
       await setDefault(g.id);
-      reset();
-      onSwitched(g.name);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
+      return { message: `Switched to ${g.name}`, close: true };
+    });
+  };
 
-  async function joinSpace() {
-    if (!code.trim()) {
-      setError("Enter the invite code");
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
+  const joinSpace = () => {
+    if (!code.trim()) return setError("Enter the invite code");
+    return run(async () => {
       const { groupId, groupName } = await repo.redeemInvite(code.trim());
       await setDefault(groupId);
-      reset();
-      onSwitched(groupName);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setBusy(false);
+      return { message: `Joined ${groupName}`, close: true };
+    });
+  };
+
+  const renameSpace = (g: Group) => {
+    if (!renameValue.trim()) return setError("Give the space a name");
+    return run(async () => {
+      await repo.renameGroup(g.id, renameValue.trim());
+      return { message: "Space renamed", close: false };
+    });
+  };
+
+  const deleteSpace = (g: Group) => {
+    if (groups.length <= 1) {
+      setError("You need at least one space — create another first.");
+      return;
     }
-  }
+    return run(async () => {
+      // If deleting the active space, switch to any other one first.
+      if (g.id === activeGroupId) {
+        const other = groups.find((x) => x.id !== g.id)!;
+        await setDefault(other.id);
+      }
+      await repo.deleteGroup(g.id);
+      return { message: `Deleted "${g.name}"`, close: false };
+    });
+  };
 
   return (
     <Sheet
@@ -114,38 +127,134 @@ export function SpacesSheet({
       title="Spaces"
     >
       <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 14 }}>
-        A space is a household, trip, or shared budget. Everything in the app — expenses,
-        balances, the list — belongs to the space you&apos;re in.
+        A space is a household, trip, or shared budget. Everything — expenses, balances, the list —
+        belongs to the space you&apos;re in. Tap to switch; tap ⋯ to rename or delete.
       </p>
 
       {groups.map((g) => {
         const active = g.id === activeGroupId;
+        const managing = manageId === g.id;
         return (
-          <button
-            key={g.id}
-            onClick={() => switchTo(g)}
-            disabled={busy}
-            style={{
-              width: "100%",
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              padding: "14px 16px",
-              marginBottom: 8,
-              borderRadius: "var(--r-card)",
-              cursor: "pointer",
-              textAlign: "left",
-              background: active ? "var(--bluebg)" : "var(--surface)",
-              border: `1px solid ${active ? "var(--primary)" : "var(--line)"}`,
-              color: "var(--ink)",
-            }}
-          >
-            <span style={{ fontSize: 18 }}>🏠</span>
-            <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700 }}>{g.name}</span>
-            {active && (
-              <span style={{ color: "var(--primary)", fontWeight: 800, fontSize: 15 }}>✓</span>
+          <div key={g.id} style={{ marginBottom: 8 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "12px 14px",
+                borderRadius: "var(--r-card)",
+                background: active ? "var(--bluebg)" : "var(--surface)",
+                border: `1px solid ${active ? "var(--primary)" : "var(--line)"}`,
+              }}
+            >
+              <button
+                onClick={() => switchTo(g)}
+                disabled={busy}
+                aria-label={`Switch to ${g.name}`}
+                style={{
+                  flex: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  textAlign: "left",
+                  color: "var(--ink)",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>🏠</span>
+                <span style={{ fontSize: 14.5, fontWeight: 700 }}>{g.name}</span>
+                {active && <span style={{ color: "var(--primary)", fontWeight: 800, fontSize: 15 }}>✓</span>}
+              </button>
+              <button
+                onClick={() => {
+                  setManageId(managing ? null : g.id);
+                  setRenameValue(g.name);
+                  setConfirmDelete(false);
+                }}
+                aria-label={`Manage ${g.name}`}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--muted)",
+                  fontSize: 18,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  padding: "0 6px",
+                }}
+              >
+                ⋯
+              </button>
+            </div>
+
+            {managing && (
+              <div
+                style={{
+                  border: "1px solid var(--line)",
+                  borderTop: "none",
+                  borderRadius: "0 0 var(--r-card) var(--r-card)",
+                  margin: "-4px 8px 0",
+                  padding: "12px 14px 14px",
+                  background: "var(--s2)",
+                }}
+              >
+                <Label>Rename</Label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <Input value={renameValue} onChange={setRenameValue} onEnter={() => renameSpace(g)} />
+                  </div>
+                  <Button variant="secondary" style={{ width: 84 }} disabled={busy} onClick={() => renameSpace(g)}>
+                    Save
+                  </Button>
+                </div>
+                <div style={{ height: 12 }} />
+                {!confirmDelete ? (
+                  <button
+                    onClick={() => setConfirmDelete(true)}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--red)",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Delete this space
+                  </button>
+                ) : (
+                  <div>
+                    <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 8 }}>
+                      Delete &quot;{g.name}&quot; and everything in it? This can&apos;t be undone.
+                    </p>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <Button variant="ghost" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>
+                        Keep it
+                      </Button>
+                      <button
+                        onClick={() => deleteSpace(g)}
+                        disabled={busy}
+                        style={{
+                          flex: 1,
+                          background: "var(--redbg)",
+                          border: "1px solid var(--red)",
+                          borderRadius: "var(--r-input)",
+                          color: "var(--red)",
+                          fontSize: 14,
+                          fontWeight: 700,
+                          padding: "12px 0",
+                          cursor: "pointer",
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             )}
-          </button>
+          </div>
         );
       })}
 

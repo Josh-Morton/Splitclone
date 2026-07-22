@@ -102,5 +102,5 @@ export async function exportExpensesXlsx(opts: {
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(summary), "Summary");
   const stamp = new Date().toISOString().slice(0, 10);
   const suffix = opts.labelSuffix ? ` ${opts.labelSuffix.replace(/[^\w\s·-]/g, "")}` : "";
-  XLSX.writeFile(wb, `SettleUp ${groupName}${suffix} ${stamp}.xlsx`);
+  XLSX.writeFile(wb, `Tally ${groupName}${suffix} ${stamp}.xlsx`);
 }

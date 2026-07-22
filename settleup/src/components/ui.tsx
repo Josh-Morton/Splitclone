@@ -190,23 +190,14 @@ export function Label({ children }: { children: ReactNode }) {
 
 export function Logo({ size = 64 }: { size?: number }) {
   return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.28,
-        background: "var(--brand-gradient)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        fontSize: size * 0.44,
-        fontWeight: 800,
-        color: "#fff",
-        letterSpacing: "-1px",
-      }}
-    >
-      S
-    </div>
+    // eslint-disable-next-line @next/next/no-img-element -- static brand icon
+    <img
+      src="/icons/icon-192.png"
+      alt="Tally"
+      width={size}
+      height={size}
+      style={{ width: size, height: size, borderRadius: size * 0.24, display: "block" }}
+    />
   );
 }
 
