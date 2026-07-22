@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-22 (Tally rebrand + polish: settle rework, spaces management, cleanup)
+**Last updated:** 2026-07-22 (email+password Log in / Sign up on the landing page; magic-link kept as fallback)
 
 ## Where we are
 

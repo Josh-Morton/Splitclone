@@ -78,9 +78,9 @@ export function InviteSheet({
   const shareMessage = link
     ? `Join "${groupName}" on Tally — our shared expenses app.\n\n` +
       `1. Tap this link: ${link}\n` +
-      `2. Sign in with your email address\n` +
-      `3. Open the sign-in email and tap the link in it — that's it, you're in.\n\n` +
-      `(No password needed. If you're asked for an invite code, it's ${code}.)`
+      `2. Create an account (email + password) — or log in if you already have one\n` +
+      `3. You'll land straight in our household.\n\n` +
+      `(If you're ever asked for an invite code, it's ${code}.)`
     : "";
 
   const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
@@ -194,8 +194,8 @@ export function InviteSheet({
             {copied ? "Copied ✓" : "Copy invite message"}
           </Button>
           <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 10 }}>
-            The message includes the link and exactly what to do — your partner taps it, signs in
-            with their email, taps the sign-in link, and lands in this household.
+            The message includes the link and what to do — your partner taps it, creates an account
+            (or logs in), and lands in this household.
           </p>
         </div>
       )}
