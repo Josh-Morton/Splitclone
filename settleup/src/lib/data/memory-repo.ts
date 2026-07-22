@@ -30,16 +30,17 @@ import {
   type Repo,
   ValidationError,
 } from "./repo";
-import { nextMonthlyRun } from "./supabase-repo";
+import { firstRun } from "./supabase-repo";
 
-/** Advance an ISO date one month forward onto the anchor day (mirrors SQL). */
-function advanceMonthly(isoDate: string, anchor: number): string {
-  const [y, m] = isoDate.split("-").map(Number);
+/** Advance an ISO date to the next occurrence (mirrors the SQL generator). */
+function advance(isoDate: string, frequency: "weekly" | "monthly", anchor: number): string {
+  const [y, m, d] = isoDate.split("-").map(Number);
+  if (frequency === "weekly") {
+    const next = new Date(y, m - 1, d + 7);
+    return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+  }
   const next = new Date(y, m, Math.max(1, Math.min(28, anchor))); // m is 0-based+1 = next month
-  const yy = next.getFullYear();
-  const mm = String(next.getMonth() + 1).padStart(2, "0");
-  const dd = String(next.getDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
+  return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
 }
 
 function nowIso(): string {
@@ -404,16 +405,19 @@ export class MemoryRepo implements Repo {
     if (!Number.isInteger(input.amountCents) || input.amountCents <= 0) {
       throw new ValidationError("Amount must be positive cents");
     }
-    const day = Math.max(1, Math.min(28, Math.round(input.dayOfMonth)));
+    const anchor =
+      input.frequency === "weekly"
+        ? ((Math.round(input.anchor) % 7) + 7) % 7
+        : Math.max(1, Math.min(28, Math.round(input.anchor)));
     const r: RecurringExpense = {
       id: uuid(),
       groupId: input.groupId,
       description: input.description,
       category: autoCategory(input.description),
       amountCents: input.amountCents,
-      frequency: "monthly",
-      anchor: day,
-      nextRun: nextMonthlyRun(day),
+      frequency: input.frequency,
+      anchor,
+      nextRun: firstRun(input.frequency, anchor),
       endDate: null,
       payerMemberId: input.payerMemberId,
       splitMethod: input.splitMethod,
@@ -444,7 +448,7 @@ export class MemoryRepo implements Repo {
     const r = this.recurring.find((x) => x.id === id && !x.deletedAt);
     if (!r) throw new ValidationError("Recurring rule not found");
     await this.generateFromRule(r, nowIso());
-    r.nextRun = advanceMonthly(r.nextRun, r.anchor);
+    r.nextRun = advance(r.nextRun, r.frequency, r.anchor);
     touch(r, this.user.id);
   }
 
@@ -456,7 +460,7 @@ export class MemoryRepo implements Repo {
       let guard = 0;
       while (r.nextRun <= today && guard < 24) {
         await this.generateFromRule(r, r.nextRun + "T08:00:00.000Z");
-        r.nextRun = advanceMonthly(r.nextRun, r.anchor);
+        r.nextRun = advance(r.nextRun, r.frequency, r.anchor);
         generated++;
         guard++;
       }
@@ -624,7 +628,8 @@ export async function seedDemo(repo: MemoryRepo): Promise<{ groupId: string }> {
     groupId: group.id,
     description: "Rent",
     amountCents: 1200000,
-    dayOfMonth: 1,
+    frequency: "monthly",
+    anchor: 1,
     payerMemberId: josh.id,
     splitMethod: "salary",
     participantMemberIds: [josh.id, sam.id],

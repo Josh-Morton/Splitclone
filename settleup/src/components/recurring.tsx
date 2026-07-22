@@ -12,6 +12,7 @@
 import { useState } from "react";
 import type { NewRecurringInput, Repo } from "@/lib/data";
 import { fmt, parseCents, type GroupMember, type RecurringExpense } from "@/lib/domain";
+import { WEEKDAYS } from "./add-expense-sheet";
 import { memberDisplayName } from "./avatar";
 import { CategoryTile } from "./expenses-tab";
 import { Button, Card, ErrorText, Input, Label } from "./ui";
@@ -135,9 +136,16 @@ export function RecurringOverlay({
               </div>
             </div>
             <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 12px" }}>
-              Monthly on day {r.anchor} · {name(r.payerMemberId)}{" "}
-              {name(r.payerMemberId) === "You" ? "pay" : "pays"} ·{" "}
-              {r.splitMethod === "salary" ? "proportional" : "equal"} split
+              {r.frequency === "weekly"
+                ? `Every ${WEEKDAYS[r.anchor] ?? "week"}`
+                : `Monthly on day ${r.anchor}`}{" "}
+              · {name(r.payerMemberId)} {name(r.payerMemberId) === "You" ? "pay" : "pays"} ·{" "}
+              {r.splitMethod === "exact"
+                ? "fixed"
+                : r.splitMethod === "salary"
+                  ? "proportional"
+                  : "equal"}{" "}
+              split
             </p>
             <div style={{ display: "flex", gap: 8 }}>
               <Button
@@ -219,7 +227,9 @@ function NewRecurringSheet({
   const [desc, setDesc] = useState("");
   const [payerId, setPayerId] = useState(meMember?.id ?? members[0]?.id ?? "");
   const [method, setMethod] = useState<"equal" | "salary">("salary");
-  const [day, setDay] = useState("1");
+  const [freq, setFreq] = useState<"weekly" | "monthly">("monthly");
+  const [day, setDay] = useState("1"); // day-of-month
+  const [dow, setDow] = useState(new Date().getDay()); // day-of-week 0–6
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -236,7 +246,8 @@ function NewRecurringSheet({
         groupId,
         description: desc.trim(),
         amountCents: total,
-        dayOfMonth: Math.max(1, Math.min(28, parseInt(day) || 1)),
+        frequency: freq,
+        anchor: freq === "weekly" ? dow : Math.max(1, Math.min(28, parseInt(day) || 1)),
         payerMemberId: payerId,
         splitMethod: method,
         participantMemberIds: members.map((m) => m.id),
@@ -245,6 +256,7 @@ function NewRecurringSheet({
       setAmount("");
       setDesc("");
       setDay("1");
+      setFreq("monthly");
       onSaved();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -281,11 +293,32 @@ function NewRecurringSheet({
       </div>
 
       <div style={{ height: 16 }} />
-      <Label>Repeats monthly on day</Label>
-      <div style={{ width: 110 }}>
-        <Input value={day} onChange={(v) => setDay(v.replace(/\D/g, ""))} inputMode="numeric" placeholder="1" />
+      <Label>Repeats</Label>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <Pill active={freq === "weekly"} onClick={() => setFreq("weekly")}>
+          Weekly
+        </Pill>
+        <Pill active={freq === "monthly"} onClick={() => setFreq("monthly")}>
+          Monthly
+        </Pill>
       </div>
-      <p style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 6 }}>1–28, so it lands in every month.</p>
+      {freq === "weekly" ? (
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {WEEKDAYS.map((label, i) => (
+            <Pill key={i} active={dow === i} onClick={() => setDow(i)}>
+              {label}
+            </Pill>
+          ))}
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 13.5, color: "var(--muted)", fontWeight: 600 }}>on day</span>
+          <div style={{ width: 84 }}>
+            <Input value={day} onChange={(v) => setDay(v.replace(/\D/g, ""))} inputMode="numeric" placeholder="1" center />
+          </div>
+          <span style={{ fontSize: 12, color: "var(--faint)" }}>of each month (1–28)</span>
+        </div>
+      )}
 
       <ErrorText>{error}</ErrorText>
       <div style={{ height: 14 }} />

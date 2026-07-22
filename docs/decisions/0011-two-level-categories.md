@@ -31,6 +31,21 @@ taxonomy trimmed 600+ categories down to a practical two levels.
   (`SUBCATEGORIES` registry, `CATEGORY_TREE`, `CATEGORY_META` parents,
   `autoCategory`, `parentOf`, `categoryMeta`). Keep the keyword map here.
 
+## Revision (2026-07-19, Josh)
+- **Parents reduced 8 → 7 and reshaped** for intuitiveness (modelled on
+  Splitwise/Monarch/Mint): `Groceries · Eating out · Bills & rent · Transport ·
+  Household · Leisure · Other`. Rent + utilities + subscriptions merged into the
+  **Bills & rent** "monthly expenses" bucket; Entertainment renamed **Leisure**
+  (now also holds travel/hobbies). Retired parent slugs (`rent`, `utilities`,
+  `entertainment` + their sub-slugs) stay in the registry re-parented to their
+  new home, so stored data resolves with no migration.
+- **Much larger keyword database** — a big everyday-groceries vocabulary
+  (ingredients + SA retailers) so "cheese", "chicken", "bread"… auto-land on
+  Groceries. Matching upgraded from raw substring to **word-token matching**
+  (`keywordMatches`) to kill false positives like "tea"→"steam", "gin"→"virgin"
+  (phrases/punctuated keywords still substring-match; plain words match whole
+  tokens, or a ≥4-char prefix for plurals like "apple"→"apples").
+
 ## Consequences
 - Faster, more accurate everyday categorisation with a two-tap correction path.
 - Adding/renaming a subcategory is a one-line change in the registry; parent

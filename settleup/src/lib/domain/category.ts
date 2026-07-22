@@ -1,27 +1,37 @@
 /**
- * Two-level expense categorisation (Phase 6, ADR-0011).
+ * Two-level expense categorisation (Phase 6, ADR-0011; parents reworked
+ * 2026-07-19 per Josh — fewer, more intuitive top-level buckets + a much
+ * larger keyword database).
  *
- * Eight PARENT categories (unchanged slugs/colours/icons — legacy expense rows
- * that stored a bare parent slug still resolve) each hold several SUBCATEGORIES,
- * curated for a South African household (prepaid electricity, DSTV, e-tolls,
- * domestic help, armed response, medical aid, airtime…).
+ * SEVEN parent categories, modelled on what mainstream money apps use
+ * (Splitwise: Food/Home/Transport/…; Monarch/Mint: Groceries, Bills &
+ * Utilities, Food & Dining, …). The old 8 collapsed rent+utilities+
+ * subscriptions into one intuitive "Bills & rent" (the monthly-expenses
+ * bucket) and renamed Entertainment → Leisure:
  *
- * `autoCategory(desc)` picks a subcategory slug from description keywords
- * (order-sensitive — earlier entries win, so "uber eats" → takeaway before
- * "uber" → rideshare). The result is always overridable in the UI.
+ *   Groceries · Eating out · Bills & rent · Transport · Household ·
+ *   Leisure · Other
  *
- * Storage: expense.category is free text; slugs are stored as-is. No migration.
+ * Each parent holds SUBCATEGORIES, curated for a South African household
+ * (prepaid electricity, DSTV, airtime, e-tolls, domestic help, armed response,
+ * medical aid, municipal rates…). `autoCategory(desc)` picks a subcategory slug
+ * from description keywords — order-sensitive (earlier entries win, so "uber
+ * eats" → takeaway before "uber" → rideshare). The result is always overridable.
+ *
+ * Storage: expense.category is free text; slugs stored as-is. Legacy slugs
+ * (incl. the retired "rent"/"utilities"/"entertainment" parents) still resolve
+ * because they remain in the registry, re-parented to their new home. No
+ * migration.
  */
 
-/** The eight parent categories (stable slugs, from the original design). */
+/** The seven parent categories (stable display order). */
 export type ParentCategory =
   | "groceries"
-  | "rent"
-  | "utilities"
   | "eatingout"
+  | "bills"
   | "transport"
   | "household"
-  | "entertainment"
+  | "leisure"
   | "other";
 
 /** A stored category slug — a subcategory, or a bare parent slug (legacy/general). */
@@ -30,12 +40,11 @@ export type Category = string;
 /** Parent display metadata: labels + accent colours + emoji glyphs (design tokens). */
 export const CATEGORY_META: Record<ParentCategory, { label: string; color: string; icon: string }> = {
   groceries: { label: "Groceries", color: "#7FB6F5", icon: "🛒" },
-  rent: { label: "Rent", color: "#A9ABF8", icon: "🏠" },
-  utilities: { label: "Utilities", color: "#E9BF73", icon: "💡" },
   eatingout: { label: "Eating out", color: "#6FD7AC", icon: "🍽️" },
+  bills: { label: "Bills & rent", color: "#A9ABF8", icon: "🏠" },
   transport: { label: "Transport", color: "#74D2E0", icon: "🚗" },
   household: { label: "Household", color: "#C9A6F4", icon: "🧺" },
-  entertainment: { label: "Entertainment", color: "#F39DC0", icon: "🎬" },
+  leisure: { label: "Leisure", color: "#F39DC0", icon: "🎬" },
   other: { label: "Other", color: "#AEB9CC", icon: "🧾" },
 };
 
@@ -49,71 +58,111 @@ interface SubcategoryDef {
   keywords: string[];
 }
 
+// Reusable keyword blocks -----------------------------------------------------
+
+// A big everyday-groceries vocabulary: SA retailers + common items/ingredients.
+// This is the "huge database of words" so "cheese", "chicken", "bread" etc all
+// land on Groceries automatically.
+const GROCERY_WORDS = [
+  // retailers
+  "grocer", "groceries", "supermarket", "woolworth", "woolies", "checkers", "pick n pay",
+  "pick 'n pay", "pnp", "spar", "shoprite", "usave", "boxer", "food lover", "fruit & veg",
+  "fruit and veg", "ok foods", "makro", "cambridge", "president hyper",
+  // staples & pantry
+  "food ", "milk", "bread", "eggs", "egg ", "butter", "margarine", "cheese", "cheddar",
+  "gouda", "feta", "mozzarella", "cream cheese", "yoghurt", "yogurt", "cream", "amasi", "maas",
+  "rice", "pasta", "spaghetti", "macaroni", "noodles", "flour", "cake flour", "maize",
+  "mielie meal", "maize meal", "pap", "samp", "oats", "cereal", "weetbix", "cornflakes",
+  "muesli", "sugar", "salt", "spice", "spices", "cooking oil", "olive oil", "sunflower oil",
+  "vinegar", "tomato sauce", "ketchup", "mayo", "mayonnaise", "mustard", "chutney", "jam",
+  "honey", "peanut butter", "marmite", "bovril", "stock cube", "gravy", "soup",
+  // meat & protein
+  "chicken", "beef", "mince", "steak", "pork", "lamb", "sausage", "boerewors", "wors",
+  "bacon", "ham", "polony", "viennas", "russians", "fish", "hake", "tuna", "salmon",
+  // produce
+  "vegetables", "veggies", " veg", "fruit", "apple", "banana", "orange", "grapes",
+  "berries", "strawberr", "tomato", "potato", "onion", "carrot", "lettuce", "spinach",
+  "cabbage", "broccoli", "cauliflower", "cucumber", "avocado", " avo", "garlic", "ginger",
+  "lemon", "lime", "mushroom", "corn", "mielies", "beans", "lentils", "chickpeas",
+  // bakery / snacks / drinks
+  "bakery", "roll ", "bun ", "cake", "muffin", "biscuit", "cookies", "rusks", "chocolate",
+  "sweets", "candy", "snacks", "nuts", "biltong", "droëwors", "drywors", "popcorn", "chips",
+  "crisps", "ice cream", "juice", "cooldrink", "cold drink", "cooldrinks", "soda", "fizzy",
+  "coke", "coffee", "tea", "rooibos", "sparkling water", "bottled water", "still water",
+  // baking / misc
+  "baking powder", "yeast", "vanilla", "cocoa", "icing sugar", "custard", "canned", "tinned",
+  "baby food", "formula",
+];
+
 /**
  * Ordered subcategory registry. Array order IS auto-detection priority.
  * Each parent's "general" bucket (slug === parent) carries no keywords and is
- * the manual/fallback choice for that parent; legacy rows land here too.
+ * the manual/fallback choice; legacy rows land here too.
  */
 export const SUBCATEGORIES: SubcategoryDef[] = [
-  // --- Rent ---
-  { slug: "rent", parent: "rent", label: "Rent / bond", keywords: ["rent", "bond", "lease", "accommodation", "airbnb"] },
-  { slug: "rent_levies", parent: "rent", label: "Levies & rates", keywords: ["levy", "levies", "rates", "body corporate", "hoa"] },
-  { slug: "rent_deposit", parent: "rent", label: "Deposit", keywords: ["deposit"] },
-
-  // --- Utilities ---
-  { slug: "utilities_electricity", parent: "utilities", label: "Electricity / prepaid", keywords: ["electric", "prepaid", "eskom", "load"] },
-  { slug: "utilities_water", parent: "utilities", label: "Water & municipal", keywords: ["water", "municipal", "rates and taxes", "refuse", "sewer"] },
-  { slug: "utilities_internet", parent: "utilities", label: "Internet / fibre", keywords: ["fibre", "fiber", "internet", "wifi", "wi-fi", "adsl", "vumatel", "webafrica"] },
-  { slug: "utilities_mobile", parent: "utilities", label: "Mobile / airtime", keywords: ["airtime", "data bundle", "vodacom", "mtn", "telkom mobile", "cell c", "rain"] },
-  { slug: "utilities_tv", parent: "utilities", label: "TV licence / DSTV", keywords: ["dstv", "tv licence", "tv license", "multichoice"] },
-  { slug: "utilities", parent: "utilities", label: "Utilities (other)", keywords: ["gas", "utility"] },
+  // --- Bills & rent (the "monthly expenses" bucket) — checked first as its
+  //     keywords are the most distinctive. Legacy rent_/utilities_ slugs live
+  //     here now. ---
+  { slug: "rent", parent: "bills", label: "Rent / bond", keywords: ["rent", "bond", "lease", "accommodation", "airbnb"] },
+  { slug: "rent_levies", parent: "bills", label: "Levies & rates", keywords: ["levy", "levies", "rates", "body corporate", "hoa"] },
+  { slug: "rent_deposit", parent: "bills", label: "Deposit", keywords: ["deposit"] },
+  { slug: "utilities_electricity", parent: "bills", label: "Electricity / prepaid", keywords: ["electric", "prepaid electric", "prepaid", "eskom", "load shedding", "loadshedding"] },
+  { slug: "utilities_water", parent: "bills", label: "Water & municipal", keywords: ["water bill", "municipal", "rand water", "sanitation", "refuse", "sewer"] },
+  { slug: "utilities_internet", parent: "bills", label: "Internet / fibre", keywords: ["fibre", "fiber", "internet", "wifi", "wi-fi", "adsl", "vumatel", "webafrica", "afrihost", "cool ideas"] },
+  { slug: "utilities_mobile", parent: "bills", label: "Mobile / airtime", keywords: ["airtime", "data bundle", "vodacom", "mtn", "telkom", "cell c", "rain "] },
+  { slug: "utilities_tv", parent: "bills", label: "DSTV / TV licence", keywords: ["dstv", "tv licence", "tv license", "multichoice"] },
+  { slug: "bills_insurance", parent: "bills", label: "Insurance", keywords: ["insurance", "outsurance", "santam", "miway", "king price", "premium"] },
+  { slug: "bills_medical", parent: "bills", label: "Medical aid", keywords: ["medical aid", "discovery health", "momentum health", "bonitas", "medshield"] },
+  { slug: "entertainment_streaming", parent: "bills", label: "Streaming & subscriptions", keywords: ["netflix", "spotify", "showmax", "disney", "apple music", "youtube premium", "amazon prime", "subscription"] },
+  { slug: "utilities", parent: "bills", label: "Utilities (other)", keywords: ["gas", "utility"] },
+  { slug: "bills", parent: "bills", label: "Bill (other)", keywords: [] },
 
   // --- Eating out (before transport so "uber eats" wins) ---
-  { slug: "eatingout_takeaway", parent: "eatingout", label: "Takeaway / delivery", keywords: ["uber eats", "mr d", "mrd", "takeaway", "take-away", "delivery", "kfc", "nandos", "nando's", "steers", "debonairs"] },
-  { slug: "eatingout_coffee", parent: "eatingout", label: "Coffee & café", keywords: ["coffee", "cafe", "café", "vida", "seattle", "bootlegger"] },
-  { slug: "eatingout_drinks", parent: "eatingout", label: "Bars & drinks", keywords: ["bar ", "drinks", "pub", "cocktail"] },
-  { slug: "eatingout_restaurant", parent: "eatingout", label: "Restaurant", keywords: ["restaurant", "dinner", "lunch", "breakfast", "sushi", "pizza", "burger", "marble", "date night"] },
+  { slug: "eatingout_takeaway", parent: "eatingout", label: "Takeaway / delivery", keywords: ["uber eats", "mr d", "mrd", "takeaway", "take-away", "delivery", "kfc", "nandos", "nando's", "steers", "debonairs", "roman's", "romans pizza", "mcdonald", "burger king"] },
+  { slug: "eatingout_coffee", parent: "eatingout", label: "Coffee & café", keywords: ["cafe", "café", "coffee shop", "vida", "seattle coffee", "starbucks", "bootlegger"] },
+  { slug: "eatingout_drinks", parent: "eatingout", label: "Bars & drinks", keywords: ["bar ", " drinks", "pub", "cocktail", "brewery"] },
+  { slug: "eatingout_restaurant", parent: "eatingout", label: "Restaurant", keywords: ["restaurant", "dinner", "lunch out", "breakfast out", "sushi", "pizza", "burger", "marble", "date night", "spur", "ocean basket", "mugg"] },
   { slug: "eatingout", parent: "eatingout", label: "Eating out (other)", keywords: [] },
 
   // --- Transport ---
-  { slug: "transport_rideshare", parent: "transport", label: "Uber / Bolt / taxi", keywords: ["uber", "bolt", "taxi"] },
-  { slug: "transport_fuel", parent: "transport", label: "Fuel / petrol", keywords: ["petrol", "fuel", "diesel", "engen", "shell", "bp ", "sasol", "total"] },
+  { slug: "transport_rideshare", parent: "transport", label: "Uber / Bolt / taxi", keywords: ["uber", "bolt", "taxi", "indriver"] },
+  { slug: "transport_fuel", parent: "transport", label: "Fuel / petrol", keywords: ["petrol", "fuel", "diesel", "engen", "shell", "bp ", "sasol", "total ", "caltex", "astron"] },
   { slug: "transport_parking", parent: "transport", label: "Parking & tolls", keywords: ["parking", "e-toll", "etoll", "toll", "sanral"] },
-  { slug: "transport_public", parent: "transport", label: "Gautrain / public", keywords: ["gautrain", "bus", "myciti", "train"] },
-  { slug: "transport_car", parent: "transport", label: "Car service & upkeep", keywords: ["car service", "tyre", "tire", "licen", "mechanic", "panelbeat", "battery"] },
+  { slug: "transport_public", parent: "transport", label: "Gautrain / public", keywords: ["gautrain", " bus", "myciti", "train", "metrorail"] },
+  { slug: "transport_car", parent: "transport", label: "Car service & upkeep", keywords: ["car service", "tyre", "tire", "licence disc", "license disc", "mechanic", "panelbeat", "car battery", "engine oil"] },
   { slug: "transport", parent: "transport", label: "Transport (other)", keywords: ["car "] },
 
-  // --- Groceries ---
-  { slug: "groceries_liquor", parent: "groceries", label: "Liquor", keywords: ["liquor", "bottle store", "tops", "makro liquor", "wine", "beer"] },
-  { slug: "groceries_butcher", parent: "groceries", label: "Butcher & deli", keywords: ["butcher", "deli", "meat", "braai pack"] },
-  { slug: "groceries_consumables", parent: "groceries", label: "Household consumables", keywords: ["toilet paper", "cleaning supplies", "dishwash", "washing powder"] },
-  { slug: "groceries", parent: "groceries", label: "Supermarket", keywords: ["grocer", "woolworth", "woolies", "checkers", "pick n pay", "pnp", "spar", "food ", "milk", "bread", "beans", "snacks", "shop", "makro", "game "] },
+  // --- Groceries (the big vocabulary lives on the general supermarket bucket) ---
+  { slug: "groceries_liquor", parent: "groceries", label: "Liquor", keywords: ["liquor", "bottle store", "tops ", "makro liquor", "wine", "beer", "whisky", "vodka", "gin", "cider", "savanna", "castle "] },
+  { slug: "groceries_butcher", parent: "groceries", label: "Meat & butcher", keywords: ["butcher", "deli", "braai pack", "meat market"] },
+  { slug: "groceries_consumables", parent: "groceries", label: "Household consumables", keywords: ["toilet paper", "cleaning supplies", "dishwash", "washing powder", "sunlight liquid", "handy andy", "cling wrap", "foil", "bin bags", "refuse bags"] },
+  { slug: "groceries", parent: "groceries", label: "Supermarket", keywords: GROCERY_WORDS },
 
   // --- Household ---
-  { slug: "household_cleaning", parent: "household", label: "Cleaning & domestic help", keywords: ["cleaning", "domestic", "helper", "char", "laundry"] },
-  { slug: "household_security", parent: "household", label: "Security & armed response", keywords: ["security", "armed response", "adt", "fidelity", "alarm", "beams"] },
-  { slug: "household_maintenance", parent: "household", label: "Maintenance & hardware", keywords: ["hardware", "builders", "leroy merlin", "plumber", "electrician", "tools", "maintenance", "repair"] },
-  { slug: "household_furniture", parent: "household", label: "Furniture & décor", keywords: ["furniture", "decor", "linen", "towel", "coricraft", "mrp home"] },
-  { slug: "household_garden", parent: "household", label: "Garden", keywords: ["garden", "plant", "nursery", "lawn", "stodels"] },
-  { slug: "household_pharmacy", parent: "household", label: "Pharmacy & toiletries", keywords: ["pharmacy", "clicks", "dis-chem", "dischem", "toiletr"] },
-  { slug: "household", parent: "household", label: "Household (other)", keywords: ["supplies"] },
+  { slug: "household_cleaning", parent: "household", label: "Cleaning & domestic help", keywords: ["domestic", "helper", "char", "laundry", "cleaner", "sweepsouth"] },
+  { slug: "household_security", parent: "household", label: "Security & armed response", keywords: ["security", "armed response", "adt", "fidelity adt", "alarm", "beams", "cctv"] },
+  { slug: "household_maintenance", parent: "household", label: "Maintenance & hardware", keywords: ["hardware", "builders warehouse", "leroy merlin", "plumber", "electrician", "tools", "maintenance", "repair", "cashbuild"] },
+  { slug: "household_furniture", parent: "household", label: "Furniture & décor", keywords: ["furniture", "decor", "linen", "towel", "coricraft", "mrp home", "@home", "sheet set"] },
+  { slug: "household_garden", parent: "household", label: "Garden", keywords: ["garden", "plant", "nursery", "lawn", "stodels", "compost"] },
+  { slug: "household_pharmacy", parent: "household", label: "Pharmacy & toiletries", keywords: ["pharmacy", "clicks", "dis-chem", "dischem", "toiletr", "shampoo", "nappies", "diapers"] },
+  { slug: "household", parent: "household", label: "Household (other)", keywords: ["supplies", "cleaning"] },
 
-  // --- Entertainment ---
-  { slug: "entertainment_streaming", parent: "entertainment", label: "Streaming & music", keywords: ["netflix", "spotify", "showmax", "disney", "apple music", "youtube premium", "amazon prime"] },
-  { slug: "entertainment_movies", parent: "entertainment", label: "Movies & shows", keywords: ["movie", "cinema", "ster-kinekor", "nu metro", "show", "theatre"] },
-  { slug: "entertainment_events", parent: "entertainment", label: "Events & tickets", keywords: ["concert", "ticket", "festival", "computicket", "quicket", "event"] },
-  { slug: "entertainment_gaming", parent: "entertainment", label: "Games", keywords: ["steam", "playstation", "xbox", "nintendo", "game pass"] },
-  { slug: "entertainment_sport", parent: "entertainment", label: "Sport & fitness", keywords: ["gym", "virgin active", "planet fitness", "parkrun", "sport"] },
-  { slug: "entertainment", parent: "entertainment", label: "Entertainment (other)", keywords: [] },
+  // --- Leisure (was Entertainment; travel/hobbies live here now) ---
+  { slug: "entertainment_movies", parent: "leisure", label: "Movies & shows", keywords: ["movie", "cinema", "ster-kinekor", "nu metro", " show", "theatre"] },
+  { slug: "entertainment_events", parent: "leisure", label: "Events & tickets", keywords: ["concert", "ticket", "festival", "computicket", "quicket", " event"] },
+  { slug: "entertainment_gaming", parent: "leisure", label: "Games", keywords: ["steam", "playstation", "xbox", "nintendo", "game pass"] },
+  { slug: "entertainment_sport", parent: "leisure", label: "Sport & fitness", keywords: ["gym", "virgin active", "planet fitness", "parkrun", "sport", "padel"] },
+  { slug: "other_travel", parent: "leisure", label: "Travel & accommodation", keywords: ["flight", "hotel", "booking.com", "lodge", "travel", "getaway"] },
+  { slug: "leisure_hobbies", parent: "leisure", label: "Hobbies & outings", keywords: ["hobby", "outing", "activity", "crafts"] },
+  { slug: "entertainment", parent: "leisure", label: "Leisure (other)", keywords: [] },
 
   // --- Other ---
-  { slug: "other_medical", parent: "other", label: "Medical & medical aid", keywords: ["medical aid", "discovery health", "momentum health", "doctor", "dentist", "hospital", "medical"] },
-  { slug: "other_insurance", parent: "other", label: "Insurance", keywords: ["insurance", "outsurance", "santam", "miway", "premium"] },
+  { slug: "other_medical", parent: "other", label: "Doctor & medical", keywords: ["doctor", "dentist", "hospital", "gp ", "optometr", "physio", "medical"] },
   { slug: "other_fees", parent: "other", label: "Bank & fees", keywords: ["bank fee", "bank charges", "service fee", "admin fee"] },
   { slug: "other_gifts", parent: "other", label: "Gifts & donations", keywords: ["gift", "donation", "present", "charity"] },
-  { slug: "other_kids", parent: "other", label: "Kids & school", keywords: ["school", "creche", "crèche", "daycare", "kids"] },
-  { slug: "other_pets", parent: "other", label: "Pets", keywords: ["pet", "vet", "dog food", "cat food"] },
-  { slug: "other_travel", parent: "other", label: "Travel & accommodation", keywords: ["flight", "hotel", "booking.com", "lodge", "travel"] },
+  { slug: "other_kids", parent: "other", label: "Kids & school", keywords: ["school", "creche", "crèche", "daycare", "kids", "stationery"] },
+  { slug: "other_pets", parent: "other", label: "Pets", keywords: ["pet ", "vet ", "dog food", "cat food", "petshop"] },
+  { slug: "other_insurance", parent: "bills", label: "Insurance", keywords: [] }, // legacy slug → Bills
   { slug: "other", parent: "other", label: "Other", keywords: [] },
 ];
 
@@ -158,11 +207,26 @@ export function categoryMeta(slug: Category): {
   };
 }
 
+/**
+ * Keyword match with word awareness (avoids "tea"→"steam", "gin"→"virgin"):
+ *  - phrases / punctuated keywords ("uber eats", "e-toll", "café") → substring
+ *  - plain single words → must match a whole token, or a token that starts
+ *    with it when the keyword is ≥4 chars (so "apple"→"apples", "grocer"→
+ *    "groceries", but "car" won't grab "cardigan").
+ */
+function keywordMatches(descLower: string, tokens: string[], kwRaw: string): boolean {
+  const k = kwRaw.trim().toLowerCase();
+  if (!k) return false;
+  if (/[^a-z0-9]/.test(k)) return descLower.includes(k);
+  return tokens.some((t) => t === k || (k.length >= 4 && t.startsWith(k)));
+}
+
 /** Auto-detect a subcategory slug from a free-text description (order-sensitive). */
 export function autoCategory(description: string | null | undefined): Category {
   const s = (description ?? "").toLowerCase();
+  const tokens = s.split(/[^a-z0-9]+/).filter(Boolean);
   for (const sub of SUBCATEGORIES) {
-    if (sub.keywords.some((w) => s.includes(w))) return sub.slug;
+    if (sub.keywords.some((w) => keywordMatches(s, tokens, w))) return sub.slug;
   }
   return "other";
 }

@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-18 (Phase 7 receipt-scanning spec finalised with Josh's flow; awaiting a Gemini key to build)
+**Last updated:** 2026-07-19 (Josh tweaks: 7 intuitive parent categories + big keyword DB, weekly/monthly recurring)
 
 ## Where we are
 
@@ -93,6 +93,17 @@ offline-first.
 - [x] Percentage & shares methods: in the domain layer + tests; deliberately
       not surfaced — final design has exactly three split options (see
       Design-fidelity backlog)
+
+### Post-launch tweaks (Josh, 2026-07-19)
+- [x] **Categories reworked to 7 intuitive parents** (Groceries · Eating out ·
+      Bills & rent · Transport · Household · Leisure · Other) with a much larger
+      grocery/ingredient keyword database ("cheese"→Groceries) and word-token
+      matching to avoid false positives. Legacy slugs resolve, no migration.
+      (ADR-0011 revision.)
+- [x] **Recurring supports weekly OR monthly** with a day picker (weekday pills
+      for weekly, day-of-month for monthly) — in both the Add-expense "Repeating
+      expense" toggle and the New-recurring sheet. Rule cards show "Every Wed" /
+      "Monthly on day N". Server generator already handled weekly advance.
 
 ## Phase 4 — Recurring & shopping list → M3 "Fair & automatic" ✅ (2026-07-13)
 - [x] **Recurring rules** — recurring_expense table + RLS; Recurring screen

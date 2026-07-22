@@ -31,16 +31,34 @@ import {
   ValidationError,
 } from "./repo";
 
+function toIso(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
 /** First occurrence of day-of-month `day` that is today or later (ISO date). */
 export function nextMonthlyRun(day: number, from = new Date()): string {
   const d = Math.max(1, Math.min(28, Math.round(day)));
   const candidate = new Date(from.getFullYear(), from.getMonth(), d);
   const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   if (candidate < today) candidate.setMonth(candidate.getMonth() + 1);
-  const y = candidate.getFullYear();
-  const m = String(candidate.getMonth() + 1).padStart(2, "0");
-  const dd = String(candidate.getDate()).padStart(2, "0");
-  return `${y}-${m}-${dd}`;
+  return toIso(candidate);
+}
+
+/** Next date that is weekday `dow` (0 Sun–6 Sat), today or later (ISO date). */
+export function nextWeeklyRun(dow: number, from = new Date()): string {
+  const target = ((Math.round(dow) % 7) + 7) % 7;
+  const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+  const delta = (target - today.getDay() + 7) % 7;
+  today.setDate(today.getDate() + delta);
+  return toIso(today);
+}
+
+/** First run date for a new rule from its frequency + anchor. */
+export function firstRun(frequency: "weekly" | "monthly", anchor: number, from = new Date()): string {
+  return frequency === "weekly" ? nextWeeklyRun(anchor, from) : nextMonthlyRun(anchor, from);
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- row mapping from PostgREST */
@@ -603,7 +621,10 @@ export class SupabaseRepo implements Repo {
 
   async createRecurring(input: NewRecurringInput): Promise<RecurringExpense> {
     const userId = await this.uid();
-    const day = Math.max(1, Math.min(28, Math.round(input.dayOfMonth)));
+    const anchor =
+      input.frequency === "weekly"
+        ? ((Math.round(input.anchor) % 7) + 7) % 7
+        : Math.max(1, Math.min(28, Math.round(input.anchor)));
     const { data, error } = await this.sb
       .from("recurring_expense")
       .insert({
@@ -612,9 +633,9 @@ export class SupabaseRepo implements Repo {
         description: input.description,
         category: autoCategory(input.description),
         amount_cents: input.amountCents,
-        frequency: "monthly",
-        anchor: day,
-        next_run: nextMonthlyRun(day),
+        frequency: input.frequency,
+        anchor,
+        next_run: firstRun(input.frequency, anchor),
         payer_member_id: input.payerMemberId,
         split_method: input.splitMethod,
         participant_member_ids: input.participantMemberIds,

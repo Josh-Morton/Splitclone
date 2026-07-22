@@ -48,8 +48,9 @@ export interface NewRecurringInput {
   groupId: string;
   description: string;
   amountCents: Cents;
-  /** Day of month the bill repeats on, clamped 1–28 (monthly only in v1 UI). */
-  dayOfMonth: number;
+  frequency: "weekly" | "monthly";
+  /** Weekly: day-of-week 0 (Sun)–6 (Sat). Monthly: day-of-month 1–28. */
+  anchor: number;
   payerMemberId: string;
   splitMethod: "equal" | "salary" | "exact";
   participantMemberIds: string[];

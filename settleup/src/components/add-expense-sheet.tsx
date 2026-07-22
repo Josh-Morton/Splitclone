@@ -30,6 +30,9 @@ import { Pill, Sheet } from "./sheet";
 
 type Method = Extract<SplitMethod, "equal" | "exact" | "salary">;
 
+/** Sun–Sat labels indexed by Date.getDay() (0–6). */
+export const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 const centsToInput = (c: number) => (c / 100).toFixed(2).replace(".", ",");
 const isoToDateInput = (iso: string) => iso.slice(0, 10);
 const todayDateInput = () => new Date().toISOString().slice(0, 10);
@@ -92,7 +95,9 @@ export function AddExpenseSheet({
   // "Repeats monthly" (new expenses only): also creates a recurring rule with
   // the split shown at save time locked in verbatim (Josh, Phase 6).
   const [repeats, setRepeats] = useState(false);
-  const [repeatDay, setRepeatDay] = useState(String(new Date().getDate()));
+  const [repeatFreq, setRepeatFreq] = useState<"weekly" | "monthly">("monthly");
+  const [repeatDom, setRepeatDom] = useState(String(new Date().getDate())); // day-of-month
+  const [repeatDow, setRepeatDow] = useState(new Date().getDay()); // day-of-week 0–6
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -169,7 +174,9 @@ export function AddExpenseSheet({
     setMultiPayer(false);
     setPaidBy({});
     setRepeats(false);
-    setRepeatDay(String(new Date().getDate()));
+    setRepeatFreq("monthly");
+    setRepeatDom(String(new Date().getDate()));
+    setRepeatDow(new Date().getDay());
     setCategoryOverride(null);
     setError("");
   }
@@ -224,13 +231,17 @@ export function AddExpenseSheet({
         await repo.updateExpense(editing.id, input);
       } else {
         await repo.createExpense(input);
-        // Lock the split shown right now into a monthly rule, if requested.
+        // Lock the split shown right now into a recurring rule, if requested.
         if (repeats && !multiPayer) {
           await repo.createRecurring({
             groupId,
             description: desc.trim(),
             amountCents: total,
-            dayOfMonth: Math.max(1, Math.min(28, parseInt(repeatDay) || 1)),
+            frequency: repeatFreq,
+            anchor:
+              repeatFreq === "weekly"
+                ? repeatDow
+                : Math.max(1, Math.min(28, parseInt(repeatDom) || 1)),
             payerMemberId: payerId,
             splitMethod: "exact",
             participantMemberIds: parts,
@@ -527,9 +538,9 @@ export function AddExpenseSheet({
             }}
           >
             <span style={{ fontSize: 14, fontWeight: 600, textAlign: "left" }}>
-              Repeats monthly
+              Repeating expense
               <span style={{ display: "block", fontSize: 11.5, color: "var(--faint)", fontWeight: 500 }}>
-                Locks in this exact split every month
+                Locks in this exact split, generated automatically
               </span>
             </span>
             <span
@@ -560,18 +571,41 @@ export function AddExpenseSheet({
             </span>
           </button>
           {repeats && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
-              <span style={{ fontSize: 13.5, color: "var(--muted)", fontWeight: 600 }}>on day</span>
-              <div style={{ width: 84 }}>
-                <Input
-                  value={repeatDay}
-                  onChange={(v) => setRepeatDay(v.replace(/\D/g, ""))}
-                  inputMode="numeric"
-                  placeholder="1"
-                  center
-                />
+            <div style={{ marginTop: 12 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                <Pill active={repeatFreq === "weekly"} onClick={() => setRepeatFreq("weekly")}>
+                  Weekly
+                </Pill>
+                <Pill active={repeatFreq === "monthly"} onClick={() => setRepeatFreq("monthly")}>
+                  Monthly
+                </Pill>
               </div>
-              <span style={{ fontSize: 12, color: "var(--faint)" }}>of each month (1–28)</span>
+              {repeatFreq === "weekly" ? (
+                <>
+                  <span style={{ fontSize: 12.5, color: "var(--muted)", fontWeight: 600 }}>Every</span>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 6 }}>
+                    {WEEKDAYS.map((label, i) => (
+                      <Pill key={i} active={repeatDow === i} onClick={() => setRepeatDow(i)}>
+                        {label}
+                      </Pill>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 13.5, color: "var(--muted)", fontWeight: 600 }}>on day</span>
+                  <div style={{ width: 84 }}>
+                    <Input
+                      value={repeatDom}
+                      onChange={(v) => setRepeatDom(v.replace(/\D/g, ""))}
+                      inputMode="numeric"
+                      placeholder="1"
+                      center
+                    />
+                  </div>
+                  <span style={{ fontSize: 12, color: "var(--faint)" }}>of each month (1–28)</span>
+                </div>
+              )}
             </div>
           )}
         </>
@@ -585,7 +619,7 @@ export function AddExpenseSheet({
           : editing
             ? "Save changes"
             : repeats && !multiPayer
-              ? "Save & repeat monthly"
+              ? "Save & repeat"
               : "Save expense"}
       </Button>
 
