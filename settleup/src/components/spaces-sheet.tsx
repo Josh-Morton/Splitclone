@@ -3,8 +3,9 @@
 /**
  * Spaces manager (Phase 6 + Tally polish): every space the user belongs to with
  * an active check; tap to switch (persists as default). Manage a space inline —
- * rename or delete (with guards: at least one space must remain; deleting the
- * active space switches to another first). Create a new space or join by code.
+ * owners rename or delete; members you don't own can be left (with guards: at
+ * least one space must remain; leaving/deleting the active space switches to
+ * another first). Create a new space or join by code.
  * Opened from the header ▾ and from Settings → Manage spaces.
  */
 
@@ -117,6 +118,21 @@ export function SpacesSheet({
     });
   };
 
+  const leaveSpace = (g: Group) => {
+    if (groups.length <= 1) {
+      setError("You need at least one space — join or create another first.");
+      return;
+    }
+    return run(async () => {
+      if (g.id === activeGroupId) {
+        const other = groups.find((x) => x.id !== g.id)!;
+        await setDefault(other.id);
+      }
+      await repo.leaveGroup(g.id);
+      return { message: `Left "${g.name}"`, close: false };
+    });
+  };
+
   return (
     <Sheet
       open={open}
@@ -128,12 +144,13 @@ export function SpacesSheet({
     >
       <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 14 }}>
         A space is a household, trip, or shared budget. Everything — expenses, balances, the list —
-        belongs to the space you&apos;re in. Tap to switch; tap ⋯ to rename or delete.
+        belongs to the space you&apos;re in. Tap to switch; tap ⋯ to manage it.
       </p>
 
       {groups.map((g) => {
         const active = g.id === activeGroupId;
         const managing = manageId === g.id;
+        const isOwner = g.createdBy === meUserId;
         return (
           <div key={g.id} style={{ marginBottom: 8 }}>
             <div
@@ -199,17 +216,63 @@ export function SpacesSheet({
                   background: "var(--s2)",
                 }}
               >
-                <Label>Rename</Label>
-                <div style={{ display: "flex", gap: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <Input value={renameValue} onChange={setRenameValue} onEnter={() => renameSpace(g)} />
-                  </div>
-                  <Button variant="secondary" style={{ width: 84 }} disabled={busy} onClick={() => renameSpace(g)}>
-                    Save
-                  </Button>
-                </div>
-                <div style={{ height: 12 }} />
-                {!confirmDelete ? (
+                {isOwner ? (
+                  <>
+                    <Label>Rename</Label>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <Input value={renameValue} onChange={setRenameValue} onEnter={() => renameSpace(g)} />
+                      </div>
+                      <Button variant="secondary" style={{ width: 84 }} disabled={busy} onClick={() => renameSpace(g)}>
+                        Save
+                      </Button>
+                    </div>
+                    <div style={{ height: 12 }} />
+                    {!confirmDelete ? (
+                      <button
+                        onClick={() => setConfirmDelete(true)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "var(--red)",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Delete this space
+                      </button>
+                    ) : (
+                      <div>
+                        <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 8 }}>
+                          Delete &quot;{g.name}&quot; and everything in it? This can&apos;t be undone.
+                        </p>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <Button variant="ghost" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>
+                            Keep it
+                          </Button>
+                          <button
+                            onClick={() => deleteSpace(g)}
+                            disabled={busy}
+                            style={{
+                              flex: 1,
+                              background: "var(--redbg)",
+                              border: "1px solid var(--red)",
+                              borderRadius: "var(--r-input)",
+                              color: "var(--red)",
+                              fontSize: 14,
+                              fontWeight: 700,
+                              padding: "12px 0",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : !confirmDelete ? (
                   <button
                     onClick={() => setConfirmDelete(true)}
                     style={{
@@ -221,19 +284,20 @@ export function SpacesSheet({
                       cursor: "pointer",
                     }}
                   >
-                    Delete this space
+                    Leave this space
                   </button>
                 ) : (
                   <div>
                     <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 8 }}>
-                      Delete &quot;{g.name}&quot; and everything in it? This can&apos;t be undone.
+                      Leave &quot;{g.name}&quot;? You&apos;ll lose access to its expenses. The owner can
+                      invite you back later. (You must be settled up first.)
                     </p>
                     <div style={{ display: "flex", gap: 8 }}>
                       <Button variant="ghost" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>
-                        Keep it
+                        Stay
                       </Button>
                       <button
-                        onClick={() => deleteSpace(g)}
+                        onClick={() => leaveSpace(g)}
                         disabled={busy}
                         style={{
                           flex: 1,
@@ -247,7 +311,7 @@ export function SpacesSheet({
                           cursor: "pointer",
                         }}
                       >
-                        Delete
+                        Leave
                       </button>
                     </div>
                   </div>

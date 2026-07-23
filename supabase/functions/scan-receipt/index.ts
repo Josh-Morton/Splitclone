@@ -26,13 +26,31 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-const PROMPT =
-  "You are reading a South African shop till slip. Extract ONLY the individual " +
-  "line items the customer purchased — ignore the store name/address, VAT lines, " +
-  "subtotals, totals, tender/change, loyalty and any non-item text. For each item " +
-  "give its name as printed and its price. All amounts are South African Rand: " +
-  "convert every amount to an integer number of cents (e.g. R37.99 -> 3799). If a " +
-  "quantity is shown, include it. Also return the printed grand total in cents.";
+const PROMPT = [
+  "You are reading a South African till slip or restaurant bill. Extract ONLY the",
+  "individual line items the customer bought — ignore store name/address, VAT,",
+  "subtotals, totals, tips, tender/change, loyalty and any non-item text.",
+  "",
+  "QUANTITIES ARE CRITICAL. Restaurant bills and many tills print a quantity",
+  "(usually a small number on the LEFT of the line) with a single price on the",
+  "RIGHT, e.g. '5  Jack Black  250.00'. The quantity is that left-hand number, NOT",
+  "part of the price.",
+  "",
+  "For each line return: name (as printed, without the qty number), qty (integer,",
+  "default 1), and BOTH unit_price_cents and line_total_cents, where line_total is",
+  "the amount for the whole line and unit = line_total / qty.",
+  "",
+  "Decide whether the printed price is the LINE TOTAL or a UNIT price by reasoning",
+  "about the grand total: the sum of all line_totals should equal (or be very",
+  "close to) the printed grand total. In most SA receipts the printed amount on a",
+  "quantity line is the LINE TOTAL (all units together) — e.g. '5 Jack Black",
+  "250.00' means 5 beers for R250 total, unit R50. But sometimes it is the per-unit",
+  "price — e.g. '5 Jack Black 50.00' where the line total is really R250. Use the",
+  "grand total to pick the interpretation that makes the receipt add up.",
+  "",
+  "All amounts are South African Rand — convert every amount to an integer number",
+  "of cents (R37.99 -> 3799). Also return the printed grand total in cents.",
+].join("\n");
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -129,20 +147,34 @@ Deno.serve(async (req: Request) => {
       return json({ error: "The receipt couldn't be read — try a clearer photo" }, 422);
     }
 
-    // Normalise: keep only valid item rows with a positive integer price.
-    const items = (Array.isArray(parsed.items) ? parsed.items : [])
-      .map((raw) => {
-        const it = raw as Record<string, unknown>;
-        const line = Math.round(Number(it.line_total_cents));
-        const name = typeof it.name === "string" ? it.name.trim() : "";
-        if (!name || !Number.isFinite(line) || line <= 0) return null;
-        return {
-          name,
-          qty: Number.isFinite(Number(it.qty)) && Number(it.qty) > 0 ? Number(it.qty) : null,
-          line_total_cents: line,
-        };
-      })
-      .filter((x): x is { name: string; qty: number | null; line_total_cents: number } => x !== null);
+    // Normalise + EXPAND quantity lines into individual items so people can tick
+    // who had what. "5 Jack Black — R250" becomes 5 rows of R50 each, split
+    // cent-exactly (largest-remainder) so they still sum to the line total.
+    const items: { name: string; qty: number | null; line_total_cents: number }[] = [];
+    for (const raw of Array.isArray(parsed.items) ? parsed.items : []) {
+      const it = raw as Record<string, unknown>;
+      const name = typeof it.name === "string" ? it.name.trim() : "";
+      const line = Math.round(Number(it.line_total_cents));
+      let qty = Math.round(Number(it.qty));
+      if (!name || !Number.isFinite(line) || line <= 0) continue;
+      if (!Number.isFinite(qty) || qty < 1) qty = 1;
+      qty = Math.min(qty, 50); // guard against a mis-read quantity
+
+      if (qty === 1) {
+        items.push({ name, qty: null, line_total_cents: line });
+        continue;
+      }
+      // Distribute the line total across `qty` units, cent-exact.
+      const base = Math.floor(line / qty);
+      const remainder = line - base * qty;
+      for (let i = 0; i < qty; i++) {
+        items.push({
+          name: `${name} (${i + 1} of ${qty})`,
+          qty: null,
+          line_total_cents: base + (i < remainder ? 1 : 0),
+        });
+      }
+    }
 
     if (items.length === 0) {
       return json({ error: "No items found on that photo — try again or add the amount by hand" }, 422);

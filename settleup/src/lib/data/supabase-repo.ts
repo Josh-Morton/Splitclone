@@ -348,6 +348,27 @@ export class SupabaseRepo implements Repo {
     return mapMember(data);
   }
 
+  async removeMember(memberId: string): Promise<string | null> {
+    const { data, error } = await this.sb.rpc("remove_group_member", { p_member_id: memberId });
+    if (error) this.fail(error);
+    return (data as string | null) ?? null;
+  }
+
+  async leaveGroup(groupId: string): Promise<void> {
+    const { error } = await this.sb.rpc("leave_group", { p_group_id: groupId });
+    if (error) this.fail(error);
+  }
+
+  async notifyRemoved(removedUserId: string, groupId: string): Promise<void> {
+    try {
+      await this.sb.functions.invoke("notify-removed", {
+        body: { removed_user_id: removedUserId, group_id: groupId },
+      });
+    } catch {
+      /* best-effort: removal already succeeded */
+    }
+  }
+
   // --- invites ---
   async createInvite(groupId: string, upgradesMemberId?: string | null): Promise<{ code: string }> {
     const userId = await this.uid();

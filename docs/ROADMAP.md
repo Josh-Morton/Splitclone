@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-22 (email+password Log in / Sign up on the landing page; magic-link kept as fallback)
+**Last updated:** 2026-07-23 (space membership: owner remove / member leave / reinvite reactivation + graceful removal email; receipt scan expands cumulative-quantity line items)
 
 ## Where we are
 
@@ -209,6 +209,34 @@ offline-first.
       *(Data layer already supports multiple groups; this is UI + routing.
       Supersedes the "Spaces switcher" line in the fidelity backlog below.)*
 
+- [x] **Space membership management (remove / leave / reinvite)** ✅
+      (2026-07-23) — the space **owner** can now remove another member
+      (Invite sheet → each non-owner row gets a **Remove** button with an
+      inline confirm), and any **non-owner** member can **leave** a space
+      (Spaces switcher → ⋯ → the manage panel shows **Leave this space**
+      instead of rename/delete for spaces you don't own). Guards: the owner
+      **cannot** remove themselves or another owner and **cannot leave** — they
+      must **delete** the space; removal/leave both require the member's
+      balance to be **zero** ("Settle up … before removing them"), keeping the
+      ledger consistent. Migration `20260724000000_space_membership.sql`:
+      `remove_group_member(member_id)` (owner-only, returns the removed
+      user_id), `leave_group(group_id)` (non-owner self), a `_member_net_cents`
+      helper for the zero-balance check, and `redeem_invite` updated to
+      **reactivate** a soft-deleted membership row so a removed/left person can
+      be **reinvited** with the same code path (no duplicate row; their history
+      is preserved). Removal is soft (`status='left'`, `deleted_at` set).
+      **Email on removal:** `notify-removed` Edge Function (service-role email
+      lookup — the client never sees other members' addresses; verifies the
+      caller is the owner) sends a "you've been removed from <space>" mail via
+      **Resend**, and **no-ops gracefully** (`{sent:false}`) until a
+      `RESEND_API_KEY` secret + verified domain are configured, so removal
+      works regardless. ⚠️ **Needs Josh:** set the `RESEND_API_KEY` (and
+      `RESEND_FROM`) Function secret to actually send those emails. Verified:
+      migration RPCs E2E against live Supabase (owner-only, zero-balance,
+      reinvite reactivation); in-browser demo (owner sees Remove; zero-balance
+      guard blocks Sam who owes R139,25; owner manage panel shows
+      rename+delete, not Leave). `npm test` (53) + build + lint green.
+
 - [x] **Invite / joining flow comms rework** ✅ client-side journey (2026-07-18) —
       shipped: verify screen is magic-link-first ("Open the email and tap the
       link" card; 6-digit entry demoted behind "Got a code instead?"), welcome
@@ -357,6 +385,17 @@ exact to the cent, total matches; anon rejected 401) and in-browser (untick 2
 items → R374,44 → R211,46 → saved with only the ticked items in the note).
 MemoryRepo returns a canned slip for the demo. Offline: capture yes, extraction
 no (online-only, per the spec below).
+
+**Update (2026-07-23) — cumulative-quantity line items.** Restaurant/bar slips
+list a quantity in the left column (e.g. `5  Jack Black  R175,00`). The Edge
+Function now reasons about that column: it decides whether the printed price is
+the **line total** (5 × R35) or a mis-printed **unit price** (using the grand
+total as the tie-breaker), then **expands the row into one line item per unit**
+(`Jack Black (1 of 5)` … `(5 of 5)`), dividing the line total across them with
+largest-remainder so the units sum **exactly** to the line total. So the
+checklist shows every drink/dish individually and you can tick only the ones
+that were yours. Qty is clamped to 50; a missing/`1` qty stays a single row.
+Expansion is server-side, so the client checklist is unchanged.
 
 ---
 

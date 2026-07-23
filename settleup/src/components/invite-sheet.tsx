@@ -39,9 +39,26 @@ export function InviteSheet({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState("");
 
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const placeholders = members.filter((m) => !m.userId);
+  const iAmOwner = members.find((m) => m.userId === meUserId)?.role === "owner";
   const memberName = (m: GroupMember) =>
     m.userId === meUserId ? "You" : m.profileName || m.placeholderName || "Member";
+
+  async function removeMember(m: GroupMember) {
+    setBusy(true);
+    setError("");
+    try {
+      const removedUserId = await repo.removeMember(m.id);
+      if (removedUserId) await repo.notifyRemoved(removedUserId, groupId);
+      setConfirmRemoveId(null);
+      onMembersChanged();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function addPlaceholder() {
     if (!newName.trim()) return;
@@ -105,22 +122,62 @@ export function InviteSheet({
   return (
     <Sheet open={open} onClose={onClose} title="Members & invite">
       <Label>Members</Label>
-      {members.map((m) => (
-        <div
-          key={m.id}
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            padding: "9px 0",
-            borderBottom: "1px solid var(--line)",
-          }}
-        >
-          <p style={{ fontSize: 14.5, fontWeight: 600 }}>{memberName(m)}</p>
-          <p style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, textTransform: "capitalize" }}>
-            {m.userId ? m.role : "placeholder"}
-          </p>
-        </div>
-      ))}
+      {members.map((m) => {
+        const canRemove = iAmOwner && m.userId !== meUserId && m.role !== "owner";
+        return (
+          <div key={m.id} style={{ borderBottom: "1px solid var(--line)", padding: "9px 0" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <p style={{ fontSize: 14.5, fontWeight: 600 }}>{memberName(m)}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, textTransform: "capitalize" }}>
+                  {m.userId ? m.role : "placeholder"}
+                </span>
+                {canRemove && confirmRemoveId !== m.id && (
+                  <button
+                    onClick={() => setConfirmRemoveId(m.id)}
+                    aria-label={`Remove ${memberName(m)}`}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "var(--red)",
+                      fontSize: 12.5,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      padding: 2,
+                    }}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            </div>
+            {canRemove && confirmRemoveId === m.id && (
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <Button variant="ghost" style={{ flex: 1, padding: "8px 0" }} onClick={() => setConfirmRemoveId(null)}>
+                  Cancel
+                </Button>
+                <button
+                  onClick={() => removeMember(m)}
+                  disabled={busy}
+                  style={{
+                    flex: 1,
+                    background: "var(--redbg)",
+                    border: "1px solid var(--red)",
+                    borderRadius: "var(--r-input)",
+                    color: "var(--red)",
+                    fontSize: 13.5,
+                    fontWeight: 700,
+                    padding: "9px 0",
+                    cursor: "pointer",
+                  }}
+                >
+                  {busy ? "Removing…" : "Remove from space"}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
 
       <div style={{ height: 16 }} />
       <Label>Add a member (no app needed)</Label>

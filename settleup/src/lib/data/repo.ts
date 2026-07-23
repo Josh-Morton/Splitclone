@@ -98,6 +98,16 @@ export interface Repo {
   setSimplifyDebts(groupId: string, on: boolean): Promise<Group>;
   listMembers(groupId: string): Promise<GroupMember[]>;
   addPlaceholderMember(groupId: string, name: string): Promise<GroupMember>;
+  /**
+   * Owner removes a member (not themselves, not another owner). Requires the
+   * member's balance to be zero. Returns the removed user's id (null for a
+   * placeholder) so the caller can send the "you were removed" email.
+   */
+  removeMember(memberId: string): Promise<string | null>;
+  /** A non-owner member leaves the space (owner must delete instead). Zero-balance only. */
+  leaveGroup(groupId: string): Promise<void>;
+  /** Best-effort "you were removed" email to a removed user. Never throws. */
+  notifyRemoved(removedUserId: string, groupId: string): Promise<void>;
 
   // --- invites (E3) ---
   /**

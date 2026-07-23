@@ -210,6 +210,53 @@ export class MemoryRepo implements Repo {
     return m;
   }
 
+  async removeMember(memberId: string): Promise<string | null> {
+    const m = this.members.find((x) => x.id === memberId && !x.deletedAt);
+    if (!m) throw new ValidationError("Member not found");
+    if (m.role === "owner") throw new ValidationError("The space owner cannot be removed");
+    const net = this.memberNet(m.groupId, memberId);
+    if (net !== 0) throw new ValidationError("Settle up with this person before removing them");
+    m.status = "left";
+    m.deletedAt = nowIso();
+    touch(m, this.user.id);
+    return m.userId;
+  }
+
+  async leaveGroup(groupId: string): Promise<void> {
+    const m = this.members.find(
+      (x) => x.groupId === groupId && x.userId === this.user.id && !x.deletedAt
+    );
+    if (!m) throw new ValidationError("You are not a member of this space");
+    if (m.role === "owner") {
+      throw new ValidationError("You created this space — delete it instead of leaving");
+    }
+    if (this.memberNet(groupId, m.id) !== 0) {
+      throw new ValidationError("Settle up before leaving this space");
+    }
+    m.status = "left";
+    m.deletedAt = nowIso();
+    touch(m, this.user.id);
+  }
+
+  async notifyRemoved(): Promise<void> {
+    /* demo: no email backend */
+  }
+
+  private memberNet(groupId: string, memberId: string): number {
+    let net = 0;
+    for (const e of this.expenses) {
+      if (e.groupId !== groupId || e.deletedAt) continue;
+      for (const p of e.payers) if (p.memberId === memberId) net += p.paidCents;
+      for (const s of e.splits) if (s.memberId === memberId) net -= s.shareCents;
+    }
+    for (const s of this.settlements) {
+      if (s.groupId !== groupId || s.deletedAt) continue;
+      if (s.fromMemberId === memberId) net += s.amountCents;
+      if (s.toMemberId === memberId) net -= s.amountCents;
+    }
+    return net;
+  }
+
   // --- invites (demo: codes work within this session's memory) ---
   private invites = new Map<string, { groupId: string; upgradesMemberId: string | null }>();
 
