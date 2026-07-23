@@ -20,6 +20,7 @@ import { ReportsTab } from "@/components/reports-tab";
 import { SettingsSheet } from "@/components/settings-sheet";
 import { SpacesSheet } from "@/components/spaces-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
+import { SplittyTab } from "@/components/splitty-tab";
 import { TabBar, type Tab } from "@/components/tab-bar";
 import { Button, Card, Screen, Spinner } from "@/components/ui";
 import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
@@ -465,28 +466,32 @@ export default function HomePage() {
         </div>
       )}
 
-      <button
-        aria-label="Add expense"
-        onClick={() => setSheet("add")}
-        style={{
-          position: "fixed",
-          right: "max(18px, calc(50% - 215px + 18px))",
-          bottom: "calc(env(safe-area-inset-bottom) + 86px)",
-          width: 56,
-          height: 56,
-          borderRadius: "50%",
-          border: "none",
-          background: "var(--primary)",
-          color: "#fff",
-          fontSize: 28,
-          fontWeight: 700,
-          cursor: "pointer",
-          boxShadow: "var(--shadow-fab)",
-          zIndex: 40,
-        }}
-      >
-        +
-      </button>
+      {tab === "splitty" && <SplittyTab repo={d.repo} demo={d.mode === "demo"} />}
+
+      {tab !== "splitty" && (
+        <button
+          aria-label="Add expense"
+          onClick={() => setSheet("add")}
+          style={{
+            position: "fixed",
+            right: "max(18px, calc(50% - 215px + 18px))",
+            bottom: "calc(env(safe-area-inset-bottom) + 86px)",
+            width: 56,
+            height: 56,
+            borderRadius: "50%",
+            border: "none",
+            background: "var(--primary)",
+            color: "#fff",
+            fontSize: 28,
+            fontWeight: 700,
+            cursor: "pointer",
+            boxShadow: "var(--shadow-fab)",
+            zIndex: 40,
+          }}
+        >
+          +
+        </button>
+      )}
 
       <TabBar active={tab} onChange={setTab} />
 

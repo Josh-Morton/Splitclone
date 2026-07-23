@@ -176,6 +176,28 @@ export interface Repo {
    * for extraction and discarded.
    */
   scanReceipt(imageBase64: string, mimeType: string): Promise<ScanResult>;
+
+  // --- Splitty (Phase 8; standalone from the expense ledger — ADR-0013) ---
+  /** Admin only (signed in). Creates the bill + the admin's own guest row. */
+  splittyCreateBill(
+    merchant: string | null,
+    receiptTotalCents: Cents,
+    items: SplitBillItemInput[]
+  ): Promise<{ shareCode: string; guestId: string; guestToken: string }>;
+  /** No auth required. */
+  splittyJoin(shareCode: string, displayName: string): Promise<{ guestId: string; guestToken: string }>;
+  /** No auth required. Null if the code doesn't exist. */
+  splittyGetBill(shareCode: string): Promise<SplitBill | null>;
+  splittyClaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void>;
+  splittyUnclaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void>;
+  splittySetTip(shareCode: string, guestToken: string, tipPercent: number): Promise<void>;
+  splittySetLocked(shareCode: string, guestToken: string, locked: boolean): Promise<void>;
+  /** Admin only (signed in, must be the creator). */
+  splittyCloseBill(shareCode: string): Promise<void>;
+  /** Admin only — bills the signed-in user created, newest first. */
+  splittyListMyBills(): Promise<SplitBillSummary[]>;
+  /** Realtime: invoke cb when items/guests change on this bill. Returns unsubscribe. */
+  subscribeSplitBill(shareCode: string, cb: () => void): () => void;
 }
 
 export interface ScanItem {
@@ -188,4 +210,41 @@ export interface ScanResult {
   merchant: string | null;
   totalCents: Cents;
   items: ScanItem[];
+}
+
+export interface SplitBillItemInput {
+  name: string;
+  lineTotalCents: Cents;
+}
+
+export interface SplitBillGuest {
+  id: string;
+  displayName: string;
+  tipPercent: number;
+  lockedIn: boolean;
+  isAdmin: boolean;
+}
+
+export interface SplitBillItem {
+  id: string;
+  name: string;
+  lineTotalCents: Cents;
+  claimedByGuestId: string | null;
+}
+
+export interface SplitBill {
+  billId: string;
+  shareCode: string;
+  merchant: string | null;
+  receiptTotalCents: Cents;
+  status: "open" | "closed";
+  items: SplitBillItem[];
+  guests: SplitBillGuest[];
+}
+
+export interface SplitBillSummary {
+  shareCode: string;
+  merchant: string | null;
+  status: "open" | "closed";
+  createdAt: string;
 }

@@ -85,6 +85,34 @@ export class MemoryRepo implements Repo {
   private shopping: ShoppingItem[] = [];
   private recurring: RecurringExpense[] = [];
   private activity: Activity[] = [];
+  // Splitty (Phase 8) — a single in-memory session, so no cross-device realtime.
+  private splitBills: {
+    id: string;
+    shareCode: string;
+    createdBy: string;
+    merchant: string | null;
+    receiptTotalCents: number;
+    status: "open" | "closed";
+    createdAt: string;
+  }[] = [];
+  private splitGuests: {
+    id: string;
+    billId: string;
+    displayName: string;
+    tipPercent: number;
+    lockedIn: boolean;
+    isAdmin: boolean;
+    joinedAt: string;
+  }[] = [];
+  private splitItems: {
+    id: string;
+    billId: string;
+    name: string;
+    lineTotalCents: number;
+    position: number;
+    claimedByGuestId: string | null;
+  }[] = [];
+  private splitTokens = new Map<string, string>(); // token → guestId
 
   constructor(user?: User) {
     this.user = user ?? {
@@ -619,6 +647,167 @@ export class MemoryRepo implements Repo {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 
+  // --- Splitty (Phase 8) ---
+  // NOTE: this is a single in-memory session — the guest share link literally
+  // cannot be opened on a second device in demo mode (there is no server). The
+  // methods still model the real behaviour so the demo tab isn't empty and the
+  // create/join/claim/lock loop works locally, same caveat as scanReceipt.
+  async splittyCreateBill(
+    merchant: string | null,
+    receiptTotalCents: number,
+    items: import("./repo").SplitBillItemInput[]
+  ): Promise<{ shareCode: string; guestId: string; guestToken: string }> {
+    const clean = items.filter((it) => it.name.trim() && it.lineTotalCents > 0);
+    if (clean.length === 0) throw new ValidationError("A split needs at least one item");
+    const billId = uuid();
+    const shareCode = uuid().replace(/-/g, "").slice(0, 16);
+    this.splitBills.push({
+      id: billId,
+      shareCode,
+      createdBy: this.user.id,
+      merchant: merchant?.trim() || null,
+      receiptTotalCents: Math.max(0, Math.round(receiptTotalCents)),
+      status: "open",
+      createdAt: nowIso(),
+    });
+    const guestId = uuid();
+    this.splitGuests.push({
+      id: guestId,
+      billId,
+      displayName: this.user.displayName || "You",
+      tipPercent: 0,
+      lockedIn: false,
+      isAdmin: true,
+      joinedAt: nowIso(),
+    });
+    const guestToken = uuid();
+    this.splitTokens.set(guestToken, guestId);
+    clean.forEach((it, i) =>
+      this.splitItems.push({
+        id: uuid(),
+        billId,
+        name: it.name.trim(),
+        lineTotalCents: Math.round(it.lineTotalCents),
+        position: i,
+        claimedByGuestId: null,
+      })
+    );
+    return { shareCode, guestId, guestToken };
+  }
+
+  async splittyJoin(shareCode: string, displayName: string): Promise<{ guestId: string; guestToken: string }> {
+    const name = displayName.trim().slice(0, 40);
+    if (!name) throw new ValidationError("Enter your name");
+    const bill = this.splitBills.find((b) => b.shareCode === shareCode);
+    if (!bill) throw new ValidationError("Split not found");
+    if (bill.status === "closed") throw new ValidationError("This split is closed");
+    const guestId = uuid();
+    this.splitGuests.push({
+      id: guestId,
+      billId: bill.id,
+      displayName: name,
+      tipPercent: 0,
+      lockedIn: false,
+      isAdmin: false,
+      joinedAt: nowIso(),
+    });
+    const guestToken = uuid();
+    this.splitTokens.set(guestToken, guestId);
+    return { guestId, guestToken };
+  }
+
+  async splittyGetBill(shareCode: string): Promise<import("./repo").SplitBill | null> {
+    const bill = this.splitBills.find((b) => b.shareCode === shareCode);
+    if (!bill) return null;
+    return {
+      billId: bill.id,
+      shareCode: bill.shareCode,
+      merchant: bill.merchant,
+      receiptTotalCents: bill.receiptTotalCents,
+      status: bill.status,
+      items: this.splitItems
+        .filter((it) => it.billId === bill.id)
+        .sort((a, b) => a.position - b.position)
+        .map((it) => ({
+          id: it.id,
+          name: it.name,
+          lineTotalCents: it.lineTotalCents,
+          claimedByGuestId: it.claimedByGuestId,
+        })),
+      guests: this.splitGuests
+        .filter((g) => g.billId === bill.id)
+        .sort((a, b) => a.joinedAt.localeCompare(b.joinedAt))
+        .map((g) => ({
+          id: g.id,
+          displayName: g.displayName,
+          tipPercent: g.tipPercent,
+          lockedIn: g.lockedIn,
+          isAdmin: g.isAdmin,
+        })),
+    };
+  }
+
+  private splittyGuest(shareCode: string, guestToken: string) {
+    const bill = this.splitBills.find((b) => b.shareCode === shareCode);
+    const guestId = this.splitTokens.get(guestToken);
+    const guest = this.splitGuests.find((g) => g.id === guestId && g.billId === bill?.id);
+    if (!bill || !guest) throw new ValidationError("Not recognized — rejoin the split");
+    return { bill, guest };
+  }
+
+  async splittyClaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void> {
+    const { bill, guest } = this.splittyGuest(shareCode, guestToken);
+    if (bill.status === "closed") throw new ValidationError("This split is closed");
+    if (guest.lockedIn) throw new ValidationError("Unlock to change your items");
+    const item = this.splitItems.find((it) => it.id === itemId && it.billId === bill.id);
+    if (!item || item.claimedByGuestId !== null) throw new ValidationError("Someone already grabbed that one");
+    item.claimedByGuestId = guest.id;
+  }
+
+  async splittyUnclaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void> {
+    const { bill, guest } = this.splittyGuest(shareCode, guestToken);
+    if (bill.status === "closed") throw new ValidationError("This split is closed");
+    if (guest.lockedIn) throw new ValidationError("Unlock to change your items");
+    const item = this.splitItems.find((it) => it.id === itemId && it.billId === bill.id);
+    if (!item || item.claimedByGuestId !== guest.id) throw new ValidationError("That item is not yours to release");
+    item.claimedByGuestId = null;
+  }
+
+  async splittySetTip(shareCode: string, guestToken: string, tipPercent: number): Promise<void> {
+    const { bill, guest } = this.splittyGuest(shareCode, guestToken);
+    if (bill.status === "closed") throw new ValidationError("This split is closed");
+    if (guest.lockedIn) throw new ValidationError("Unlock to change your tip");
+    guest.tipPercent = Math.max(0, Math.min(100, tipPercent));
+  }
+
+  async splittySetLocked(shareCode: string, guestToken: string, locked: boolean): Promise<void> {
+    const { bill, guest } = this.splittyGuest(shareCode, guestToken);
+    if (bill.status === "closed") throw new ValidationError("This split is closed");
+    guest.lockedIn = locked;
+  }
+
+  async splittyCloseBill(shareCode: string): Promise<void> {
+    const bill = this.splitBills.find((b) => b.shareCode === shareCode && b.createdBy === this.user.id);
+    if (!bill) throw new ValidationError("Only the creator can close this split");
+    bill.status = "closed";
+  }
+
+  async splittyListMyBills(): Promise<import("./repo").SplitBillSummary[]> {
+    return this.splitBills
+      .filter((b) => b.createdBy === this.user.id)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((b) => ({
+        shareCode: b.shareCode,
+        merchant: b.merchant,
+        status: b.status,
+        createdAt: b.createdAt,
+      }));
+  }
+
+  subscribeSplitBill(): () => void {
+    return () => {};
+  }
+
   // --- internals ---
   private mustGroup(groupId: string): Group {
     const g = this.groups.find((x) => x.id === groupId && !x.deletedAt);
@@ -709,6 +898,27 @@ export async function seedDemo(repo: MemoryRepo): Promise<{ groupId: string }> {
     splitMethod: "salary",
     participantMemberIds: [josh.id, sam.id],
   });
+
+  // A demo Splitty bill so the tab isn't empty. Josh is the admin; a second
+  // guest "Sam" has already claimed a couple of items and locked in.
+  const bill = await repo.splittyCreateBill("Mzoli's braai", 62000, [
+    { name: "Boerewors roll", lineTotalCents: 8500 },
+    { name: "Lamb chops 300g", lineTotalCents: 22000 },
+    { name: "Pap & chakalaka", lineTotalCents: 6500 },
+    { name: "Castle Lager (1 of 2)", lineTotalCents: 4500 },
+    { name: "Castle Lager (2 of 2)", lineTotalCents: 4500 },
+    { name: "Savanna Dry", lineTotalCents: 5500 },
+    { name: "Grilled corn", lineTotalCents: 3500 },
+    { name: "Wet wipes", lineTotalCents: 2000 },
+  ]);
+  const samGuest = await repo.splittyJoin(bill.shareCode, "Sam");
+  const seeded = await repo.splittyGetBill(bill.shareCode);
+  if (seeded) {
+    await repo.splittyClaimItem(bill.shareCode, samGuest.guestToken, seeded.items[3].id);
+    await repo.splittyClaimItem(bill.shareCode, samGuest.guestToken, seeded.items[5].id);
+    await repo.splittySetTip(bill.shareCode, samGuest.guestToken, 10);
+    await repo.splittySetLocked(bill.shareCode, samGuest.guestToken, true);
+  }
 
   return { groupId: group.id };
 }

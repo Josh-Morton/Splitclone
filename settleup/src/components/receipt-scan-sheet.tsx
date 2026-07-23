@@ -1,15 +1,21 @@
 "use client";
 
 /**
- * Receipt scanner (Phase 7): capture a till slip → extract line items via the
- * scan-receipt Edge Function → tick the items that belong to this expense →
- * "Add to expense" copies the ticked total + item note back into the Add-expense
- * sheet, where the normal flow (split, participants, space) continues. The image
- * is never stored — it's compressed, sent for extraction, and discarded.
+ * Receipt scanner. Two modes share one capture → scan → editable-checklist UI:
+ *
+ *  - "expense" (Phase 7): tick the items that belong to this expense →
+ *    "Add to expense" copies the ticked total + item note back into the
+ *    Add-expense sheet, where the normal flow (split, participants, space)
+ *    continues.
+ *  - "splitty" (Phase 8): every scanned row becomes a real line item (rename,
+ *    fix a price, or remove) → "Create split" hands the items back to the
+ *    caller, which creates the shared bill and routes to /split/<code>.
+ *
+ * The image is never stored — it's compressed, sent for extraction, discarded.
  */
 
 import { useRef, useState } from "react";
-import type { Repo, ScanItem } from "@/lib/data";
+import type { Repo, ScanItem, SplitBillItemInput } from "@/lib/data";
 import { fmt, parseCents } from "@/lib/domain";
 import { compressImage } from "@/lib/image";
 import { Button, ErrorText, Spinner } from "./ui";
@@ -18,6 +24,7 @@ import { Sheet } from "./sheet";
 interface Row extends ScanItem {
   id: number;
   included: boolean;
+  nameInput: string;
   priceInput: string; // editable Rand string
 }
 
@@ -27,24 +34,36 @@ export function ReceiptScanSheet({
   open,
   onClose,
   onAdd,
+  onCreateSplit,
   repo,
+  mode = "expense",
 }: {
   open: boolean;
   onClose: () => void;
-  /** Ticked total + a note of the chosen items → prefill the expense. */
-  onAdd: (result: { amountCents: number; merchant: string | null; note: string }) => void;
+  /** expense mode: ticked total + a note of the chosen items → prefill the expense. */
+  onAdd?: (result: { amountCents: number; merchant: string | null; note: string }) => void;
+  /** splitty mode: the edited line items + merchant + total → create the bill. */
+  onCreateSplit?: (result: {
+    items: SplitBillItemInput[];
+    merchant: string | null;
+    totalCents: number;
+  }) => Promise<void> | void;
   repo: Repo;
+  mode?: "expense" | "splitty";
 }) {
+  const splitty = mode === "splitty";
   const fileRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<"idle" | "scanning" | "review">("idle");
   const [rows, setRows] = useState<Row[]>([]);
   const [merchant, setMerchant] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   function reset() {
     setPhase("idle");
     setRows([]);
     setMerchant(null);
+    setBusy(false);
     setError("");
   }
 
@@ -62,6 +81,7 @@ export function ReceiptScanSheet({
           ...it,
           id: i,
           included: true,
+          nameInput: it.name,
           priceInput: centsToInput(it.lineTotalCents),
         }))
       );
@@ -72,16 +92,35 @@ export function ReceiptScanSheet({
     }
   }
 
-  const tickedTotal = rows
-    .filter((r) => r.included)
-    .reduce((a, r) => a + parseCents(r.priceInput), 0);
-  const tickedCount = rows.filter((r) => r.included).length;
+  // expense mode counts only ticked rows; splitty mode counts every row.
+  const countedRows = rows.filter((r) => splitty || r.included);
+  const total = countedRows.reduce((a, r) => a + parseCents(r.priceInput), 0);
+  const countedCount = countedRows.length;
 
   function addToExpense() {
     const chosen = rows.filter((r) => r.included);
-    const note = chosen.map((r) => `${r.name} — ${fmt(parseCents(r.priceInput))}`).join("\n");
-    onAdd({ amountCents: tickedTotal, merchant, note });
+    const note = chosen.map((r) => `${r.nameInput} — ${fmt(parseCents(r.priceInput))}`).join("\n");
+    onAdd?.({ amountCents: total, merchant, note });
     reset();
+  }
+
+  async function createSplit() {
+    const items: SplitBillItemInput[] = rows
+      .map((r) => ({ name: r.nameInput.trim(), lineTotalCents: parseCents(r.priceInput) }))
+      .filter((it) => it.name && it.lineTotalCents > 0);
+    if (items.length === 0) {
+      setError("A split needs at least one item");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await onCreateSplit?.({ items, merchant, totalCents: total });
+      reset();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setBusy(false);
+    }
   }
 
   return (
@@ -91,7 +130,7 @@ export function ReceiptScanSheet({
         reset();
         onClose();
       }}
-      title="Scan a receipt"
+      title={splitty ? "Scan the bill" : "Scan a receipt"}
     >
       <input
         ref={fileRef}
@@ -105,8 +144,9 @@ export function ReceiptScanSheet({
       {phase === "idle" && (
         <>
           <p style={{ fontSize: 13.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 16 }}>
-            Snap the till slip — we&apos;ll pull out the items and their prices. Then tick the ones
-            that belong to this expense. The photo isn&apos;t saved.
+            {splitty
+              ? "Snap the bill — we'll pull out every item so your friends can each pick what they had. The photo isn't saved."
+              : "Snap the till slip — we'll pull out the items and their prices. Then tick the ones that belong to this expense. The photo isn't saved."}
           </p>
           <Button onClick={() => fileRef.current?.click()}>📷 Take / choose a photo</Button>
           <ErrorText>{error}</ErrorText>
@@ -123,7 +163,10 @@ export function ReceiptScanSheet({
       {phase === "review" && (
         <>
           <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>
-            {merchant ? `${merchant} · ` : ""}Tick the items for this expense. Tap a price to fix it.
+            {merchant ? `${merchant} · ` : ""}
+            {splitty
+              ? "Check the items — rename, fix a price, or remove any before you share."
+              : "Tick the items for this expense. Tap a price to fix it."}
           </p>
           <div style={{ maxHeight: "46vh", overflowY: "auto", margin: "8px -4px" }}>
             {rows.map((r) => (
@@ -137,38 +180,80 @@ export function ReceiptScanSheet({
                   borderTop: "1px solid var(--line)",
                 }}
               >
-                <button
-                  onClick={() =>
-                    setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, included: !x.included } : x)))
-                  }
-                  aria-label={r.included ? `Exclude ${r.name}` : `Include ${r.name}`}
-                  style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: 7,
-                    flexShrink: 0,
-                    cursor: "pointer",
-                    border: `2px solid ${r.included ? "var(--green)" : "var(--line2)"}`,
-                    background: r.included ? "var(--greenbg)" : "transparent",
-                    color: "var(--green)",
-                    fontSize: 13,
-                    fontWeight: 800,
-                    lineHeight: 1,
-                  }}
-                >
-                  {r.included ? "✓" : ""}
-                </button>
-                <span
-                  style={{
-                    flex: 1,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: r.included ? "var(--ink)" : "var(--faint)",
-                    textDecoration: r.included ? "none" : "line-through",
-                  }}
-                >
-                  {r.name}
-                </span>
+                {splitty ? (
+                  <button
+                    onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}
+                    aria-label={`Remove ${r.nameInput}`}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 7,
+                      flexShrink: 0,
+                      cursor: "pointer",
+                      border: "1px solid var(--line2)",
+                      background: "transparent",
+                      color: "var(--faint)",
+                      fontSize: 15,
+                      fontWeight: 800,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ×
+                  </button>
+                ) : (
+                  <button
+                    onClick={() =>
+                      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, included: !x.included } : x)))
+                    }
+                    aria-label={r.included ? `Exclude ${r.nameInput}` : `Include ${r.nameInput}`}
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: 7,
+                      flexShrink: 0,
+                      cursor: "pointer",
+                      border: `2px solid ${r.included ? "var(--green)" : "var(--line2)"}`,
+                      background: r.included ? "var(--greenbg)" : "transparent",
+                      color: "var(--green)",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      lineHeight: 1,
+                    }}
+                  >
+                    {r.included ? "✓" : ""}
+                  </button>
+                )}
+                {splitty ? (
+                  <input
+                    value={r.nameInput}
+                    onChange={(e) =>
+                      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, nameInput: e.target.value } : x)))
+                    }
+                    aria-label={`Name of ${r.nameInput}`}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      background: "transparent",
+                      border: "none",
+                      outline: "none",
+                      color: "var(--ink)",
+                      fontSize: 14,
+                      fontWeight: 600,
+                    }}
+                  />
+                ) : (
+                  <span
+                    style={{
+                      flex: 1,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      color: r.included ? "var(--ink)" : "var(--faint)",
+                      textDecoration: r.included ? "none" : "line-through",
+                    }}
+                  >
+                    {r.nameInput}
+                  </span>
+                )}
                 <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <span style={{ color: "var(--faint)", fontSize: 13, fontWeight: 700 }}>R</span>
                   <input
@@ -179,7 +264,7 @@ export function ReceiptScanSheet({
                       )
                     }
                     inputMode="decimal"
-                    aria-label={`Price of ${r.name}`}
+                    aria-label={`Price of ${r.nameInput}`}
                     style={{
                       width: 72,
                       background: "var(--s2)",
@@ -207,19 +292,27 @@ export function ReceiptScanSheet({
             }}
           >
             <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>
-              {tickedCount} item{tickedCount === 1 ? "" : "s"} selected
+              {countedCount} item{countedCount === 1 ? "" : "s"}
+              {splitty ? "" : " selected"}
             </span>
-            <span style={{ fontSize: 17, fontWeight: 800 }}>{fmt(tickedTotal)}</span>
+            <span style={{ fontSize: 17, fontWeight: 800 }}>{fmt(total)}</span>
           </div>
 
           <div style={{ height: 12 }} />
-          <Button onClick={addToExpense} disabled={tickedTotal <= 0}>
-            Add to expense · {fmt(tickedTotal)}
-          </Button>
+          {splitty ? (
+            <Button onClick={createSplit} disabled={busy || total <= 0}>
+              {busy ? "Creating…" : `Create split · ${fmt(total)}`}
+            </Button>
+          ) : (
+            <Button onClick={addToExpense} disabled={total <= 0}>
+              Add to expense · {fmt(total)}
+            </Button>
+          )}
           <div style={{ height: 8 }} />
           <Button variant="ghost" onClick={() => fileRef.current?.click()}>
             Retake photo
           </Button>
+          <ErrorText>{error}</ErrorText>
         </>
       )}
     </Sheet>

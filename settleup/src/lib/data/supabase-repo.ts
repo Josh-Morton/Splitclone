@@ -29,6 +29,9 @@ import {
   type NewSettlementInput,
   type Repo,
   type ScanResult,
+  type SplitBill,
+  type SplitBillItemInput,
+  type SplitBillSummary,
   ValidationError,
 } from "./repo";
 
@@ -783,5 +786,163 @@ export class SupabaseRepo implements Repo {
       targetId: row.target_id,
       createdAt: row.created_at,
     }));
+  }
+
+  // --- Splitty (Phase 8; standalone from the expense ledger — ADR-0013) ---
+  // Guest methods must work with NO session (anon key) — only create/close/list
+  // go through this.uid(). Writes are token-gated RPCs; the token never leaves
+  // the guest's own device (it's not selectable — see the migration).
+  async splittyCreateBill(
+    merchant: string | null,
+    receiptTotalCents: number,
+    items: SplitBillItemInput[]
+  ): Promise<{ shareCode: string; guestId: string; guestToken: string }> {
+    const { data, error } = await this.sb.rpc("splitty_create_bill", {
+      p_merchant: merchant,
+      p_receipt_total_cents: receiptTotalCents,
+      p_items: items.map((it) => ({ name: it.name, line_total_cents: it.lineTotalCents })),
+    });
+    if (error) this.fail(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new ValidationError("Could not create the split");
+    return { shareCode: row.share_code, guestId: row.guest_id, guestToken: row.guest_token };
+  }
+
+  async splittyJoin(shareCode: string, displayName: string): Promise<{ guestId: string; guestToken: string }> {
+    const { data, error } = await this.sb.rpc("splitty_join", {
+      p_share_code: shareCode,
+      p_display_name: displayName,
+    });
+    if (error) this.fail(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    if (!row) throw new ValidationError("Could not join the split");
+    return { guestId: row.guest_id, guestToken: row.guest_token };
+  }
+
+  async splittyGetBill(shareCode: string): Promise<SplitBill | null> {
+    const { data: bill, error } = await this.sb
+      .from("split_bill")
+      .select("*")
+      .eq("share_code", shareCode)
+      .maybeSingle();
+    if (error) this.fail(error);
+    if (!bill) return null;
+
+    const [{ data: items, error: iErr }, { data: guests, error: gErr }] = await Promise.all([
+      this.sb.from("split_item").select("*").eq("bill_id", bill.id).order("position"),
+      this.sb.from("split_guest").select("*").eq("bill_id", bill.id).order("joined_at"),
+    ]);
+    if (iErr) this.fail(iErr);
+    if (gErr) this.fail(gErr);
+
+    return {
+      billId: bill.id,
+      shareCode: bill.share_code,
+      merchant: bill.merchant ?? null,
+      receiptTotalCents: Number(bill.receipt_total_cents),
+      status: bill.status,
+      items: (items ?? []).map((it: any) => ({
+        id: it.id,
+        name: it.name,
+        lineTotalCents: Number(it.line_total_cents),
+        claimedByGuestId: it.claimed_by_guest_id ?? null,
+      })),
+      guests: (guests ?? []).map((g: any) => ({
+        id: g.id,
+        displayName: g.display_name,
+        tipPercent: Number(g.tip_percent),
+        lockedIn: g.locked_in,
+        isAdmin: g.is_admin,
+      })),
+    };
+  }
+
+  async splittyClaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void> {
+    const { error } = await this.sb.rpc("splitty_claim_item", {
+      p_share_code: shareCode,
+      p_guest_token: guestToken,
+      p_item_id: itemId,
+    });
+    if (error) this.fail(error);
+  }
+
+  async splittyUnclaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void> {
+    const { error } = await this.sb.rpc("splitty_unclaim_item", {
+      p_share_code: shareCode,
+      p_guest_token: guestToken,
+      p_item_id: itemId,
+    });
+    if (error) this.fail(error);
+  }
+
+  async splittySetTip(shareCode: string, guestToken: string, tipPercent: number): Promise<void> {
+    const { error } = await this.sb.rpc("splitty_set_tip", {
+      p_share_code: shareCode,
+      p_guest_token: guestToken,
+      p_tip_percent: tipPercent,
+    });
+    if (error) this.fail(error);
+  }
+
+  async splittySetLocked(shareCode: string, guestToken: string, locked: boolean): Promise<void> {
+    const { error } = await this.sb.rpc("splitty_set_locked", {
+      p_share_code: shareCode,
+      p_guest_token: guestToken,
+      p_locked: locked,
+    });
+    if (error) this.fail(error);
+  }
+
+  async splittyCloseBill(shareCode: string): Promise<void> {
+    const { error } = await this.sb.rpc("splitty_close_bill", { p_share_code: shareCode });
+    if (error) this.fail(error);
+  }
+
+  async splittyListMyBills(): Promise<SplitBillSummary[]> {
+    const userId = await this.uid();
+    const { data, error } = await this.sb
+      .from("split_bill")
+      .select("share_code, merchant, status, created_at")
+      .eq("created_by", userId)
+      .order("created_at", { ascending: false });
+    if (error) this.fail(error);
+    return (data ?? []).map((row: any) => ({
+      shareCode: row.share_code,
+      merchant: row.merchant ?? null,
+      status: row.status,
+      createdAt: row.created_at,
+    }));
+  }
+
+  subscribeSplitBill(shareCode: string, cb: () => void): () => void {
+    // The Realtime filter needs the bill's id, not its share_code — resolve it
+    // once, then subscribe to both child tables on one channel.
+    let channel: ReturnType<SupabaseClient["channel"]> | null = null;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await this.sb
+        .from("split_bill")
+        .select("id")
+        .eq("share_code", shareCode)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      channel = this.sb
+        .channel(`splitty:${data.id}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "split_item", filter: `bill_id=eq.${data.id}` },
+          () => cb()
+        )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "split_guest", filter: `bill_id=eq.${data.id}` },
+          () => cb()
+        )
+        .subscribe();
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) void this.sb.removeChannel(channel);
+    };
   }
 }
