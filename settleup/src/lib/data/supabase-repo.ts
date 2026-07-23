@@ -938,6 +938,11 @@ export class SupabaseRepo implements Repo {
           { event: "*", schema: "public", table: "split_guest", filter: `bill_id=eq.${data.id}` },
           () => cb()
         )
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "split_bill", filter: `id=eq.${data.id}` },
+          () => cb()
+        )
         .subscribe();
     })();
     return () => {

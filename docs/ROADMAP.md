@@ -514,6 +514,13 @@ Nothing else — no per-user setup, no Google linking, no billing.
 > guard / tip / lock / bad-token reject / owner-only close, then cascade
 > cleanup); in-browser demo (join as a guest, claim 2 items, 15% tip →
 > R138,00 exact, live overview); `npm test` (53) + build + lint green.
+> **Realtime fix (2026-07-23):** the initial migration created the tables but
+> forgot to add them to the `supabase_realtime` publication, so cross-user
+> updates only appeared when the receiving client next acted. Migration
+> `20260727000000_splitty_realtime.sql` adds `split_bill`/`split_guest`/
+> `split_item` to the publication (free — same mechanism `shopping_item` uses),
+> and `subscribeSplitBill` now also watches `split_bill` so "Close bill"
+> propagates live. Claims/tips/locks now push to everyone in ~real time.
 > **Not in v1 (by design):** no Expense row created, no shared-item cost-split
 > (qty-expansion covers it), no payment collection, no link expiry, no reopen.
 > Original spec (kept for reference):
