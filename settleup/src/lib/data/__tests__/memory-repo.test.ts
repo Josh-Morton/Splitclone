@@ -12,9 +12,13 @@ describe("MemoryRepo — Repo contract behavior", () => {
     ({ groupId } = await seedDemo(repo));
   });
 
-  it("seeds a demo household with expenses that reconcile", async () => {
+  it("seeds a rich demo household with expenses that all reconcile", async () => {
     const expenses = await repo.listExpenses(groupId);
-    expect(expenses.length).toBe(3);
+    // The demo intentionally exercises every split method + edge case.
+    expect(expenses.length).toBeGreaterThanOrEqual(15);
+    expect(new Set(expenses.map((e) => e.splitMethod))).toEqual(
+      new Set(["equal", "exact", "percent", "shares", "salary"])
+    );
     for (const e of expenses) {
       expect(e.splits.reduce((a, s) => a + s.shareCents, 0)).toBe(e.amountCents);
       expect(e.payers.reduce((a, p) => a + p.paidCents, 0)).toBe(e.amountCents);
@@ -61,14 +65,16 @@ describe("MemoryRepo — Repo contract behavior", () => {
       await repo.listSettlements(groupId)
     );
     const tx = simplifyDebts(net);
-    expect(tx.length).toBe(1); // two-person household: single payment
+    expect(tx.length).toBeGreaterThanOrEqual(1); // 4-person flat: one or more payments
 
-    await repo.recordSettlement({
-      groupId,
-      fromMemberId: tx[0].fromMemberId,
-      toMemberId: tx[0].toMemberId,
-      amountCents: tx[0].amountCents,
-    });
+    for (const t of tx) {
+      await repo.recordSettlement({
+        groupId,
+        fromMemberId: t.fromMemberId,
+        toMemberId: t.toMemberId,
+        amountCents: t.amountCents,
+      });
+    }
 
     const after = computeBalances(
       memberIds,
@@ -80,6 +86,8 @@ describe("MemoryRepo — Repo contract behavior", () => {
 
   it("logs activity for adds, edits, deletes and settlements", async () => {
     const activity = await repo.listActivity(groupId);
-    expect(activity.filter((a) => a.type === "expense_added").length).toBe(3);
+    const expenses = await repo.listExpenses(groupId);
+    // One "expense_added" entry per seeded expense.
+    expect(activity.filter((a) => a.type === "expense_added").length).toBe(expenses.length);
   });
 });

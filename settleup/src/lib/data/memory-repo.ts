@@ -22,7 +22,8 @@ import type {
   SyncMeta,
   User,
 } from "../domain";
-import { autoCategory } from "../domain";
+import { autoCategory, computeSplit } from "../domain";
+import type { ExpenseSplit } from "../domain";
 import {
   type NewExpenseInput,
   type NewRecurringInput,
@@ -828,24 +829,46 @@ export class MemoryRepo implements Repo {
 }
 
 /**
- * Seed a demo household matching the prototype's "explore the demo" flow:
- * Josh (owner) + Sam (placeholder partner), a few expenses and shopping items.
+ * Seed a demo household matching the prototype's "explore the demo" flow, but
+ * deliberately rich: a 4-person flatshare (Josh + Thandi + Sipho + Lerato) with
+ * ~2½ months of history exercising EVERY split method (equal, exact, percent,
+ * shares, salary-proportional), multi-payer bills, subset splits, a payer who
+ * isn't a participant, odd-cent largest-remainder cases, recurring rules
+ * (monthly/weekly, salary/equal/fixed, one paused), partial + full settlements,
+ * a shopping list (checked/qty/priced), and categories across all 7 parents —
+ * so the whole app has something real to show on first open.
  */
 export async function seedDemo(repo: MemoryRepo): Promise<{ groupId: string }> {
   const user = (await repo.getCurrentUser())!;
-  await repo.updateProfile({ userId: user.id, monthlySalaryCents: 4000000 });
-  const group = await repo.createGroup("Apartment");
+  await repo.updateProfile({ userId: user.id, monthlySalaryCents: 4200000, salaryVisible: true });
+  const group = await repo.createGroup("Flat 4B");
   const members = await repo.listMembers(group.id);
-  const josh = members[0];
-  const sam = await repo.addPlaceholderMember(group.id, "Sam");
+  const josh = members[0]; // the owner (you)
+  const thandi = await repo.addPlaceholderMember(group.id, "Thandi");
+  const sipho = await repo.addPlaceholderMember(group.id, "Sipho");
+  const lerato = await repo.addPlaceholderMember(group.id, "Lerato");
+  const ALL = [josh.id, thandi.id, sipho.id, lerato.id];
 
-  const equal = (total: number) => {
-    const half = Math.floor(total / 2);
-    return [
-      { memberId: josh.id, shareCents: total - half },
-      { memberId: sam.id, shareCents: half },
-    ];
+  // Monthly salaries (cents) drive the proportional / "salary" splits below.
+  const salaries: Record<string, number> = {
+    [josh.id]: 4200000,
+    [thandi.id]: 5500000,
+    [sipho.id]: 3800000,
+    [lerato.id]: 6100000,
   };
+
+  // Split builders — all go through the domain functions so every expense
+  // reconciles to the cent (largest-remainder), exactly like the real app.
+  const eq = (total: number, ids: string[] = ALL) => computeSplit("equal", total, ids);
+  const salary = (total: number, ids: string[] = ALL) =>
+    computeSplit("salary", total, ids, { salaries });
+  const shares = (total: number, ids: string[], w: number[]) =>
+    computeSplit("shares", total, ids, { shares: Object.fromEntries(ids.map((id, i) => [id, w[i]])) });
+  const percent = (total: number, ids: string[], p: number[]) =>
+    computeSplit("percent", total, ids, { pct: Object.fromEntries(ids.map((id, i) => [id, p[i]])) });
+  const exact = (total: number, ids: string[], amts: number[]): ExpenseSplit[] =>
+    computeSplit("exact", total, ids, { exact: Object.fromEntries(ids.map((id, i) => [id, amts[i]])) });
+  const pay = (memberId: string, total: number) => [{ memberId, paidCents: total }];
 
   const day = (offset: number) => {
     const d = new Date();
@@ -853,51 +876,182 @@ export async function seedDemo(repo: MemoryRepo): Promise<{ groupId: string }> {
     return d.toISOString();
   };
 
+  // ── Bills & rent (proportional to salary — the headline edge case) ──────────
+  // Rent is salary-split AND multi-payer: everyone EFTs their own salary share
+  // straight to the agent, so it nets to zero on the ledger but still shows the
+  // proportional maths and a 4-payer bill. (Realistic — nobody floats R25k.)
+  const rentSplit = salary(2480000);
+  const rentPayers = rentSplit.map((s) => ({ memberId: s.memberId, paidCents: s.shareCents }));
   await repo.createExpense({
-    groupId: group.id,
-    description: "Woolworths groceries",
-    category: "groceries",
-    amountCents: 74200,
-    spentAt: day(0),
-    splitMethod: "equal",
-    payers: [{ memberId: josh.id, paidCents: 74200 }],
-    splits: equal(74200),
+    groupId: group.id, description: "October rent", category: "rent",
+    amountCents: 2480000, spentAt: day(66), splitMethod: "salary",
+    payers: rentPayers, splits: rentSplit,
+    note: "Split by salary; everyone pays their own share to the agent.",
   });
   await repo.createExpense({
-    groupId: group.id,
-    description: "Fibre internet",
-    category: "utilities",
-    amountCents: 89900,
-    spentAt: day(1),
-    splitMethod: "equal",
-    payers: [{ memberId: sam.id, paidCents: 89900 }],
-    splits: equal(89900),
+    groupId: group.id, description: "November rent", category: "rent",
+    amountCents: 2480000, spentAt: day(35), splitMethod: "salary",
+    payers: rentPayers, splits: rentSplit,
+  });
+  // Single-payer salary split too: Josh fronts the flat insurance, split by pay.
+  await repo.createExpense({
+    groupId: group.id, description: "Household contents insurance", category: "bills_insurance",
+    amountCents: 96000, spentAt: day(26), splitMethod: "salary",
+    payers: pay(josh.id, 96000), splits: salary(96000),
+    note: "Josh paid the annual premium up front — split by salary.",
+  });
+  // Fibre — fixed exact shares (heavy user pays more), paid by Thandi.
+  await repo.createExpense({
+    groupId: group.id, description: "Vumatel fibre", category: "utilities_internet",
+    amountCents: 99900, spentAt: day(33), splitMethod: "exact",
+    payers: pay(thandi.id, 99900), splits: exact(99900, ALL, [30000, 30000, 9900, 30000]),
+    note: "Sipho's on the cheaper cap, so he pays less.",
+  });
+  // Prepaid electricity — equal, paid by Sipho, odd amount (largest-remainder).
+  await repo.createExpense({
+    groupId: group.id, description: "Eskom prepaid electricity", category: "utilities_electricity",
+    amountCents: 85001, spentAt: day(28), splitMethod: "equal",
+    payers: pay(sipho.id, 85001), splits: eq(85001), // 85001/4 → 21251,21250,21250,21250
   });
   await repo.createExpense({
-    groupId: group.id,
-    description: "Uber Eats dinner",
-    category: "eatingout",
-    amountCents: 43550,
-    spentAt: day(2),
-    splitMethod: "equal",
-    payers: [{ memberId: josh.id, paidCents: 43550 }],
-    splits: equal(43550),
+    groupId: group.id, description: "DSTV Premium", category: "utilities_tv",
+    amountCents: 93900, spentAt: day(24), splitMethod: "percent",
+    payers: pay(lerato.id, 93900), splits: percent(93900, ALL, [10, 20, 20, 50]),
+    note: "Lerato watches the most sport — 50%.",
   });
 
+  // ── Groceries & household (subset splits, multi-payer) ──────────────────────
+  await repo.createExpense({
+    groupId: group.id, description: "Checkers big shop", category: "groceries",
+    amountCents: 214733, spentAt: day(30), splitMethod: "equal",
+    payers: pay(josh.id, 214733), splits: eq(214733), // odd cents across 4
+  });
+  // Multi-payer: Thandi and Lerato both chipped in at the till.
+  await repo.createExpense({
+    groupId: group.id, description: "Woolworths month-end", category: "groceries",
+    amountCents: 180000, spentAt: day(18), splitMethod: "equal",
+    payers: [{ memberId: thandi.id, paidCents: 120000 }, { memberId: lerato.id, paidCents: 60000 }],
+    splits: eq(180000),
+  });
+  await repo.createExpense({
+    groupId: group.id, description: "Braai pack & wood", category: "groceries_butcher",
+    amountCents: 62000, spentAt: day(20), splitMethod: "equal",
+    payers: pay(sipho.id, 62000), splits: eq(62000),
+  });
+  // Cleaning supplies — only Josh & Thandi share the upstairs bathroom.
+  await repo.createExpense({
+    groupId: group.id, description: "Cleaning supplies", category: "groceries_consumables",
+    amountCents: 34500, spentAt: day(15), splitMethod: "equal",
+    payers: pay(josh.id, 34500), splits: eq(34500, [josh.id, thandi.id]),
+  });
+  await repo.createExpense({
+    groupId: group.id, description: "SweepSouth deep clean", category: "household_cleaning",
+    amountCents: 48000, spentAt: day(12), splitMethod: "shares",
+    payers: pay(lerato.id, 48000), splits: shares(48000, ALL, [1, 1, 1, 1]),
+  });
+
+  // ── Eating out & leisure (exact itemised, shares, drinks) ───────────────────
+  // Restaurant with an itemised (exact) split — everyone ate differently.
+  await repo.createExpense({
+    groupId: group.id, description: "Marble dinner (birthday)", category: "eatingout_restaurant",
+    amountCents: 268050, spentAt: day(22), splitMethod: "exact",
+    payers: pay(lerato.id, 268050), splits: exact(268050, ALL, [72050, 60000, 51000, 85000]),
+    note: "Steak — R720\nFish — R600\nPasta — R510\nWine & dessert — R850",
+  });
+  // Bar tab — shares by how many rounds each bought.
+  await repo.createExpense({
+    groupId: group.id, description: "Friday drinks at the local", category: "eatingout_drinks",
+    amountCents: 84000, spentAt: day(11), splitMethod: "shares",
+    payers: pay(sipho.id, 84000), splits: shares(84000, ALL, [2, 1, 3, 2]),
+  });
+  await repo.createExpense({
+    groupId: group.id, description: "Uber Eats — rainy Sunday", category: "eatingout_takeaway",
+    amountCents: 41550, spentAt: day(6), splitMethod: "equal",
+    payers: pay(josh.id, 41550), splits: eq(41550, [josh.id, sipho.id, lerato.id]),
+  });
+  await repo.createExpense({
+    groupId: group.id, description: "Cinema — new release", category: "entertainment_movies",
+    amountCents: 36000, spentAt: day(9), splitMethod: "equal",
+    payers: pay(thandi.id, 36000), splits: eq(36000, [josh.id, thandi.id, lerato.id]),
+  });
+
+  // ── Transport & one-offs ────────────────────────────────────────────────────
+  await repo.createExpense({
+    groupId: group.id, description: "Petrol — airport run", category: "transport_fuel",
+    amountCents: 90000, spentAt: day(8), splitMethod: "equal",
+    payers: pay(lerato.id, 90000), splits: eq(90000, [thandi.id, lerato.id]),
+  });
+  await repo.createExpense({
+    groupId: group.id, description: "Uber to the airport", category: "transport_rideshare",
+    amountCents: 24567, spentAt: day(8), splitMethod: "equal",
+    payers: pay(thandi.id, 24567), splits: eq(24567, [thandi.id, lerato.id]), // 12284/12283
+  });
+  // Payer NOT a participant: Josh covered a leaving gift he isn't charged for.
+  await repo.createExpense({
+    groupId: group.id, description: "Sipho's birthday gift (from the flat)", category: "leisure_hobbies",
+    amountCents: 60000, spentAt: day(5), splitMethod: "equal",
+    payers: pay(josh.id, 60000), splits: eq(60000, [thandi.id, lerato.id]),
+    note: "Josh fronted it; Sipho of course isn't charged for his own gift.",
+  });
+  // Tiny amount — coffee, just two of them.
+  await repo.createExpense({
+    groupId: group.id, description: "Flat white x2", category: "eatingout_coffee",
+    amountCents: 1100, spentAt: day(2), splitMethod: "equal",
+    payers: pay(sipho.id, 1100), splits: eq(1100, [sipho.id, josh.id]),
+  });
+  await repo.createExpense({
+    groupId: group.id, description: "Builders — new kettle & globes", category: "household_maintenance",
+    amountCents: 47999, spentAt: day(4), splitMethod: "equal",
+    payers: pay(josh.id, 47999), splits: eq(47999), // 12000,12000,12000,11999 (remainder)
+  });
+
+  // ── Settlements: a partial repayment, and one between two non-payers ────────
+  // Sipho paid Josh back part of what he owed (partial — a balance remains).
+  await repo.recordSettlement({
+    groupId: group.id, fromMemberId: sipho.id, toMemberId: josh.id,
+    amountCents: 25000, settledAt: day(14),
+  });
+  // Lerato squared up with Thandi for the airport trip (a settlement that
+  // doesn't involve you at all — the ledger still tracks it).
+  await repo.recordSettlement({
+    groupId: group.id, fromMemberId: lerato.id, toMemberId: thandi.id,
+    amountCents: 30000, settledAt: day(7),
+  });
+
+  // ── Shopping list (checked = in the cart, plus qty and estimates) ───────────
   await repo.addShoppingItem({ groupId: group.id, name: "Milk", qty: 2 });
-  await repo.addShoppingItem({ groupId: group.id, name: "Bread" });
+  await repo.addShoppingItem({ groupId: group.id, name: "Brown bread" });
   await repo.addShoppingItem({ groupId: group.id, name: "Coffee beans", estPriceCents: 18000 });
+  await repo.addShoppingItem({ groupId: group.id, name: "Dishwashing liquid", qty: 1, estPriceCents: 4500 });
+  await repo.addShoppingItem({ groupId: group.id, name: "Eggs (18)", estPriceCents: 6500 });
+  const toilet = await repo.addShoppingItem({ groupId: group.id, name: "Toilet paper (9s)", estPriceCents: 9900 });
+  const bins = await repo.addShoppingItem({ groupId: group.id, name: "Bin bags" });
+  await repo.setShoppingItemChecked(toilet.id, true); // already in the trolley
+  await repo.setShoppingItemChecked(bins.id, true);
 
+  // ── Recurring rules (monthly/weekly, salary/equal/fixed, one paused) ─────────
   await repo.createRecurring({
-    groupId: group.id,
-    description: "Rent",
-    amountCents: 1200000,
-    frequency: "monthly",
-    anchor: 1,
-    payerMemberId: josh.id,
-    splitMethod: "salary",
-    participantMemberIds: [josh.id, sam.id],
+    groupId: group.id, description: "Rent", amountCents: 2480000,
+    frequency: "monthly", anchor: 1, payerMemberId: josh.id,
+    splitMethod: "salary", participantMemberIds: ALL,
   });
+  await repo.createRecurring({
+    groupId: group.id, description: "Vumatel fibre", amountCents: 99900,
+    frequency: "monthly", anchor: 3, payerMemberId: thandi.id,
+    splitMethod: "exact", participantMemberIds: ALL,
+    fixedShares: exact(99900, ALL, [30000, 30000, 9900, 30000]),
+  });
+  await repo.createRecurring({
+    groupId: group.id, description: "Domestic helper (weekly)", amountCents: 45000,
+    frequency: "weekly", anchor: 3, payerMemberId: lerato.id,
+    splitMethod: "equal", participantMemberIds: ALL,
+  });
+  const paused = await repo.createRecurring({
+    groupId: group.id, description: "Netflix (on hold)", amountCents: 19900,
+    frequency: "monthly", anchor: 20, payerMemberId: sipho.id,
+    splitMethod: "equal", participantMemberIds: ALL,
+  });
+  await repo.setRecurringPaused(paused.id, true);
 
   // A demo Splitty bill so the tab isn't empty. Josh is the admin; a second
   // guest "Sam" has already claimed a couple of items and locked in.
