@@ -72,12 +72,6 @@ export function AddExpenseSheet({
   const [payerId, setPayerId] = useState(
     editing?.payers[0]?.memberId ?? meMember?.id ?? members[0]?.id ?? ""
   );
-  const [multiPayer, setMultiPayer] = useState((editing?.payers.length ?? 0) > 1);
-  const [paidBy, setPaidBy] = useState<Record<string, string>>(() =>
-    editing && editing.payers.length > 1
-      ? Object.fromEntries(editing.payers.map((p) => [p.memberId, centsToInput(p.paidCents)]))
-      : {}
-  );
   const [method, setMethod] = useState<Method>(() => {
     if (!editing) return "salary";
     // percent/shares expenses edit as exact amounts
@@ -157,12 +151,7 @@ export function AddExpenseSheet({
   const exactRemaining = total - splits.reduce((a, s) => a + s.shareCents, 0);
   const proportionalFallsBack = method === "salary" && total > 0 && salaryShares === null;
 
-  const payers = multiPayer
-    ? members
-        .map((m) => ({ memberId: m.id, paidCents: parseCents(paidBy[m.id] ?? "") }))
-        .filter((p) => p.paidCents > 0)
-    : [{ memberId: payerId, paidCents: total }];
-  const paidRemaining = total - payers.reduce((a, p) => a + p.paidCents, 0);
+  const payers = [{ memberId: payerId, paidCents: total }];
 
   function toggleParticipant(id: string) {
     setParts((p) => (p.includes(id) ? (p.length > 1 ? p.filter((x) => x !== id) : p) : [...p, id]));
@@ -175,8 +164,6 @@ export function AddExpenseSheet({
     setMethod("salary");
     setParts(members.map((m) => m.id));
     setExact({});
-    setMultiPayer(false);
-    setPaidBy({});
     setRepeats(false);
     setRepeatFreq("monthly");
     setRepeatDom(String(new Date().getDate()));
@@ -201,12 +188,6 @@ export function AddExpenseSheet({
         method === "exact"
           ? `Shares must add up to the total (${exactRemaining > 0 ? fmt(exactRemaining) + " left" : fmt(-exactRemaining) + " over"})`
           : "Split doesn't add up — check the amounts"
-      );
-      return;
-    }
-    if (multiPayer && paidRemaining !== 0) {
-      setError(
-        `Payments must add up to the total (${paidRemaining > 0 ? fmt(paidRemaining) + " left" : fmt(-paidRemaining) + " over"})`
       );
       return;
     }
@@ -237,7 +218,7 @@ export function AddExpenseSheet({
       } else {
         await repo.createExpense(input);
         // Lock the split shown right now into a recurring rule, if requested.
-        if (repeats && !multiPayer) {
+        if (repeats) {
           await repo.createRecurring({
             groupId,
             description: desc.trim(),
@@ -290,28 +271,54 @@ export function AddExpenseSheet({
         </button>
       }
     >
-      <Input value={amount} onChange={setAmount} placeholder="0,00" inputMode="decimal" prefix="R" autoFocus />
+      <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
+        <div style={{ display: "inline-flex", alignItems: "flex-start", gap: 2 }}>
+          <span style={{ fontSize: 30, fontWeight: 700, color: "var(--faint)", lineHeight: "60px" }}>R</span>
+          <input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder="0"
+            inputMode="decimal"
+            autoFocus
+            aria-label="Amount"
+            size={Math.max(1, amount.length || 1)}
+            style={{
+              background: "transparent",
+              border: "none",
+              outline: "none",
+              color: "var(--ink)",
+              fontSize: 56,
+              fontWeight: 800,
+              letterSpacing: "-1.5px",
+              lineHeight: "60px",
+              padding: 0,
+              minWidth: 24,
+              maxWidth: "70vw",
+            }}
+          />
+        </div>
+      </div>
+      <div style={{ height: 6 }} />
+      <Input value={desc} onChange={setDesc} placeholder="What was it for?" center />
       {!editing && (
         <button
           onClick={() => setScanOpen(true)}
           style={{
-            width: "100%",
-            marginTop: 10,
-            background: "var(--bluebg)",
-            border: "1px solid var(--primary)",
-            borderRadius: "var(--r-input)",
+            display: "block",
+            margin: "10px auto 0",
+            background: "none",
+            border: "none",
             color: "var(--primary)",
             fontSize: 13.5,
             fontWeight: 700,
-            padding: "11px 16px",
             cursor: "pointer",
+            padding: 4,
           }}
         >
-          📷 Scan a receipt to fill this in
+          📷 Scan receipt instead
         </button>
       )}
-      <div style={{ height: 10 }} />
-      <Input value={desc} onChange={setDesc} placeholder="What was it for?" />
+      <div style={{ height: 14 }} />
       <button
         onClick={() => setPickerOpen(true)}
         style={{
@@ -364,61 +371,24 @@ export function AddExpenseSheet({
       )}
 
       <div style={{ height: 18 }} />
-      <Label>Paid by</Label>
+      <Label>Who&apos;s in</Label>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {members.map((m) => (
-          <Pill
-            key={m.id}
-            active={!multiPayer && payerId === m.id}
-            onClick={() => {
-              setMultiPayer(false);
-              setPayerId(m.id);
-            }}
-          >
+          <Pill key={m.id} active={parts.includes(m.id)} onClick={() => toggleParticipant(m.id)}>
             {memberName(m)}
           </Pill>
         ))}
-        <Pill active={multiPayer} onClick={() => setMultiPayer(true)}>
-          Multiple
-        </Pill>
       </div>
-      {multiPayer && (
-        <div style={{ marginTop: 10 }}>
-          {members.map((m) => (
-            <div
-              key={m.id}
-              style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}
-            >
-              <p style={{ flex: 1, fontSize: 14, fontWeight: 600 }}>{memberName(m)}</p>
-              <div style={{ width: 130 }}>
-                <Input
-                  value={paidBy[m.id] ?? ""}
-                  onChange={(v) => setPaidBy((p) => ({ ...p, [m.id]: v }))}
-                  placeholder="0,00"
-                  inputMode="decimal"
-                  prefix="R"
-                />
-              </div>
-            </div>
-          ))}
-          {total > 0 && (
-            <p
-              style={{
-                fontSize: 12.5,
-                fontWeight: 700,
-                marginTop: 4,
-                color: paidRemaining === 0 ? "var(--green)" : "var(--red)",
-              }}
-            >
-              {paidRemaining === 0
-                ? "Adds up ✓"
-                : paidRemaining > 0
-                  ? `${fmt(paidRemaining)} left to assign`
-                  : `${fmt(-paidRemaining)} over`}
-            </p>
-          )}
-        </div>
-      )}
+
+      <div style={{ height: 18 }} />
+      <Label>Paid by</Label>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {members.map((m) => (
+          <Pill key={m.id} active={payerId === m.id} onClick={() => setPayerId(m.id)}>
+            {memberName(m)}
+          </Pill>
+        ))}
+      </div>
 
       <div style={{ height: 18 }} />
       <Label>Split</Label>
@@ -533,17 +503,7 @@ export function AddExpenseSheet({
         </p>
       )}
 
-      <div style={{ height: 14 }} />
-      <Label>Who&apos;s in</Label>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {members.map((m) => (
-          <Pill key={m.id} active={parts.includes(m.id)} onClick={() => toggleParticipant(m.id)}>
-            {memberName(m)}
-          </Pill>
-        ))}
-      </div>
-
-      {!editing && !multiPayer && (
+      {!editing && (
         <>
           <div style={{ height: 16 }} />
           <button
@@ -642,7 +602,7 @@ export function AddExpenseSheet({
           ? "Saving…"
           : editing
             ? "Save changes"
-            : repeats && !multiPayer
+            : repeats
               ? "Save & repeat"
               : "Save expense"}
       </Button>
