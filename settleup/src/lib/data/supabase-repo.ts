@@ -819,6 +819,15 @@ export class SupabaseRepo implements Repo {
     return { guestId: row.guest_id, guestToken: row.guest_token };
   }
 
+  async splittyAdminIdentity(
+    shareCode: string
+  ): Promise<{ guestId: string; guestToken: string } | null> {
+    const { data, error } = await this.sb.rpc("splitty_admin_identity", { p_share_code: shareCode });
+    if (error) this.fail(error);
+    const row = Array.isArray(data) ? data[0] : data;
+    return row ? { guestId: row.guest_id, guestToken: row.guest_token } : null;
+  }
+
   async splittyGetBill(shareCode: string): Promise<SplitBill | null> {
     const { data: bill, error } = await this.sb
       .from("split_bill")

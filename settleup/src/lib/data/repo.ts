@@ -186,6 +186,12 @@ export interface Repo {
   ): Promise<{ shareCode: string; guestId: string; guestToken: string }>;
   /** No auth required. */
   splittyJoin(shareCode: string, displayName: string): Promise<{ guestId: string; guestToken: string }>;
+  /**
+   * Recover the admin's guest identity for a bill the signed-in user created —
+   * so the creator is re-recognized as admin even if their localStorage copy is
+   * gone (new device, cleared storage). Null if not signed in or not the creator.
+   */
+  splittyAdminIdentity(shareCode: string): Promise<{ guestId: string; guestToken: string } | null>;
   /** No auth required. Null if the code doesn't exist. */
   splittyGetBill(shareCode: string): Promise<SplitBill | null>;
   splittyClaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void>;

@@ -514,6 +514,15 @@ Nothing else — no per-user setup, no Google linking, no billing.
 > guard / tip / lock / bad-token reject / owner-only close, then cascade
 > cleanup); in-browser demo (join as a guest, claim 2 items, 15% tip →
 > R138,00 exact, live overview); `npm test` (53) + build + lint green.
+> **Admin-recovery fix (2026-07-24):** the admin's guest identity was only
+> cached in localStorage, so returning to your own split from another device or
+> after storage was cleared showed the join screen instead of admin controls.
+> Migration `20260728000000_splitty_admin_identity.sql` adds
+> `splitty_admin_identity(share_code)` (authenticated-only; returns the admin
+> guest id+token when `auth.uid() = created_by`), and the `/split` page now
+> recovers admin identity server-side when it doesn't recognize the visitor —
+> so the creator is always remembered as admin. (Bonus: the demo's seeded bill
+> now opens as its host, since the demo user created it.)
 > **Realtime fix (2026-07-23):** the initial migration created the tables but
 > forgot to add them to the `supabase_realtime` publication, so cross-user
 > updates only appeared when the receiving client next acted. Migration

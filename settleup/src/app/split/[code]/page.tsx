@@ -9,7 +9,7 @@
  * overview, and a "Close bill" action.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import type { Repo, SplitBill, SplitBillGuest } from "@/lib/data";
 import { fmt } from "@/lib/domain";
@@ -35,6 +35,8 @@ export default function SplitPage() {
   const [repo, setRepo] = useState<Repo | null>(null);
   const [bill, setBill] = useState<SplitBill | null | "missing">(null);
   const [identity, setIdentity] = useState<GuestIdentity | null>(null);
+  const [triedAdmin, setTriedAdmin] = useState(false);
+  const adminTriedRef = useRef(false);
 
   // Resolve the repo once: a "Skip — explore the demo" visitor keeps the same
   // in-memory demo repo (so their demo bill opens); real guests use the anon
@@ -67,6 +69,25 @@ export default function SplitPage() {
     return unsub;
   }, [repo, refresh, shareCode]);
 
+  // If we don't recognize the visitor as a guest on this bill, check whether
+  // they're the signed-in CREATOR and recover their admin identity server-side
+  // — so the admin is remembered even without their localStorage copy. Runs
+  // once; for anyone who isn't the creator it returns null → the join form.
+  useEffect(() => {
+    if (!repo || typeof bill !== "object" || bill === null || adminTriedRef.current) return;
+    const meNow = identity ? bill.guests.find((g) => g.id === identity.guestId) : null;
+    if (meNow) return;
+    adminTriedRef.current = true;
+    void Promise.resolve().then(async () => {
+      const adm = await repo.splittyAdminIdentity(shareCode).catch(() => null);
+      if (adm) {
+        saveGuestIdentity(shareCode, adm);
+        setIdentity(adm);
+      }
+      setTriedAdmin(true);
+    });
+  }, [repo, bill, identity, shareCode]);
+
   if (!repo || bill === null) {
     return (
       <Screen center>
@@ -92,6 +113,16 @@ export default function SplitPage() {
   }
 
   const me = identity ? bill.guests.find((g) => g.id === identity.guestId) ?? null : null;
+
+  // Not recognized yet, but still checking for admin recovery → hold on a
+  // spinner so the creator never flashes the "join" screen for their own bill.
+  if (!me && !triedAdmin) {
+    return (
+      <Screen center>
+        <Spinner />
+      </Screen>
+    );
+  }
 
   // Have a saved token but the guest row isn't on this bill → treat as not
   // joined (stale localStorage from another bill, or the row was cleared).

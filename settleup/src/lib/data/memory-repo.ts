@@ -717,6 +717,19 @@ export class MemoryRepo implements Repo {
     return { guestId, guestToken };
   }
 
+  async splittyAdminIdentity(
+    shareCode: string
+  ): Promise<{ guestId: string; guestToken: string } | null> {
+    const bill = this.splitBills.find((b) => b.shareCode === shareCode && b.createdBy === this.user.id);
+    if (!bill) return null;
+    const admin = this.splitGuests.find((g) => g.billId === bill.id && g.isAdmin);
+    if (!admin) return null;
+    for (const [token, guestId] of this.splitTokens) {
+      if (guestId === admin.id) return { guestId: admin.id, guestToken: token };
+    }
+    return null;
+  }
+
   async splittyGetBill(shareCode: string): Promise<import("./repo").SplitBill | null> {
     const bill = this.splitBills.find((b) => b.shareCode === shareCode);
     if (!bill) return null;
