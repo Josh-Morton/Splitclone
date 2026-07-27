@@ -24,3 +24,4 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | [0011](0011-two-level-categories.md) | Two-level category taxonomy (parent→subcategory), auto-assign + manual override | Accepted (amends 0008) |
 | [0012](0012-receipt-scanning.md) | Receipt line-item scanning via a central Gemini Edge Function (image never stored) | Accepted |
 | [0013](0013-splitty-guest-access.md) | Splitty guest access: token-gated RPCs instead of RLS/auth for unauthenticated guests | Accepted |
+| [0014](0014-push-notifications.md) | Push notifications via Web Push (VAPID) + a generic activity-driven trigger | Accepted |
