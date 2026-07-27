@@ -6,14 +6,21 @@ Supabase (both free tier). This file is the entry point for continuing work
 from any state — read it first, then follow the pointers.
 
 ## Start here, in order
-1. **[docs/ROADMAP.md](docs/ROADMAP.md)** — the live status board. What's done,
-   what's next. **Keep it updated as you work** — flip checkboxes, bump the
-   "Last updated" line.
-2. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the code is shaped,
+1. **[docs/ROADMAP.md](docs/ROADMAP.md)** — the live status board, kept as a
+   **high-level index only**: one table row per phase, linking out to that
+   phase's full detail in **[docs/phases/](docs/phases/)**. Read the ROADMAP
+   table of contents first, then open the specific phase file you need.
+   **Keep it updated as you work**, per the structure note at the top of that
+   file — a new phase gets a new file under `docs/phases/` plus one row in
+   the table; updates to an existing phase go in that phase's file directly,
+   not in ROADMAP.md itself.
+2. **[docs/BACKLOG.md](docs/BACKLOG.md)** — cross-cutting loose ends that
+   aren't worth a whole phase (deferred items, design-fidelity gaps).
+3. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the code is shaped,
    plus the cross-cutting rules you must not violate.
-3. **[docs/decisions/](docs/decisions/README.md)** — settled decisions (ADRs).
+4. **[docs/decisions/](docs/decisions/README.md)** — settled decisions (ADRs).
    Don't relitigate them; supersede with a new ADR if something must change.
-4. **[docs/SETUP.md](docs/SETUP.md)** — the manual Supabase/Vercel steps that
+5. **[docs/SETUP.md](docs/SETUP.md)** — the manual Supabase/Vercel steps that
    need Josh's accounts.
 
 ## Source-of-truth documents (root of repo)
