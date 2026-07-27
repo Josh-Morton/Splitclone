@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-24 (Phase 9 "Push notifications" fully specced — not built; see below)
+**Last updated:** 2026-07-25 (Phase 9 "Push notifications" trimmed to 4 triggers + "Tally-ho!" copy — still not built)
 
 ## Where we are
 
@@ -18,9 +18,10 @@ Josh + partner. SMTP for real OTP codes is backlogged (Josh,
 2026-07-13) — magic-link sign-in is the flow for now. After M1: Phase 2
 offline-first. **Phase 8 "Splitty"** (standalone bill-splitting via a
 WhatsApp-shared link, no guest account required) is **shipped** — see the
-Phase 8 section below. **Phase 9 "Push notifications"** (Web Push via VAPID,
-triggered off the `activity` log) is fully specced but **not started** — read
-the iOS-install caveat in that section before picking it up.
+Phase 8 section below. **Phase 9 "Push notifications"** (Web Push via VAPID;
+just 4 triggers — expense added, recurring generated, settled, shopping-list
+add; every notification prefaced "Tally-ho!"; Android-first) is fully specced
+but **not started**.
 
 ## Phase 0 — Foundations
 
@@ -1121,12 +1122,16 @@ pattern already used for `scanReceipt`'s canned response.
 8. Update this ROADMAP section's status line, write the "✅ SHIPPED" note
    (matching every other phase's convention), verify + ship per CLAUDE.md.
 
-## Phase 9 — Push notifications 📝 SPEC ONLY — NOT BUILT (2026-07-24)
+## Phase 9 — Push notifications 📝 SPEC ONLY — NOT BUILT (2026-07-24, trimmed 2026-07-25)
 
 > **Status: fully specced, zero code written.** Same convention as Phase 8: this
 > is exhaustive enough for any LLM to implement from this document alone. Don't
 > start building until this is confirmed with Josh. See **[ADR-0014](decisions/0014-push-notifications.md)**
 > for the architecture decision this spec implements — read it first.
+> **Trimmed from the original draft (2026-07-25, Josh):** cut down to only the
+> triggers that actually matter — see "Notification inventory" below. Every
+> notification is prefaced **"Tally-ho!"** (see "Copy convention"). Android is
+> the primary target, not iOS (see "Platform support").
 
 ### Goal
 Notify household members of things that happened elsewhere in Tally —
@@ -1134,53 +1139,53 @@ without them having the app open — using the **Web Push API** (no native app,
 no Firebase/APNs, no per-user Google/Apple account). One master on/off toggle
 in Settings in v1; no granular per-category preferences yet.
 
-### ⚠️ Read this before building anything
-**iOS Safari only supports Web Push for an *installed* PWA** (Add to Home
-Screen), and only iOS **16.4+** — it does not work in an ordinary Safari tab.
-Android Chrome and desktop browsers work in a normal tab, no install required.
-**Confirm what phones Josh's household is actually on before investing in
-this phase** — if it's iPhones and nobody has installed the PWA to their home
-screen, push notifications will silently never arrive, which is a worse
-experience than not building the feature at all. The client UI (below) must
-detect and surface this ("Notifications need Tally added to your home screen
-on iPhone" or similar), not fail silently.
+### Copy convention: every notification starts "Tally-ho!"
+Josh's call: every push notification title is prefaced **"Tally-ho!"** — the
+app's name doubling as the old hunting cry for "there's something happening,
+here it is." Title format is fixed across every notification type:
+`Tally-ho! {event summary}` (see the inventory below for the exact
+`{event summary}` per type). This is a hard-coded literal string prefix in
+the copy-building code, not a per-user preference.
+
+### Platform support: Android-first, iOS not a priority
+Android Chrome supports Web Push in a normal browser tab **and** installed as
+a home-screen PWA — no install requirement. Josh's household is expected to
+be primarily Android, saved to the home screen as an app, so **build and
+verify against that**. iOS Safari *can* do Web Push, but only for an installed
+PWA (Add to Home Screen) on iOS 16.4+, never in a plain Safari tab — this is a
+real platform limitation, not a Tally bug, so don't spend effort working
+around it. Ship for Android/desktop; let iOS work if it works, don't block on
+it or build iOS-specific fallback UX.
 
 ### Notification inventory — trigger, recipients, copy
-Tone matches the existing Activity feed (`activity-overlay.tsx`): first names,
-terse, no exclamation-mark spam except the one genuinely celebratory case.
+Only four triggers made the cut — Josh's call was to keep this to the events
+that are genuinely worth interrupting someone for. Everything else considered
+(member joined/removed/left, expense edited/deleted, Splitty activity, a
+weekly balance-reminder digest) was explicitly **cut**, not deferred — see
+"Explicit non-goals" for the full list of what's intentionally out.
 **Nobody is ever notified of their own action** (actor excluded from every
-recipient list below). Deep-link = where tapping the notification should land.
+recipient list). Deep-link = where tapping the notification should land.
 
-| # | Trigger | Recipients | Title | Body | Deep-link | v1? |
-|---|---|---|---|---|---|---|
-| 1 | `activity.type = 'expense_added'` (a person added it, not automatic) | All other active members with a `userId` | `{actor} added an expense` | `"{description}" — your share {fmt(yourShare)}` | Expense detail | **Yes** |
-| 2 | `activity.type = 'recurring_generated'` | **All** active members with a `userId` (nobody "did" this live, so nobody is excluded) | `{description} was added` | `R{amount} split automatically — your share {fmt(yourShare)}` | Expense detail | **Yes** |
-| 3 | `activity.type = 'settled'` | Only the **creditor** (`toMemberId`'s user) — never the payer, they know they just paid | `{actor} paid you` | `{fmt(amount)} recorded — you're square` (or the remaining balance if partial) | Home | **Yes** |
-| 4 | `activity.type = 'member_joined'` | All other active members with a `userId` | `{actor} joined {space}` | `Say hi — they can see shared expenses now.` | Space Members screen | **Yes** |
-| 5 | New `activity.type = 'member_removed'` (owner removes someone) | **Only the removed person** (special case — a targeted notice, not a broadcast), if they have a `userId` | `You were removed from {space}` | `{owner} removed you. Ask them to invite you back if that's a mistake.` | App home / welcome | **Yes** (companion to the existing `notify-removed` email, ADR from Phase 6) |
-| 6 | New `activity.type = 'member_left'` (someone leaves voluntarily) | All remaining active members with a `userId`, especially the owner | `{actor} left {space}` | `They can be invited back any time.` | Space Members screen | **Yes** |
-| 7 | `activity.type = 'expense_edited'` | All other active members with a `userId` | `{actor} edited an expense` | `"{description}" is now {fmt(amount)}` | Expense detail | **No — built but off by default** (edits are frequent; ship the trigger, default the send to skipped, revisit if it turns out to be wanted) |
-| 8 | `activity.type = 'expense_deleted'` | All other active members with a `userId` | `{actor} deleted an expense` | `"{description}" was removed` | Home | **No — same as #7** |
-| 9 | Splitty: `splitty_join` (a guest joins) | **Only the bill's authenticated creator** (`split_bill.created_by`) — direct call, not via the `activity` trigger (Splitty has no `group_id`/`activity` row) | `{guestName} joined your split` | `{merchant} — tap to see who's covered what.` | `/split/{code}` | **Yes** |
-| 10 | Splitty: `splitty_set_locked` with `p_locked = true` | Only the bill's creator | `{guestName} locked in` | `Their total: {fmt(theirTotal)}. {fmt(covered)} of {fmt(total)} claimed.` | `/split/{code}` | **Yes** |
-| 11 | Splitty: every item claimed (`covered items count = total items count` after a claim) | Only the bill's creator | `Everyone's locked in on {merchant}!` | `{fmt(total)} covered — ready to close the split?` | `/split/{code}` | **Yes** |
-| 12 | Shopping list: item added | All other active members with a `userId` | `{actor} added to the list` | `"{item}" — {n} items on the list` | List tab | **No — candidate only, default off.** High-frequency, low-stakes; Realtime already covers it while the app is open. Listed here so it's not forgotten, not because it should ship enabled. |
-| 13 | *(Stretch, not v1)* Weekly balance reminder | Anyone with a non-zero balance for N+ days | `You're owed {fmt(amount)}` / `You owe {fmt(amount)}` | `From {name} — settle up whenever suits.` | Home | **No — different trigger shape** (time-based via `pg_cron`, not event-based via the `activity` trigger; needs a one-off server-side balance computation for just this purpose, which is a deliberate, scoped exception to "balances are derived client-side" (ADR-0004) — not a reversal of it). Flagged for a future phase. |
+| # | Trigger | Recipients | Title | Body | Deep-link |
+|---|---|---|---|---|---|
+| 1 | `activity.type = 'expense_added'` — a person adds an expense | All other active members with a `userId` | `Tally-ho! {actor} added an expense` | `"{description}" — your share {fmt(yourShare)}` | Expense detail |
+| 2 | `activity.type = 'recurring_generated'` — a recurring rule fires and generates its expense | **All** active members with a `userId` (an automatic event — nobody "did" it live, so nobody is excluded) | `Tally-ho! {description} was added` | `{fmt(amount)} split automatically — your share {fmt(yourShare)}` | Expense detail |
+| 3 | `activity.type = 'settled'` — a payment is recorded | Only the **creditor** (`toMemberId`'s user) — never the payer, they know they just paid | `Tally-ho! {actor} paid you` | `{fmt(amount)} recorded — you're square` (or the remaining balance if it was a partial payment) | Home |
+| 4 | `shopping_item` row inserted — someone adds to the shared list | All other active members with a `userId` | `Tally-ho! {actor} added to the list` | `"{item}" — {n} items on the list` | List tab |
 
-**Splitty guests (#9–11 above) never receive push themselves** — no
-`auth.uid()`, no subscription possible (ADR-0013, ADR-0014). They keep getting
-live updates via the existing Realtime subscription on `/split/[code]`.
+Items #1 and #2 are conceptually the same category ("an expense landed in the
+household") and share nearly identical copy, but they are **two separate
+triggers that each fire their own notification** — a recurring bill firing
+does not get folded into or suppressed by the regular expense-added path, and
+vice versa. No merging/deduping across the two.
 
 ### Architecture summary (full detail in ADR-0014)
 ```
-Event happens (expense added, settled, member joins/leaves/removed, recurring
-fires, Splitty guest joins/locks)
+Event happens (expense added, recurring fires, settled, shopping item added)
         │
         ▼
-activity row inserted (server-side, same transaction as the change)
-        │  AFTER INSERT trigger
-        ▼
-notify_activity_push()  — maps activity.type → recipients + copy (table above)
+Trigger fires: activity_push (after insert on `activity`, covers #1–#3)
+            or shopping_item_push (after insert on `shopping_item`, covers #4)
         │  pg_net.http_post (URL + secret from Supabase Vault)
         ▼
 Edge Function `send-push`  — looks up push_subscription rows per user_id,
@@ -1193,9 +1198,15 @@ Browser service worker `push` event → self.registration.showNotification(...)
         ▼
 `notificationclick` → focuses/opens the deep-link URL
 ```
-Splitty (#9–11) skips the `activity` trigger and calls `send-push` directly
-from `splitty_join`/`splitty_set_locked` via the same `pg_net.http_post` +
-Vault-secret pattern, targeting only `split_bill.created_by`.
+Two trigger functions, not one: #1–#3 read from the `activity` table (which
+already logs those three event types server-side in the same transaction as
+the underlying change — see `create_expense`, `record_settlement`); #4 reads
+directly off `shopping_item` since shopping-list adds were never logged to
+`activity` (that table is specifically the expense/settlement audit trail —
+see `activity-overlay.tsx` — and there's no reason to start routing shopping
+items through it just for this). Both trigger functions call the same
+`send-push` Edge Function via the same `pg_net.http_post` + Vault-secret
+mechanism.
 
 ### Data model
 New migration `supabase/migrations/20260729000000_push_notifications.sql`:
@@ -1203,11 +1214,6 @@ New migration `supabase/migrations/20260729000000_push_notifications.sql`:
 ```sql
 -- New extension (alongside the already-enabled pg_cron, pgcrypto, supabase_vault).
 create extension if not exists pg_net;
-
--- Two new activity types so membership changes flow through the same
--- generic trigger as everything else.
-alter type activity_type add value if not exists 'member_removed';
-alter type activity_type add value if not exists 'member_left';
 
 -- One row per subscribed device (a user can have several: phone, desktop…).
 create table push_subscription (
@@ -1226,30 +1232,29 @@ create policy push_subscription_owner on push_subscription for all
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 -- Self-service table — the client can insert/select/delete its own rows
 -- directly via PostgREST + RLS; no RPC wrapper needed (same pattern as e.g.
--- shopping_item). Only the SECURITY DEFINER trigger/functions below ever
+-- shopping_item). Only the SECURITY DEFINER trigger functions below ever
 -- read across users, and they run with elevated privilege that bypasses RLS.
 
--- remove_group_member / leave_group (20260724000000_space_membership.sql)
--- gain an activity insert each, so the generic trigger picks them up:
---   remove_group_member: insert into activity (..., 'member_removed', p_member_id)
---     — target_id is the group_member id, so the trigger can still resolve
---     user_id even though status is now 'left'.
---   leave_group: insert into activity (..., 'member_left', m.id)
-
--- The generic trigger. One function, driven by the inventory table above.
-create or replace function notify_activity_push() returns trigger
+-- Trigger #1: activity-table events (expense_added, recurring_generated, settled).
+-- Ignores every other activity_type (expense_edited, expense_deleted,
+-- member_joined, etc. — those never send push per this spec).
+create or replace function activity_push() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
   v_url text; v_secret text;
   v_recipients uuid[];
   v_title text; v_body text; v_link text;
-  -- ...resolve group/expense/settlement/group_member context from new.target_id
-  -- per new.type, exactly mirroring activity-overlay.tsx's toRow() switch —
-  -- build v_recipients (excluding new.actor_id), v_title, v_body, v_link from
-  -- the table above. Skip entirely (return) for types marked "No" in the
-  -- v1? column, and for any recipient with no push_subscription rows (checked
-  -- inside send-push, not here — this function just posts the user_id list).
 begin
+  if new.type not in ('expense_added', 'recurring_generated', 'settled') then
+    return new;
+  end if;
+  -- ...resolve group/expense/settlement context from new.target_id, exactly
+  -- mirroring activity-overlay.tsx's toRow() switch for the relevant three
+  -- cases only. Build v_recipients per the "Recipients" column above
+  -- (excluding new.actor_id, except recurring_generated excludes nobody),
+  -- and v_title/v_body/v_link from the inventory table, with the literal
+  -- 'Tally-ho! ' prefix baked into every v_title.
+
   if v_recipients is null or array_length(v_recipients, 1) is null then
     return new; -- nobody to notify (e.g. a 1-person group)
   end if;
@@ -1262,15 +1267,53 @@ begin
   perform net.http_post(
     url := v_url,
     headers := jsonb_build_object('Content-Type', 'application/json', 'x-shared-secret', v_secret),
-    body := jsonb_build_object(
-      'user_ids', v_recipients, 'title', v_title, 'body', v_body, 'url', v_link
-    )
+    body := jsonb_build_object('user_ids', v_recipients, 'title', v_title, 'body', v_body, 'url', v_link)
   );
   return new;
 end $$;
 
-create trigger activity_push after insert on activity
-  for each row execute function notify_activity_push();
+create trigger activity_push_trigger after insert on activity
+  for each row execute function activity_push();
+
+-- Trigger #2: shopping list adds — separate from the activity table entirely.
+create or replace function shopping_item_push() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare
+  v_url text; v_secret text;
+  v_recipients uuid[];
+  v_count int;
+  v_title text := 'Tally-ho! ' || coalesce(
+    (select case when p.display_name = '' then null else p.display_name end
+     from profile p where p.user_id = new.added_by), 'Someone'
+  ) || ' added to the list';
+  v_body text;
+begin
+  select array_agg(gm.user_id) into v_recipients
+    from group_member gm
+    where gm.group_id = new.group_id and gm.user_id is not null
+      and gm.user_id <> new.added_by and gm.status = 'active' and gm.deleted_at is null;
+
+  if v_recipients is null or array_length(v_recipients, 1) is null then
+    return new;
+  end if;
+
+  select count(*) into v_count from shopping_item
+    where group_id = new.group_id and deleted_at is null and checked = false;
+  v_body := '"' || new.name || '" — ' || v_count || ' item' || (case when v_count = 1 then '' else 's' end) || ' on the list';
+
+  select decrypted_secret into v_url from vault.decrypted_secrets where name = 'send_push_url';
+  select decrypted_secret into v_secret from vault.decrypted_secrets where name = 'send_push_shared_secret';
+
+  perform net.http_post(
+    url := v_url,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-shared-secret', v_secret),
+    body := jsonb_build_object('user_ids', v_recipients, 'title', v_title, 'body', v_body, 'url', '/')
+  );
+  return new;
+end $$;
+
+create trigger shopping_item_push_trigger after insert on shopping_item
+  for each row execute function shopping_item_push();
 ```
 
 `vault.secrets` gets two rows set up once (Management API, not in a migration
@@ -1296,9 +1339,6 @@ Postgres's point of view — `pg_net` calls don't carry a Supabase session).
     `mailto:` contact per the Web Push spec), `PUSH_SHARED_SECRET`,
     `SUPABASE_SERVICE_ROLE_KEY` (to query `push_subscription` across users —
     same service-role pattern as `notify-removed`).
-- **`splitty_join`/`splitty_set_locked` migration functions** call `send-push`
-  the same way (via `pg_net.http_post` + the Vault secret), just constructing
-  the recipient/copy inline instead of going through the generic trigger.
 
 ### Repo interface + client additions
 ```ts
@@ -1330,55 +1370,65 @@ getPushPermission(): "granted" | "denied" | "default" | "unsupported";
   });
   ```
 - **Settings sheet** (`settings-sheet.tsx`, new row alongside the existing
-  "Spaces" / "Recurring bills" rows around line 196): a "Notifications" toggle
-  — off/on, plus the iOS-not-installed warning copy when
-  `getPushPermission() === "unsupported"` on iOS Safari in a browser tab
-  (detect via `navigator.standalone === false` on iOS Safari, or the simpler
-  `!window.matchMedia('(display-mode: standalone)').matches` cross-platform
-  check) — "Add Tally to your Home Screen first, then turn this on."
+  "Spaces" / "Recurring bills" rows around line 196): a "Notifications"
+  toggle — off/on. No iOS-specific messaging needed (see "Platform support"
+  above) — if `getPushPermission() === "unsupported"`, just disable the
+  toggle with a one-line "Not supported in this browser," no platform-specific
+  copy.
 
 ### What Josh needs to provide
-One thing: nothing external, actually — **VAPID key pairs are generated
-locally**, no third-party account needed (unlike the Gemini key). Claude runs
+Nothing external — **VAPID key pairs are generated locally**, no third-party
+account needed (unlike the Gemini key). Claude runs
 `npx web-push generate-vapid-keys` (or the Deno/JS equivalent) once, sets the
 public half as `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in Vercel and the private half
-as a Supabase Function secret. **Confirm the iOS-installed-PWA caveat above
-with Josh before starting** — that's the one open question that could make
-this phase much less useful than it sounds if the household's phones don't
-support it.
+as a Supabase Function secret.
 
-### Explicit non-goals for v1
+### Explicit non-goals for v1 (several of these were cut on purpose, not deferred)
+- **No push for member joined/removed/left** — cut per Josh, 2026-07-25.
+- **No push for expense edited/deleted** — cut per Josh, 2026-07-25.
+- **No Splitty push notifications at all** (guest joined/locked-in/fully-covered)
+  — cut per Josh, 2026-07-25. (It would only ever have gone to the bill's
+  admin, never guests — see ADR-0013 — but the whole category is out now.)
+- **No weekly balance-reminder digest** — cut per Josh, 2026-07-25. (Also
+  architecturally the odd one out: time-based via `pg_cron`, not event-based
+  off a table insert, and would've needed a one-off server-side balance
+  computation — moot now that it's cut, but worth remembering if it's ever
+  reconsidered.)
 - No per-category notification preferences — one master toggle.
-- No push for `expense_edited`/`expense_deleted` by default (built, off).
-- No shopping-list-item-added push by default (built as a candidate, off).
-- No scheduled/digest "you're owed money" reminder (different trigger shape —
-  future phase).
-- No push to Splitty guests — architecturally impossible without giving them
-  a real identity first (ADR-0013).
-- No native app / APNs — Web Push only, with the iOS-install caveat above.
+- No native app / APNs — Web Push only.
 - No notification grouping/collapsing (e.g. multiple expense-adds coalesced
   into one "3 new expenses" notification) — each event sends its own.
+- No iOS-specific fallback UX or messaging — see "Platform support" above.
+
+### Backlog: multi-currency (not part of this phase)
+Flagged by Josh while reviewing this spec, not something to act on now:
+notification copy uses `fmt()`/`fmtR()` (`src/lib/domain/money.ts`), which
+hardcode a `"R"` prefix, same as the `group.currency` column's
+`check (currency = 'ZAR')` constraint (`20260702000000_phase1_schema.sql`).
+The whole app is ZAR-only today, not just push copy. Revisit if there's ever
+a real need (e.g. a non-South-African household) — would touch `fmt()`, the
+`currency` check constraint, and every place that formats money, not just
+notifications. No action needed until that need actually exists.
 
 ### Build order
 1. Generate the VAPID key pair; set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (Vercel) and
    `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` (Supabase Function
    secrets).
-2. Migration `20260729000000_push_notifications.sql` (extension, new activity
-   types, `push_subscription` table + RLS, `remove_group_member`/`leave_group`
-   activity inserts, `notify_activity_push()` trigger) — apply via the
-   Management API per this project's usual path; set the two Vault secrets
-   (`send_push_url`, `send_push_shared_secret`) once the function is deployed.
+2. Migration `20260729000000_push_notifications.sql` (extension,
+   `push_subscription` table + RLS, the two trigger functions) — apply via
+   the Management API per this project's usual path; set the two Vault
+   secrets (`send_push_url`, `send_push_shared_secret`) once the function is
+   deployed.
 3. Edge Function `send-push` (Web Push sending + dead-subscription pruning).
 4. `public/sw.js` `push`/`notificationclick` listeners.
 5. Repo additions (`enablePush`/`disablePush`/`getPushPermission`) in both
    implementations.
-6. Settings sheet UI: toggle + iOS-not-installed messaging.
-7. Splitty direct calls in `splitty_join`/`splitty_set_locked` (items #9–11).
-8. **Verify on real devices before calling this done** — Web Push cannot be
-   meaningfully verified in the dev-server browser preview tooling (no real
-   push service round-trip); test on an actual installed PWA (Android first —
-   no install-gate — then iOS if relevant) with the app backgrounded.
-9. Update this ROADMAP section's status line, write the "✅ SHIPPED" note,
+6. Settings sheet UI: the Notifications toggle.
+7. **Verify on a real Android device before calling this done** — Web Push
+   cannot be meaningfully verified in the dev-server browser preview tooling
+   (no real push service round-trip); test on an actual installed PWA with
+   the app backgrounded. Don't block on iOS verification.
+8. Update this ROADMAP section's status line, write the "✅ SHIPPED" note,
    verify + ship per CLAUDE.md.
 
 ## Design-fidelity backlog (audit vs design handoff, 2026-07-13)
