@@ -1,14 +1,15 @@
-# ADR-0014: Push notifications via Web Push (VAPID) + two insert triggers
+# ADR-0014: Push notifications via Web Push (VAPID) + three table triggers
 
-**Status:** Accepted (2026-07-24, scope trimmed 2026-07-25) · **Source:** Josh
-(Phase 9 spec) · ROADMAP Phase 9
+**Status:** Accepted & implemented (2026-07-24; scope trimmed 2026-07-25;
+shipped 2026-07-26) · **Source:** Josh (Phase 9) · ROADMAP Phase 9
 
 ## Context
 Tally is a PWA with no native app, so "push notifications" means the **Web
 Push API** (Push API + Notification API), not APNs/FCM SDKs. Josh wants
 household members nudged about a small, deliberately narrow set of events —
 an expense added (including an automatic recurring one), a payment recorded,
-someone adding to the shared shopping list — without opening Tally. Two
+someone adding to or crossing off the shared shopping list — without opening
+Tally. Two
 existing facts shape the design:
 - **The `activity` table already logs `expense_added`, `expense_edited`,
   `expense_deleted`, `settled`, `member_joined`, `recurring_generated`**
@@ -25,9 +26,9 @@ existing facts shape the design:
 
 An earlier draft of this ADR covered a much larger surface — membership
 joins/removals/leaves, expense edits/deletes, all of Splitty, a weekly
-balance-reminder digest. **Josh cut all of that on 2026-07-25**, on review:
-only four triggers survive. This revision reflects the trimmed scope, not
-the original draft.
+balance-reminder digest. **Josh cut all of that on 2026-07-25**, on review;
+the shopping-list cross-off was added back on 2026-07-26. Five triggers
+survive. This revision reflects the shipped scope, not the original draft.
 
 ## Decision
 - **Web Push, not a third-party push service.** No Firebase Cloud Messaging,
@@ -36,11 +37,13 @@ the original draft.
   posture (ADR-0012's Gemini key). A single **VAPID key pair** identifies
   Tally as the sending application: the public key ships in client code, the
   private key lives only as a Supabase Edge Function secret.
-- **Only four triggers, chosen deliberately narrow:**
+- **Only five triggers, chosen deliberately narrow:**
   1. `expense_added` (a person adds an expense)
   2. `recurring_generated` (a recurring rule fires)
   3. `settled` (a payment is recorded) — creditor only, never the payer
   4. a `shopping_item` row is inserted (someone adds to the list)
+  5. `shopping_item.checked` flips false→true (someone crosses an item off)
+     — added 2026-07-26 on Josh's request, same shape as #4
 
   Everything else considered in the original draft — `member_joined`, two new
   types that would've been added for removal/leaving, `expense_edited`,
@@ -49,12 +52,26 @@ the original draft.
   If any of these come back, that's a new decision, not "flip a flag" — the
   supporting code (extra `activity_type` values, Splitty's direct
   `pg_net` calls) was never built.
-- **Two trigger functions, not one generic one.** `activity_push()` (`AFTER
-  INSERT` on `activity`, filters to the three relevant types) and
-  `shopping_item_push()` (`AFTER INSERT` on `shopping_item`, entirely
-  separate). Both call the same `send-push` Edge Function via
-  **`pg_net.http_post`** (extension not yet enabled on this project — added
-  in the Phase 9 migration).
+- **Three trigger functions, not one generic one.** `activity_push()`
+  (`AFTER INSERT` on `activity`, filtered to the three relevant types),
+  `shopping_item_added_push()` (`AFTER INSERT`) and
+  `shopping_item_checked_push()` (`AFTER UPDATE`, only on a false→true
+  `checked` flip). All call the same `send-push` Edge Function via
+  **`pg_net.http_post`** (extension newly enabled in the Phase 9 migration).
+- **Per-recipient message bodies.** The payload is a `messages` array, one
+  entry per recipient, because the expense notifications show each person
+  *their own* share — a single broadcast body couldn't do that.
+- **A quiet window on the shopping-list events**, backed by a `push_throttle`
+  table: after notifying, that actor's further adds (or cross-offs) in that
+  space stay silent for 10 minutes. Bulk list-building is the normal case and
+  one buzz per item would be intolerable. Adds and cross-offs throttle
+  independently. The expense/settlement triggers are deliberately *not*
+  throttled — those are low-frequency and individually meaningful.
+- **`send-push` is deployed `--no-verify-jwt` and does its own auth**: a
+  shared secret for Postgres callers (`pg_net` carries no Supabase session, so
+  the platform's JWT gate would reject every trigger), and a normal
+  `auth.getUser()` check for the app's test button. Leaving the platform gate
+  on would have made the whole trigger path silently 401.
 - **Every notification title is prefaced "Tally-ho!"** — a fixed literal
   string, not configurable, baked into the copy-building code in both
   trigger functions. Format: `Tally-ho! {event summary}`.
@@ -94,3 +111,11 @@ the original draft.
   edit/delete visibility, a balance reminder), each is a new, separate
   decision — this ADR intentionally does not leave half-built scaffolding
   (unused `activity_type` values, dormant trigger branches) for them.
+- **Notification copy hardcodes Rand** via `_push_fmt()`, a SQL mirror of the
+  app's `fmt()`. That's a second place ZAR is baked in (alongside `fmt()` and
+  the `group.currency` check constraint) — noted in the ROADMAP's
+  multi-currency backlog item, not a new constraint introduced here.
+- **Delivery to a physical handset is the one unverified link.** Everything up
+  to and including a real VAPID-signed, encrypted send to Google's FCM
+  endpoint was verified end-to-end server-side; a real device round-trip
+  needs a real device.

@@ -7,10 +7,14 @@
  * Content-hashed Next assets are cache-first (they're immutable). Bump CACHE
  * to purge everything on the next visit.
  *
+ * Also hosts the Web Push handlers (Phase 9, ADR-0014): `push` shows the
+ * notification, `notificationclick` focuses an already-open Tally tab (or
+ * opens one) at the notification's deep link.
+ *
  * Phase 2 replaces this with full offline-first (precached shell + outbox).
  */
 
-const CACHE = "tally-shell-v2";
+const CACHE = "tally-shell-v3";
 const BRAND_ASSETS = /\/(icons\/|favicon\.ico|manifest\.webmanifest)/;
 
 self.addEventListener("install", (event) => {
@@ -62,4 +66,47 @@ self.addEventListener("fetch", (event) => {
       )
     );
   }
+});
+
+/* ---------------------------------------------------------------------------
+ * Web Push (Phase 9, ADR-0014)
+ * ------------------------------------------------------------------------- */
+
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { title: "Tally-ho!", body: event.data ? event.data.text() : "" };
+  }
+  const title = payload.title || "Tally-ho!";
+  const url = payload.url || "/";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: payload.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url },
+      // Collapse repeats of the same target rather than stacking duplicates.
+      tag: url,
+      renotify: true,
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      // Reuse an open Tally tab where possible so we don't pile up windows.
+      for (const w of wins) {
+        if (w.url.includes(self.location.origin) && "focus" in w) {
+          if ("navigate" in w) w.navigate(target).catch(() => {});
+          return w.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
 });

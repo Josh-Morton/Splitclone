@@ -107,6 +107,8 @@ export default function HomePage() {
   const [activityOpen, setActivityOpen] = useState(false);
   const [listRefresh, setListRefresh] = useState(0);
   const [viewing, setViewing] = useState<Expense | null>(null);
+  // Push deep links (?expense=<id> / ?tab=list) are consumed exactly once.
+  const deepLinkDone = useRef(false);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -157,6 +159,43 @@ export default function HomePage() {
       void Promise.resolve().then(load);
     }
   }, [session.status, load, router]);
+
+  // Deep links from a push notification (Phase 9): ?tab=list opens the List
+  // tab; ?expense=<id> opens that expense's detail, switching space first if
+  // it lives in a different one. Runs once, then strips the params so a
+  // refresh doesn't reopen it.
+  useEffect(() => {
+    if (!data || deepLinkDone.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const wantTab = params.get("tab");
+    const wantExpense = params.get("expense");
+    if (!wantTab && !wantExpense) return;
+    deepLinkDone.current = true;
+
+    void Promise.resolve().then(async () => {
+      if (wantTab === "list") setTab("list");
+
+      if (wantExpense) {
+        const here = data.expenses.find((e) => e.id === wantExpense);
+        if (here) {
+          setViewing(here);
+        } else {
+          // Not in the active space — find it, switch, and reload.
+          const found = await data.repo.getExpense(wantExpense).catch(() => null);
+          if (found && found.groupId !== data.groupId) {
+            await data.repo
+              .updateProfile({ userId: data.user.id, defaultGroupId: found.groupId })
+              .catch(() => null);
+            await load();
+            setViewing(found);
+          } else if (found) {
+            setViewing(found);
+          }
+        }
+      }
+      window.history.replaceState(null, "", window.location.pathname);
+    });
+  }, [data, load]);
 
   function showToast(msg: string, undo?: () => void) {
     if (toastTimer.current) clearTimeout(toastTimer.current);

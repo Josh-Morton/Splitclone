@@ -27,6 +27,7 @@ import {
   type NewExpenseInput,
   type NewRecurringInput,
   type NewSettlementInput,
+  type PushState,
   type Repo,
   type ScanResult,
   type SplitBill,
@@ -584,7 +585,13 @@ export class SupabaseRepo implements Repo {
   }
 
   async setShoppingItemChecked(id: string, checked: boolean): Promise<void> {
-    const { error } = await this.sb.from("shopping_item").update({ checked }).eq("id", id);
+    // Stamp updated_by so the row records who ticked it (bump_sync_meta only
+    // maintains updated_at/version) — also drives the "crossed off" push.
+    const userId = await this.uid();
+    const { error } = await this.sb
+      .from("shopping_item")
+      .update({ checked, updated_by: userId })
+      .eq("id", id);
     if (error) this.fail(error);
   }
 
@@ -959,4 +966,104 @@ export class SupabaseRepo implements Repo {
       if (channel) void this.sb.removeChannel(channel);
     };
   }
+
+  // --- push notifications (Phase 9; Web Push via VAPID — ADR-0014) ---
+  getPushState(): PushState {
+    if (
+      typeof window === "undefined" ||
+      !("serviceWorker" in navigator) ||
+      !("PushManager" in window) ||
+      typeof Notification === "undefined"
+    ) {
+      return "unsupported";
+    }
+    return Notification.permission as PushState;
+  }
+
+  async isPushEnabled(): Promise<boolean> {
+    if (this.getPushState() !== "granted") return false;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (!sub) return false;
+    const { data } = await this.sb
+      .from("push_subscription")
+      .select("id")
+      .eq("endpoint", sub.endpoint)
+      .maybeSingle();
+    return Boolean(data);
+  }
+
+  async enablePush(): Promise<void> {
+    if (this.getPushState() === "unsupported") {
+      throw new ValidationError("This browser doesn't support notifications");
+    }
+    const vapid = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+    if (!vapid) throw new ValidationError("Notifications aren't configured");
+
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      throw new ValidationError(
+        permission === "denied"
+          ? "Notifications are blocked — allow them in your browser settings"
+          : "Notifications weren't allowed"
+      );
+    }
+
+    // The SW registers on load in production builds only, so bail with a clear
+    // message rather than awaiting `ready` forever (it never resolves if
+    // nothing was ever registered — e.g. a local dev build).
+    if (!(await navigator.serviceWorker.getRegistration())) {
+      throw new ValidationError("Notifications need the installed app — open Tally from your home screen");
+    }
+    const reg = await navigator.serviceWorker.ready;
+    const sub =
+      (await reg.pushManager.getSubscription()) ??
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapid),
+      }));
+
+    const json = sub.toJSON() as { endpoint?: string; keys?: { p256dh?: string; auth?: string } };
+    if (!json.keys?.p256dh || !json.keys.auth) {
+      throw new ValidationError("Couldn't register this device for notifications");
+    }
+    const userId = await this.uid();
+    const { error } = await this.sb.from("push_subscription").upsert(
+      {
+        user_id: userId,
+        endpoint: sub.endpoint,
+        p256dh: json.keys.p256dh,
+        auth_key: json.keys.auth,
+        user_agent: navigator.userAgent.slice(0, 255),
+      },
+      { onConflict: "endpoint" }
+    );
+    if (error) this.fail(error);
+  }
+
+  async disablePush(): Promise<void> {
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (sub) {
+      await this.sb.from("push_subscription").delete().eq("endpoint", sub.endpoint);
+      await sub.unsubscribe().catch(() => false);
+    }
+  }
+
+  async sendTestPush(): Promise<void> {
+    const { error } = await this.sb.functions.invoke("send-push", { body: { test: true } });
+    if (error) throw new ValidationError("Couldn't send the test notification");
+  }
+}
+
+/** VAPID keys travel as base64url; PushManager wants raw bytes. */
+function urlBase64ToUint8Array(base64: string): ArrayBuffer {
+  const padded = (base64 + "=".repeat((4 - (base64.length % 4)) % 4))
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+  const raw = atob(padded);
+  const buffer = new ArrayBuffer(raw.length);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < raw.length; i++) view[i] = raw.charCodeAt(i);
+  return buffer;
 }

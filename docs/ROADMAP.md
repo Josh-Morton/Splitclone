@@ -5,7 +5,7 @@
 > Full epic/task detail with acceptance criteria lives in the Phase 1 plan doc
 > (`SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`).
 
-**Last updated:** 2026-07-25 (Phase 9 "Push notifications" trimmed to 4 triggers + "Tally-ho!" copy — still not built)
+**Last updated:** 2026-07-26 (Phase 9 "Push notifications" shipped — Tally-ho! push via Web Push/VAPID)
 
 ## Where we are
 
@@ -19,9 +19,9 @@ Josh + partner. SMTP for real OTP codes is backlogged (Josh,
 offline-first. **Phase 8 "Splitty"** (standalone bill-splitting via a
 WhatsApp-shared link, no guest account required) is **shipped** — see the
 Phase 8 section below. **Phase 9 "Push notifications"** (Web Push via VAPID;
-just 4 triggers — expense added, recurring generated, settled, shopping-list
-add; every notification prefaced "Tally-ho!"; Android-first) is fully specced
-but **not started**.
+5 triggers — expense added, recurring generated, settled, shopping-list add
+and cross-off; every notification prefaced "Tally-ho!"; Android-first) is
+**shipped** — one on-device check outstanding, see that section.
 
 ## Phase 0 — Foundations
 
@@ -1122,16 +1122,38 @@ pattern already used for `scanReceipt`'s canned response.
 8. Update this ROADMAP section's status line, write the "✅ SHIPPED" note
    (matching every other phase's convention), verify + ship per CLAUDE.md.
 
-## Phase 9 — Push notifications 📝 SPEC ONLY — NOT BUILT (2026-07-24, trimmed 2026-07-25)
+## Phase 9 — Push notifications ✅ SHIPPED (2026-07-26) → M7 "Tally-ho!"
 
-> **Status: fully specced, zero code written.** Same convention as Phase 8: this
-> is exhaustive enough for any LLM to implement from this document alone. Don't
-> start building until this is confirmed with Josh. See **[ADR-0014](decisions/0014-push-notifications.md)**
-> for the architecture decision this spec implements — read it first.
-> **Trimmed from the original draft (2026-07-25, Josh):** cut down to only the
-> triggers that actually matter — see "Notification inventory" below. Every
-> notification is prefaced **"Tally-ho!"** (see "Copy convention"). Android is
-> the primary target, not iOS (see "Platform support").
+> **Live:** Web Push via VAPID. Five triggers (expense added, recurring bill
+> generated, payment settled, shopping item added, shopping item crossed off),
+> every title prefaced **"Tally-ho!"**, one master toggle per device in
+> Settings, plus a "Send a test notification" button. Tapping a notification
+> deep-links to the exact expense (auto-switching space if needed) or the List
+> tab. See **[ADR-0014](decisions/0014-push-notifications.md)**.
+>
+> **What's deployed:** migration `20260729000000_push_notifications.sql`
+> (pg_net, `push_subscription` + RLS, `push_throttle`, three trigger
+> functions); Edge Function `send-push` (deployed `--no-verify-jwt` — it does
+> its own auth: shared secret for Postgres callers, JWT for the test button);
+> VAPID keys as Supabase Function secrets + `NEXT_PUBLIC_VAPID_PUBLIC_KEY` on
+> Vercel; `send_push_url`/`send_push_shared_secret` in Supabase Vault.
+>
+> **Verified server-side end-to-end** on a throwaway synthetic group: trigger
+> fired → recipient + per-person share resolved → `pg_net` POSTed → function
+> authenticated → VAPID-signed encrypted push actually sent to Google's FCM
+> endpoint → 404 for the fake endpoint → dead subscription auto-pruned
+> (`{"sent":0,"pruned":1}`). Auth rejection paths (no secret / wrong secret)
+> both 401. Money formatting (`_push_fmt`) matches the app's `fmt()` exactly.
+> `npm test` (53) + build + lint green.
+>
+> ⚠️ **Not verified: delivery to a real handset.** That needs a physical
+> device and can't be done from this tooling — **Josh: install Tally on your
+> Android home screen, Settings → Notifications on → "Send a test
+> notification".** Everything up to the push service is proven working.
+>
+> **Trimmed from the original draft (2026-07-25, Josh):** cut to only the
+> triggers that matter. **Extended (2026-07-26, Josh):** crossing an item off
+> the shopping list notifies too, with the same quiet window as adding.
 
 ### Goal
 Notify household members of things that happened elsewhere in Tally —
@@ -1157,231 +1179,152 @@ real platform limitation, not a Tally bug, so don't spend effort working
 around it. Ship for Android/desktop; let iOS work if it works, don't block on
 it or build iOS-specific fallback UX.
 
-### Notification inventory — trigger, recipients, copy
-Only four triggers made the cut — Josh's call was to keep this to the events
-that are genuinely worth interrupting someone for. Everything else considered
-(member joined/removed/left, expense edited/deleted, Splitty activity, a
-weekly balance-reminder digest) was explicitly **cut**, not deferred — see
-"Explicit non-goals" for the full list of what's intentionally out.
-**Nobody is ever notified of their own action** (actor excluded from every
-recipient list). Deep-link = where tapping the notification should land.
+### Notification inventory — trigger, recipients, copy (as built)
+Five triggers — Josh's call was to keep this to events genuinely worth
+interrupting someone for. Everything else considered (member
+joined/removed/left, expense edited/deleted, Splitty activity, a weekly
+balance-reminder digest) was explicitly **cut**, not deferred — see "Explicit
+non-goals". **Nobody is ever notified of their own action** (actor excluded
+from every recipient list, except #2 which nobody "did"). Deep-link = where
+tapping the notification lands.
 
 | # | Trigger | Recipients | Title | Body | Deep-link |
 |---|---|---|---|---|---|
-| 1 | `activity.type = 'expense_added'` — a person adds an expense | All other active members with a `userId` | `Tally-ho! {actor} added an expense` | `"{description}" — your share {fmt(yourShare)}` | Expense detail |
-| 2 | `activity.type = 'recurring_generated'` — a recurring rule fires and generates its expense | **All** active members with a `userId` (an automatic event — nobody "did" it live, so nobody is excluded) | `Tally-ho! {description} was added` | `{fmt(amount)} split automatically — your share {fmt(yourShare)}` | Expense detail |
-| 3 | `activity.type = 'settled'` — a payment is recorded | Only the **creditor** (`toMemberId`'s user) — never the payer, they know they just paid | `Tally-ho! {actor} paid you` | `{fmt(amount)} recorded — you're square` (or the remaining balance if it was a partial payment) | Home |
-| 4 | `shopping_item` row inserted — someone adds to the shared list | All other active members with a `userId` | `Tally-ho! {actor} added to the list` | `"{item}" — {n} items on the list` | List tab |
+| 1 | `activity.type = 'expense_added'` — a person adds an expense | All other active members with a `userId` | `Tally-ho! {actor} added an expense` | `"{description}" — your share {fmt(yourShare)}` | `/?expense={id}` |
+| 2 | `activity.type = 'recurring_generated'` — a recurring rule fires | **All** active members with a `userId` (automatic — nobody is excluded) | `Tally-ho! {description} was added` | `{fmt(amount)} split automatically — your share {fmt(yourShare)}` | `/?expense={id}` |
+| 3 | `activity.type = 'settled'` — a payment is recorded | Only the **creditor** — never the payer, they know they just paid | `Tally-ho! {actor} paid you` | `{fmt(amount)} recorded` | `/` |
+| 4 | `shopping_item` inserted — someone adds to the shared list | All other active members with a `userId` | `Tally-ho! {actor} added to the list` | `"{item}" — {n} items still to buy` | `/?tab=list` |
+| 5 | `shopping_item.checked` flips false→true — someone crosses an item off | All other active members with a `userId` | `Tally-ho! {actor} crossed something off` | `"{item}" — {n} items still to buy` | `/?tab=list` |
 
-Items #1 and #2 are conceptually the same category ("an expense landed in the
-household") and share nearly identical copy, but they are **two separate
-triggers that each fire their own notification** — a recurring bill firing
-does not get folded into or suppressed by the regular expense-added path, and
-vice versa. No merging/deduping across the two.
+**Per-recipient bodies.** #1 and #2 show each person *their own* share, so the
+trigger emits one message per recipient (payload is a `messages` array), not
+one broadcast body.
 
-### Architecture summary (full detail in ADR-0014)
+**#1 and #2 stay separate.** Conceptually the same category ("an expense
+landed") with near-identical copy, but they are two independent triggers that
+each fire their own notification — a recurring bill firing is never folded
+into or suppressed by the regular expense-added path.
+
+**Quiet window on #4 and #5.** Shopping-list events are rate-limited per
+(actor, space, kind) by the `push_throttle` table: after one notification, that
+person's further adds (or cross-offs) in that space stay silent for **10
+minutes** (`_push_quiet_window()`). So planning a shop — adding eight items in
+a row, or ticking a trolley-full off — sends one buzz, not eight. Adds and
+cross-offs throttle independently, so crossing something off isn't muted by
+having just added something. The body always carries the live "still to buy"
+count, so the one notification you do get is current.
+
+### Architecture (as built)
 ```
-Event happens (expense added, recurring fires, settled, shopping item added)
+Event happens (expense added, recurring fires, settled, list add, list cross-off)
         │
         ▼
-Trigger fires: activity_push (after insert on `activity`, covers #1–#3)
-            or shopping_item_push (after insert on `shopping_item`, covers #4)
-        │  pg_net.http_post (URL + secret from Supabase Vault)
+Trigger:  activity_push                  (after insert on `activity`,  #1–#3)
+          shopping_item_added_push        (after insert on `shopping_item`, #4)
+          shopping_item_checked_push      (after update on `shopping_item`, #5)
+        │  builds one message PER RECIPIENT (each sees their own share),
+        │  quiet-window checked for #4/#5 via push_throttle
         ▼
-Edge Function `send-push`  — looks up push_subscription rows per user_id,
-                              sends a Web Push message to each (VAPID-signed),
-                              prunes subscriptions that come back 404/410
+_push_send(messages)  →  pg_net.http_post
+        │  URL + shared secret read from Supabase Vault
+        ▼
+Edge Function `send-push`  — verifies the shared secret, looks up each user's
+                              push_subscription rows, sends a VAPID-signed
+                              Web Push per device, deletes any that 404/410
         │
         ▼
-Browser service worker `push` event → self.registration.showNotification(...)
-        │  user taps it
+Service worker `push` → showNotification(title, { body, data:{url}, tag:url })
+        │  user taps
         ▼
-`notificationclick` → focuses/opens the deep-link URL
+`notificationclick` → focuses an open Tally tab (or opens one) at the deep link
+        ▼
+page.tsx reads ?expense= / ?tab=, switches space if the expense lives
+elsewhere, opens the detail sheet, then strips the query params
 ```
-Two trigger functions, not one: #1–#3 read from the `activity` table (which
-already logs those three event types server-side in the same transaction as
-the underlying change — see `create_expense`, `record_settlement`); #4 reads
-directly off `shopping_item` since shopping-list adds were never logged to
-`activity` (that table is specifically the expense/settlement audit trail —
-see `activity-overlay.tsx` — and there's no reason to start routing shopping
-items through it just for this). Both trigger functions call the same
-`send-push` Edge Function via the same `pg_net.http_post` + Vault-secret
-mechanism.
+Three trigger functions rather than one: #1–#3 read the `activity` table
+(which already logs those events server-side in the same transaction as the
+underlying change); #4/#5 read `shopping_item` directly, because the shopping
+list was never logged to `activity` (that table is the expense/settlement
+audit trail) and there was no reason to start routing list items through it.
 
-### Data model
-New migration `supabase/migrations/20260729000000_push_notifications.sql`:
+### Data model — see the migration
+`supabase/migrations/20260729000000_push_notifications.sql` is the source of
+truth (applied live). It creates:
+- `pg_net` extension (new for this project; joins `pg_cron`, `pgcrypto`,
+  `supabase_vault`).
+- **`push_subscription`** — one row per subscribed device (a user can have
+  several: phone, desktop). RLS is owner-only (`user_id = auth.uid()`), so the
+  client manages just its own rows via PostgREST; no RPC wrapper. Only the
+  `SECURITY DEFINER` triggers and the service-role Edge Function read across
+  users.
+- **`push_throttle`** — `(actor_id, group_id, kind)` → `last_sent_at`, backing
+  the 10-minute quiet window on the shopping-list events. RLS on with **no
+  policies**: nothing client-side ever touches it.
+- Helpers `_push_send` (Vault lookup + `pg_net` POST; silently no-ops if the
+  Vault secrets aren't set yet, so a missing config can never break the write
+  that triggered it), `_push_throttle_ok`, `_push_actor_name`, and `_push_fmt`
+  (Rand formatting that mirrors the app's `fmt()` — verified: `R1 234,56`,
+  `R0,99`, `R1 000 000,00`).
+- The three triggers listed above.
 
-```sql
--- New extension (alongside the already-enabled pg_cron, pgcrypto, supabase_vault).
-create extension if not exists pg_net;
+Two secrets live in Supabase Vault (set once via the Management API, never in
+committed SQL — same rule as `GEMINI_API_KEY`): `send_push_url` and
+`send_push_shared_secret`.
 
--- One row per subscribed device (a user can have several: phone, desktop…).
-create table push_subscription (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references auth.users (id) on delete cascade,
-  endpoint text not null unique,
-  p256dh text not null,
-  auth_key text not null,       -- Web Push subscription.keys.auth ("auth" is reserved-ish, renamed)
-  user_agent text,
-  created_at timestamptz not null default now()
-);
-create index push_subscription_user_idx on push_subscription (user_id);
+### Edge Function `send-push`
+`supabase/functions/send-push/index.ts`, deployed with **`--no-verify-jwt`**
+because it does its own auth two ways:
+- **From Postgres** (`pg_net` carries no Supabase session): requires the
+  `x-shared-secret` header to match the `PUSH_SHARED_SECRET` env secret.
+  Body: `{ messages: [{ user_id, title, body, url }, …] }`.
+- **From the app's test button**: body `{ test: true }` plus the caller's JWT,
+  verified with `auth.getUser()` like every other function here; pushes only
+  to the caller's own devices.
 
-alter table push_subscription enable row level security;
-create policy push_subscription_owner on push_subscription for all
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
--- Self-service table — the client can insert/select/delete its own rows
--- directly via PostgREST + RLS; no RPC wrapper needed (same pattern as e.g.
--- shopping_item). Only the SECURITY DEFINER trigger functions below ever
--- read across users, and they run with elevated privilege that bypasses RLS.
+Sends via `npm:web-push@3.6.7` (VAPID-signed), and **deletes any subscription
+the push service rejects with 404/410** — the browser unsubscribed or the
+endpoint expired — so the table self-cleans without a cron job.
+Secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`,
+`PUSH_SHARED_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`.
 
--- Trigger #1: activity-table events (expense_added, recurring_generated, settled).
--- Ignores every other activity_type (expense_edited, expense_deleted,
--- member_joined, etc. — those never send push per this spec).
-create or replace function activity_push() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare
-  v_url text; v_secret text;
-  v_recipients uuid[];
-  v_title text; v_body text; v_link text;
-begin
-  if new.type not in ('expense_added', 'recurring_generated', 'settled') then
-    return new;
-  end if;
-  -- ...resolve group/expense/settlement context from new.target_id, exactly
-  -- mirroring activity-overlay.tsx's toRow() switch for the relevant three
-  -- cases only. Build v_recipients per the "Recipients" column above
-  -- (excluding new.actor_id, except recurring_generated excludes nobody),
-  -- and v_title/v_body/v_link from the inventory table, with the literal
-  -- 'Tally-ho! ' prefix baked into every v_title.
-
-  if v_recipients is null or array_length(v_recipients, 1) is null then
-    return new; -- nobody to notify (e.g. a 1-person group)
-  end if;
-
-  select decrypted_secret into v_url
-    from vault.decrypted_secrets where name = 'send_push_url';
-  select decrypted_secret into v_secret
-    from vault.decrypted_secrets where name = 'send_push_shared_secret';
-
-  perform net.http_post(
-    url := v_url,
-    headers := jsonb_build_object('Content-Type', 'application/json', 'x-shared-secret', v_secret),
-    body := jsonb_build_object('user_ids', v_recipients, 'title', v_title, 'body', v_body, 'url', v_link)
-  );
-  return new;
-end $$;
-
-create trigger activity_push_trigger after insert on activity
-  for each row execute function activity_push();
-
--- Trigger #2: shopping list adds — separate from the activity table entirely.
-create or replace function shopping_item_push() returns trigger
-language plpgsql security definer set search_path = public as $$
-declare
-  v_url text; v_secret text;
-  v_recipients uuid[];
-  v_count int;
-  v_title text := 'Tally-ho! ' || coalesce(
-    (select case when p.display_name = '' then null else p.display_name end
-     from profile p where p.user_id = new.added_by), 'Someone'
-  ) || ' added to the list';
-  v_body text;
-begin
-  select array_agg(gm.user_id) into v_recipients
-    from group_member gm
-    where gm.group_id = new.group_id and gm.user_id is not null
-      and gm.user_id <> new.added_by and gm.status = 'active' and gm.deleted_at is null;
-
-  if v_recipients is null or array_length(v_recipients, 1) is null then
-    return new;
-  end if;
-
-  select count(*) into v_count from shopping_item
-    where group_id = new.group_id and deleted_at is null and checked = false;
-  v_body := '"' || new.name || '" — ' || v_count || ' item' || (case when v_count = 1 then '' else 's' end) || ' on the list';
-
-  select decrypted_secret into v_url from vault.decrypted_secrets where name = 'send_push_url';
-  select decrypted_secret into v_secret from vault.decrypted_secrets where name = 'send_push_shared_secret';
-
-  perform net.http_post(
-    url := v_url,
-    headers := jsonb_build_object('Content-Type', 'application/json', 'x-shared-secret', v_secret),
-    body := jsonb_build_object('user_ids', v_recipients, 'title', v_title, 'body', v_body, 'url', '/')
-  );
-  return new;
-end $$;
-
-create trigger shopping_item_push_trigger after insert on shopping_item
-  for each row execute function shopping_item_push();
-```
-
-`vault.secrets` gets two rows set up once (Management API, not in a migration
-file — same "secrets never in committed SQL" rule as `GEMINI_API_KEY`):
-`send_push_url` (the deployed `send-push` Edge Function URL) and
-`send_push_shared_secret` (a random string `send-push` checks on every
-request, since the Edge Function itself is otherwise unauthenticated from
-Postgres's point of view — `pg_net` calls don't carry a Supabase session).
-
-### Edge Functions
-- **`send-push`** (new, Deno): checks the `x-shared-secret` header against its
-  own `PUSH_SHARED_SECRET` env secret (reject 401 otherwise — this replaces
-  the "real signed-in user" check every other function uses, since this one is
-  called by Postgres, not a browser). Body: `{ user_ids: string[], title,
-  body, url }`. For each `user_id`, `select * from push_subscription where
-  user_id = $1`, then Web Push each subscription (VAPID-signed, using a Deno
-  Web Push library imported from esm.sh — same import pattern as
-  `@supabase/supabase-js` in every existing function). On a `404`/`410`
-  response from an endpoint, delete that `push_subscription` row (the browser
-  unsubscribed or the endpoint expired) — keeps the table clean without a
-  separate cleanup job.
-  - Secrets: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` (a
-    `mailto:` contact per the Web Push spec), `PUSH_SHARED_SECRET`,
-    `SUPABASE_SERVICE_ROLE_KEY` (to query `push_subscription` across users —
-    same service-role pattern as `notify-removed`).
-
-### Repo interface + client additions
-```ts
-// --- push notifications (Phase 9) ---
-/** Registers this device: requests permission, subscribes, saves the row. */
-enablePush(): Promise<void>;
-/** Unsubscribes this device and removes its push_subscription row. */
-disablePush(): Promise<void>;
-/** "granted" | "denied" | "default" | "unsupported" — for the Settings UI. */
-getPushPermission(): "granted" | "denied" | "default" | "unsupported";
-```
-- `SupabaseRepo.enablePush()`: `Notification.requestPermission()` →
-  `serviceWorkerRegistration.pushManager.subscribe({ userVisibleOnly: true,
-  applicationServerKey: <NEXT_PUBLIC_VAPID_PUBLIC_KEY> })` → insert the
-  resulting `{endpoint, keys.p256dh, keys.auth}` into `push_subscription`
-  directly via `this.sb.from(...)` (RLS-owned, no RPC).
-- `MemoryRepo`: no-op stub with a comment explaining push can't be meaningfully
-  demoed (no service worker push events in an iframe-embedded demo session) —
-  same documented-limitation pattern as Splitty's demo bill.
-- **`public/sw.js`** gains:
-  ```js
-  self.addEventListener("push", (event) => {
-    const { title, body, url } = event.data.json();
-    event.waitUntil(self.registration.showNotification(title, { body, data: { url }, icon: "/icons/icon-192.png" }));
-  });
-  self.addEventListener("notificationclick", (event) => {
-    event.notification.close();
-    event.waitUntil(clients.openWindow(event.notification.data.url || "/"));
-  });
+### Client
+- **Repo** (`repo.ts`, both implementations):
+  ```ts
+  getPushState(): "granted" | "denied" | "default" | "unsupported";  // sync
+  isPushEnabled(): Promise<boolean>;   // does this device have a saved row?
+  enablePush(): Promise<void>;         // permission -> subscribe -> save
+  disablePush(): Promise<void>;        // delete row + unsubscribe
+  sendTestPush(): Promise<void>;       // test notification to your own devices
   ```
-- **Settings sheet** (`settings-sheet.tsx`, new row alongside the existing
-  "Spaces" / "Recurring bills" rows around line 196): a "Notifications"
-  toggle — off/on. No iOS-specific messaging needed (see "Platform support"
-  above) — if `getPushPermission() === "unsupported"`, just disable the
-  toggle with a one-line "Not supported in this browser," no platform-specific
-  copy.
+  `SupabaseRepo` upserts on `endpoint` (so re-enabling is idempotent) and
+  fails with a clear message if no service worker is registered, rather than
+  awaiting `navigator.serviceWorker.ready` forever — the SW only registers in
+  production builds. `MemoryRepo` reports `"unsupported"`, so the demo shows a
+  disabled toggle instead of failing when tapped.
+- **`public/sw.js`** — `push` shows the notification (`tag: url` so repeats
+  about the same thing collapse rather than stack); `notificationclick`
+  focuses an already-open Tally tab and navigates it, falling back to opening
+  a new window. Cache bumped to `tally-shell-v3`.
+- **`page.tsx`** — consumes `?expense=<id>` / `?tab=list` once on load: opens
+  the expense detail (fetching it and **switching the active space** if it
+  lives in another one), then strips the params so a refresh doesn't reopen it.
+- **Settings sheet** — a "Notifications" toggle for this device plus, once on,
+  a "Send a test notification" link. Copy stays generic ("Not supported in
+  this browser") rather than platform-specific.
 
-### What Josh needs to provide
-Nothing external — **VAPID key pairs are generated locally**, no third-party
-account needed (unlike the Gemini key). Claude runs
-`npx web-push generate-vapid-keys` (or the Deno/JS equivalent) once, sets the
-public half as `NEXT_PUBLIC_VAPID_PUBLIC_KEY` in Vercel and the private half
-as a Supabase Function secret.
+
+### What Josh needs to do
+Nothing to *provide* — VAPID keys are generated locally (no third-party
+account, unlike the Gemini key); they're already generated and set as Supabase
+Function secrets + `NEXT_PUBLIC_VAPID_PUBLIC_KEY` on Vercel (all environments).
+
+**One thing to verify**, because it can't be done from Claude's tooling:
+install Tally on your Android home screen → **Settings → Notifications** on →
+**"Send a test notification"**. You should get "Tally-ho! Test notification"
+within a second or two. If it doesn't arrive, the likely culprits are (a)
+notification permission denied at the OS level for the installed PWA, or (b)
+the service worker not yet updated — force-close and reopen the app once
+(the SW cache was bumped to `v3`, which triggers the update on next launch).
 
 ### Explicit non-goals for v1 (several of these were cut on purpose, not deferred)
 - **No push for member joined/removed/left** — cut per Josh, 2026-07-25.
@@ -1410,26 +1353,35 @@ a real need (e.g. a non-South-African household) — would touch `fmt()`, the
 `currency` check constraint, and every place that formats money, not just
 notifications. No action needed until that need actually exists.
 
-### Build order
-1. Generate the VAPID key pair; set `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (Vercel) and
-   `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` (Supabase Function
-   secrets).
-2. Migration `20260729000000_push_notifications.sql` (extension,
-   `push_subscription` table + RLS, the two trigger functions) — apply via
-   the Management API per this project's usual path; set the two Vault
-   secrets (`send_push_url`, `send_push_shared_secret`) once the function is
-   deployed.
-3. Edge Function `send-push` (Web Push sending + dead-subscription pruning).
-4. `public/sw.js` `push`/`notificationclick` listeners.
-5. Repo additions (`enablePush`/`disablePush`/`getPushPermission`) in both
-   implementations.
-6. Settings sheet UI: the Notifications toggle.
-7. **Verify on a real Android device before calling this done** — Web Push
-   cannot be meaningfully verified in the dev-server browser preview tooling
-   (no real push service round-trip); test on an actual installed PWA with
-   the app backgrounded. Don't block on iOS verification.
-8. Update this ROADMAP section's status line, write the "✅ SHIPPED" note,
-   verify + ship per CLAUDE.md.
+### Build order — all done except the on-device check
+- [x] VAPID key pair generated; `NEXT_PUBLIC_VAPID_PUBLIC_KEY` on Vercel (prod,
+      preview, dev) and in `.env.local`; `VAPID_*` + `PUSH_SHARED_SECRET` as
+      Supabase Function secrets.
+- [x] Migration `20260729000000_push_notifications.sql` applied live and
+      recorded in `schema_migrations`; `send_push_url` +
+      `send_push_shared_secret` stored in Vault.
+- [x] Edge Function `send-push` deployed (`--no-verify-jwt`; own auth).
+- [x] `public/sw.js` `push`/`notificationclick`; cache bumped to v3.
+- [x] Repo methods in `SupabaseRepo` + `MemoryRepo`; `setShoppingItemChecked`
+      now stamps `updated_by` (it never did — needed for cross-off attribution,
+      and correct sync metadata regardless).
+- [x] Settings sheet: Notifications toggle + test-notification button.
+- [x] `page.tsx` deep-link handling (`?expense=`, `?tab=`) with space switching.
+- [x] Server-side E2E verified on synthetic data (see the status note at the
+      top of this section), then fully cleaned up.
+- [ ] **On-device check — Josh.** Install on Android, Settings →
+      Notifications → "Send a test notification". This is the one link in the
+      chain that can't be verified from Claude's tooling.
+
+### If a notification doesn't arrive — where to look
+1. `select count(*) from push_subscription;` — did the device register?
+2. `select status_code, content from net._http_response order by created desc
+   limit 5;` — did the trigger reach `send-push`, and what did it say?
+   `{"sent":N}` means it handed off to the push service successfully.
+3. `{"sent":0,"pruned":N}` means the subscription was stale — re-toggle
+   Notifications in Settings to re-subscribe.
+4. `select * from push_throttle;` — a shopping-list event may simply be inside
+   its 10-minute quiet window.
 
 ## Design-fidelity backlog (audit vs design handoff, 2026-07-13)
 Gaps between the built app and `design_handoff_settleup/README.md`, each with

@@ -822,6 +822,32 @@ export class MemoryRepo implements Repo {
     return () => {};
   }
 
+  // --- push notifications (Phase 9) ---
+  // Not demoable: real push needs a server-signed VAPID message delivered by
+  // the browser's push service to a subscribed device, which the in-memory
+  // demo has no backend for. Reported as unsupported so the Settings toggle
+  // renders disabled rather than failing when tapped (same documented-
+  // limitation pattern as scanReceipt's canned response).
+  getPushState(): import("./repo").PushState {
+    return "unsupported";
+  }
+
+  async isPushEnabled(): Promise<boolean> {
+    return false;
+  }
+
+  async enablePush(): Promise<void> {
+    throw new ValidationError("Notifications aren't available in the demo");
+  }
+
+  async disablePush(): Promise<void> {
+    /* nothing subscribed in the demo */
+  }
+
+  async sendTestPush(): Promise<void> {
+    throw new ValidationError("Notifications aren't available in the demo");
+  }
+
   // --- internals ---
   private mustGroup(groupId: string): Group {
     const g = this.groups.find((x) => x.id === groupId && !x.deletedAt);

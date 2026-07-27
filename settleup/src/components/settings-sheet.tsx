@@ -79,6 +79,11 @@ export function SettingsSheet({
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Push notifications (Phase 9).
+  const [pushOn, setPushOn] = useState(false);
+  const [pushBusy, setPushBusy] = useState(false);
+  const [pushMsg, setPushMsg] = useState("");
+  const pushState = repo.getPushState();
 
   useEffect(() => {
     if (!open) return;
@@ -90,10 +95,44 @@ export function SettingsSheet({
       setName(user.displayName);
       setLoaded(true);
     });
+    void repo.isPushEnabled().then((on) => {
+      if (!cancelled) setPushOn(on);
+    });
     return () => {
       cancelled = true;
     };
   }, [open, repo, user.id, user.displayName]);
+
+  async function togglePush() {
+    setPushBusy(true);
+    setPushMsg("");
+    try {
+      if (pushOn) {
+        await repo.disablePush();
+        setPushOn(false);
+      } else {
+        await repo.enablePush();
+        setPushOn(true);
+      }
+    } catch (e) {
+      setPushMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPushBusy(false);
+    }
+  }
+
+  async function testPush() {
+    setPushBusy(true);
+    setPushMsg("");
+    try {
+      await repo.sendTestPush();
+      setPushMsg("Sent — check your device.");
+    } catch (e) {
+      setPushMsg(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPushBusy(false);
+    }
+  }
 
   async function save() {
     if (!name.trim()) {
@@ -190,6 +229,81 @@ export function SettingsSheet({
           <Button onClick={save} disabled={busy}>
             {busy ? "Saving…" : "Save"}
           </Button>
+
+          <div style={{ height: 22 }} />
+          <Label>Notifications</Label>
+          <button
+            onClick={togglePush}
+            disabled={pushBusy || pushState === "unsupported"}
+            style={{
+              width: "100%",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              background: "var(--s2)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--r-input)",
+              padding: "13px 16px",
+              cursor: pushState === "unsupported" ? "default" : "pointer",
+              opacity: pushState === "unsupported" ? 0.55 : 1,
+              color: "var(--ink)",
+            }}
+          >
+            <span style={{ fontSize: 14, fontWeight: 600, textAlign: "left" }}>
+              Push notifications on this device
+            </span>
+            <span
+              aria-checked={pushOn}
+              role="switch"
+              style={{
+                width: 42,
+                height: 24,
+                borderRadius: 999,
+                background: pushOn ? "var(--primary)" : "var(--s3)",
+                position: "relative",
+                flexShrink: 0,
+                transition: "background .16s",
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute",
+                  top: 2,
+                  left: pushOn ? 20 : 2,
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  background: "#fff",
+                  transition: "left .16s",
+                }}
+              />
+            </span>
+          </button>
+          <p style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 6 }}>
+            {pushState === "unsupported"
+              ? "Not supported in this browser."
+              : "New expenses, payments and shopping-list changes — one buzz per thing that matters."}
+          </p>
+          {pushOn && (
+            <button
+              onClick={testPush}
+              disabled={pushBusy}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--primary)",
+                fontSize: 13,
+                fontWeight: 700,
+                cursor: "pointer",
+                padding: "8px 0 0",
+              }}
+            >
+              {pushBusy ? "Sending…" : "Send a test notification"}
+            </button>
+          )}
+          {pushMsg && (
+            <p style={{ fontSize: 12, color: "var(--muted)", marginTop: 6 }}>{pushMsg}</p>
+          )}
 
           <div style={{ height: 22 }} />
           <Label>Manage</Label>

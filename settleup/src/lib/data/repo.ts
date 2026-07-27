@@ -204,7 +204,22 @@ export interface Repo {
   splittyListMyBills(): Promise<SplitBillSummary[]>;
   /** Realtime: invoke cb when items/guests change on this bill. Returns unsubscribe. */
   subscribeSplitBill(shareCode: string, cb: () => void): () => void;
+
+  // --- push notifications (Phase 9; Web Push via VAPID — ADR-0014) ---
+  /** Browser permission/support state for this device. Synchronous. */
+  getPushState(): PushState;
+  /** True when this device already has a saved subscription. */
+  isPushEnabled(): Promise<boolean>;
+  /** Asks permission, subscribes, and saves the row. Throws on denial. */
+  enablePush(): Promise<void>;
+  /** Unsubscribes this device and deletes its saved row. */
+  disablePush(): Promise<void>;
+  /** Pushes a test notification to the signed-in user's own devices. */
+  sendTestPush(): Promise<void>;
 }
+
+/** "unsupported" = no service worker / Push API in this browser. */
+export type PushState = "granted" | "denied" | "default" | "unsupported";
 
 export interface ScanItem {
   name: string;
