@@ -8,15 +8,32 @@ arising). Add new items here rather than letting them accumulate inside
 `ROADMAP.md` or a phase file.
 
 ## Other open items
-- **Custom SMTP for real OTP email codes** (e.g. free Resend tier) — manual,
-  needs Josh's account. Magic-link/password sign-in is the flow until then.
-  See [Phase 1](phases/phase-01-core-ledger.md).
+- **Custom SMTP for real auth emails** (Resend) — was backlogged since Phase
+  0/1; now scoped as an actual launch blocker inside
+  [Phase 10](phases/phase-10-custom-domain-launch.md) (Supabase's default
+  mailer caps at 2 emails/hour project-wide). Magic-link/password sign-in is
+  the flow until Phase 10 ships.
 - **Multi-currency support** — the app is ZAR-only today: `fmt()`/`fmtR()`
-  (`src/lib/domain/money.ts`), the `group.currency` check constraint, and now
+  (`src/lib/domain/money.ts`), the `group.currency` check constraint, and
   push-notification copy (`_push_fmt()`) all hardcode Rand. Flagged by Josh
   while reviewing Phase 9, not a near-term priority — revisit only if a real
   need appears (e.g. a non-South-African household). Full note in
   [Phase 9](phases/phase-09-push-notifications.md#backlog-multi-currency-not-part-of-this-phase).
+- **Privacy policy / terms page** — deferred by Josh while scoping Phase 10,
+  despite real strangers' financial data (salaries, expenses) being stored
+  once that phase ships. Not a law-firm document needed, just a short,
+  plain-language page (what's stored, salary private-by-default, no data
+  sold, a contact for deletion requests). Revisit before or shortly after
+  Phase 10 goes live publicly.
+- **CAPTCHA / bot-signup prevention** — Supabase's `security_captcha_enabled`
+  is off; signup is fully open. Only worth doing if bot signups become an
+  observed problem post-launch (Phase 10), not preemptively — would need an
+  hCaptcha account if/when revisited.
+- **Deeper "Tally-ho" brand treatment** — Josh confirmed while scoping
+  Phase 10 that "Tally-ho" should be incorporated more fully into the brand
+  at some point (beyond its current role as the push-notification
+  catchphrase) — explicitly a **later, separate redesign phase**, not bundled
+  into the Phase 10 domain migration.
 
 ## Design-fidelity backlog (audit vs design handoff, 2026-07-13)
 Gaps between the built app and `design_handoff_settleup/README.md`, each with

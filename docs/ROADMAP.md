@@ -25,7 +25,7 @@
 >   phase) go in [`docs/BACKLOG.md`](BACKLOG.md), not here and not buried
 >   inside a phase file.
 
-**Last updated:** 2026-07-27 (restructured: phase detail moved to `docs/phases/`, backlog moved to `docs/BACKLOG.md` — this file is now an index only)
+**Last updated:** 2026-07-27 (Phase 10 "Custom domain & public launch prep" added — spec only, not built)
 
 ## Where we are
 
@@ -35,9 +35,9 @@ shopping list, reports, receipt scanning, Splitty, and push notifications all
 work against the live Supabase backend. Phases 0, 1, 3, 4, 5, 7, 8, and 9 are
 shipped; Phase 6 (polish & hardening) is ongoing; Phase 2 (offline-first) is
 deliberately deferred to last (ADR-0009). Remaining for M1 is the Phase 1
-E6 trial — a week of real use by Josh + partner. SMTP for real OTP codes is
-backlogged (see [BACKLOG.md](BACKLOG.md)) — magic-link/password sign-in is
-the flow for now.
+E6 trial — a week of real use by Josh + partner. **Phase 10** (custom domain,
+real auth email, public-launch prep) is specced but not built — see the table
+below.
 
 ## Phases
 
@@ -58,6 +58,7 @@ features people actually asked for before offline-first).
 | [7 — Receipt line-item scanning](phases/phase-07-receipt-scanning.md) | ✅ Shipped (2026-07-22) | M5 "Scan the slip" | Photo a till slip → Gemini extracts line items → tick what's yours |
 | [8 — Splitty](phases/phase-08-splitty.md) | ✅ Shipped (2026-07-23) | M6 "Split with anyone" | Standalone bill-splitting via a shared link — no guest account needed (ADR-0013) |
 | [9 — Push notifications](phases/phase-09-push-notifications.md) | ✅ Shipped (2026-07-26) | M7 "Tally-ho!" | Web Push via VAPID — 5 triggers, "Tally-ho!" copy, Android-first (ADR-0014) |
+| [10 — Custom domain & public launch prep](phases/phase-10-custom-domain-launch.md) | 📝 Spec only — not built (2026-07-27) | — | Move off `*.vercel.app` onto a real domain, custom auth email (current mailer caps at 2/hr), free-tier watchlist (ADR-0015) |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, and [`docs/BACKLOG.md`](BACKLOG.md) for
