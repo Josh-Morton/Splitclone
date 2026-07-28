@@ -26,3 +26,4 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | [0013](0013-splitty-guest-access.md) | Splitty guest access: token-gated RPCs instead of RLS/auth for unauthenticated guests | Accepted |
 | [0014](0014-push-notifications.md) | Push notifications via Web Push (VAPID); 5 triggers, "Tally-ho!" copy, Android-first | Accepted |
 | [0015](0015-custom-domain-launch.md) | Custom domain + custom auth email via Resend, staying on free tiers | Accepted |
+| [0016](0016-light-theme-reskin.md) | Light "wave" theme + Nunito; token-level reskin, light-only | Accepted (amends 0007) |

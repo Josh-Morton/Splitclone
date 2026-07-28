@@ -1,6 +1,13 @@
 # ADR-0007: Plain CSS with design-token custom properties (no Tailwind, no UI kit)
 
-**Status:** Accepted (2026-07-02) · **Source:** design handoff README (tokens + "high fidelity")
+**Status:** Accepted (2026-07-02); **palette + typeface clauses superseded by
+[ADR-0016](0016-light-theme-reskin.md)** (2026-07-28) · **Source:** design handoff
+README (tokens + "high fidelity")
+
+> **Still binding:** plain CSS + design-token custom properties, no Tailwind,
+> no component library, inline SVG icons. **Superseded:** "dark-mode-only"
+> (the app is now light-only) and "system font stack" (now Nunito) — see
+> ADR-0016.
 
 ## Context
 The handoff is high-fidelity with exact color/type/radius/shadow tokens and a

@@ -35,6 +35,44 @@ arising). Add new items here rather than letting them accumulate inside
   catchphrase) — explicitly a **later, separate redesign phase**, not bundled
   into the Phase 10 domain migration.
 
+## Animation & interaction polish (survey 2026-07-28)
+Josh asked for a sweep of animation opportunities beyond those in the Phase 11
+design. Survey finding: **15 of 18 components have no `transition` or
+`animation` at all** (only `add-expense-sheet`, `settings-sheet` and `ui.tsx`
+have any), the app has just 3 keyframes (`sheetUp`, `spin`, `toastPop`), and
+**nothing anywhere honours `prefers-reduced-motion`**.
+
+Already scoped into [Phase 11](phases/phase-11-visual-reskin.md), not repeated
+here: wave drift, staggered rise-in, scroll-collapsing headers, sheet
+drag-to-dismiss, and the reduced-motion guard (that one is a correctness fix,
+not polish — it should not slip).
+
+Candidates for a later pass, roughly highest value first:
+- **Tab switching is an instant swap** — no cross-fade or directional slide
+  between Home/Expenses/List/Reports/Splitty. Probably the single most
+  "website-not-app" moment left after Phase 11.
+- **List rows appear all at once** (Expenses, List, Activity, Splitty items) —
+  a short staggered fade/slide on first paint would make loading feel
+  intentional rather than abrupt.
+- **No press feedback** on the FAB, tab-bar items, pills or list rows — a
+  scale-down/ripple on `:active` is the cheapest possible "feels native" win.
+- **Checkbox ticks are instant** — shopping-list check/uncheck and Splitty
+  item claim are the two most-tapped controls in the app and have no
+  transition at all. Worth animating the tick draw + row strike-through.
+- **Balance figure snaps** between values — a count-up/roll animation when
+  the hero number changes (after adding an expense or settling) would make
+  the app's most important number feel alive.
+- **Loading is a bare spinner** — skeleton placeholders matching row shapes
+  would reduce perceived latency, especially on the Reports tab.
+- **Toast has an entry (`toastPop`) but no exit** — it disappears abruptly
+  after 4s; also no visual countdown on the undo window, so users can't tell
+  how long they have to hit Undo.
+- **Sheet content doesn't animate in** — only the sheet container slides up;
+  contents appear fully formed. The Phase 11 stagger pattern could extend to
+  sheet bodies.
+- **No pull-to-refresh** anywhere, despite Realtime already keeping data
+  fresh — worth considering only if users actually reach for it.
+
 ## Design-fidelity backlog (audit vs design handoff, 2026-07-13)
 Gaps between the built app and `design_handoff_settleup/README.md`, each with
 its target phase. The audit confirmed all iron rules hold and Phase-1 exit

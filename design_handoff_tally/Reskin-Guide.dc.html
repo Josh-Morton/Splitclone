@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  html,body{margin:0;padding:0}
+  body{font-family:"Nunito",system-ui,sans-serif;color:#173F4A}
+  a{color:#2FB3AC}a:hover{color:#23908A}
+</style>
+</helmet>
+<x-import component-from-global-scope="doc-page" from="./doc-page.js" hint-size="100%,100%">
+<div style="font-family:'Nunito',system-ui,sans-serif;color:#173F4A;line-height:1.6;font-size:11pt">
+
+  <div style="text-align:center;margin-bottom:30px">
+    <div style="font-size:10pt;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:#9BABB1">Tally (formerly SettleUp)</div>
+    <div style="font-size:30pt;font-weight:900;margin:6px 0 4px;letter-spacing:-1px">Reskin Guide</div>
+    <div style="font-size:11.5pt;color:#6C838B">From the current dark, dense build to the light, wave-led Tally target state</div>
+  </div>
+
+  <div style="border:2px solid #2FB3AC;background:rgba(47,179,172,.08);border-radius:14px;padding:14px 16px;margin-bottom:26px">
+    <div style="font-weight:900;font-size:11.5pt;margin-bottom:4px">Read this first — scope statement</div>
+    <div style="font-size:10.5pt">This document describes a <strong>visual reskin and rename only</strong>. No feature is added, removed or altered. Screen inventory, navigation graph, routes, state shape, split algorithms, currency handling, permissions, sync/offline behaviour, copy semantics and data model are all identical between the two builds. Anything below that looks like a product change is a presentation change to an existing element. If an implementer finds a behavioural difference implied anywhere in this document, treat it as a documentation error and keep the existing behaviour.</div>
+  </div>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">1. The two states</div>
+  <p style="margin:0 0 12px"><strong>Current state (what is built today):</strong> the dark SettleUp prototype. Near-black navy background (#0E1521), dark card surfaces, light text, blue accent, dense list rows, tight 5–8px corner radii, system emoji for categories, static page headers, no decorative motif.</p>
+  <p style="margin:0 0 12px"><strong>Target state (what we are moving to):</strong> Tally. Warm off-white background, white cards, deep teal-ink text, a single switchable accent (teal by default), a hand-drawn wave motif used as the brand's signature device, rounded/pill geometry, a consistent Twemoji SVG icon pack, and scroll-responsive headers.</p>
+  <div style="display:flex;gap:18px;margin-top:14px;break-inside:avoid">
+    <div style="flex:1;text-align:center">
+      <div style="font-size:9pt;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#9BABB1;margin-bottom:6px">Current — dark SettleUp</div>
+      <img src="screenshots/current-home.png" style="width:100%;border-radius:10px;border:1px solid #E7DED6"/>
+    </div>
+    <div style="flex:1;text-align:center">
+      <div style="font-size:9pt;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#2FB3AC;margin-bottom:6px">Target — Tally</div>
+      <img src="screenshots/target-home.png" style="width:100%;border-radius:10px;border:1px solid #E7DED6"/>
+    </div>
+  </div>
+  <div style="display:flex;gap:18px;margin-top:16px;break-inside:avoid">
+    <div style="flex:1;text-align:center"><img src="screenshots/current-welcome.png" style="width:100%;border-radius:10px;border:1px solid #E7DED6"/></div>
+    <div style="flex:1;text-align:center"><img src="screenshots/target-welcome.png" style="width:100%;border-radius:10px;border:1px solid #E7DED6"/></div>
+  </div>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">2. Rename</div>
+  <p style="margin:0 0 10px">The product is now called <strong>Tally</strong>. Every user-facing instance of "SettleUp" becomes "Tally": the launch wordmark, the onboarding success toast ("Welcome to Tally"), the seeded demo email domain (<code>josh@tally.app</code>) and the CSV export filename prefix (<code>tally-&lt;space&gt;.csv</code>). Note the one deliberate exception: the <em>action</em> "Settle up" (the button and the settle sheet title) is a verb phrase, not the brand, and must stay.</p>
+  <p style="margin:0 0 10px">The app icon has been <strong>removed from the launch screen</strong> — the wordmark now stands alone — because a new logo is being designed separately. When the logo lands it goes back above the wordmark inside the hero.</p>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">3. Colour tokens</div>
+  <p style="margin:0 0 10px;font-size:10.5pt">Every colour is a CSS custom property on the app root, so the reskin is a token swap rather than a per-component rewrite.</p>
+  <div style="border:2px solid #F1E2D6;border-radius:14px;overflow:hidden;font-size:10pt">
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;background:#FDF0E6;padding:9px 14px;font-size:8.5pt;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#6C838B"><div>Token / role</div><div>Current (dark)</div><div></div><div>Target (Tally)</div><div></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--bg · app background</div><div>#0E1521</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#0E1521;border:1px solid #ddd"></span></div><div>#FFF7EF</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#FFF7EF;border:1px solid #ddd"></span></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--surface · cards</div><div>#161F2E</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#161F2E;border:1px solid #ddd"></span></div><div>#FFFFFF</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#FFFFFF;border:1px solid #ddd"></span></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--s2 · sunken fills</div><div>#1B2536</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#1B2536;border:1px solid #ddd"></span></div><div>#FDF0E6</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#FDF0E6;border:1px solid #ddd"></span></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--ink · primary text</div><div>#EAF0F8</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#EAF0F8;border:1px solid #ddd"></span></div><div>#173F4A</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#173F4A;border:1px solid #ddd"></span></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--muted / --faint</div><div>#8A97AC / #5D6B80</div><div></div><div>#6C838B / #9BABB1</div><div></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--primary · accent</div><div>#4E9BF0</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#4E9BF0;border:1px solid #ddd"></span></div><div>#2FB3AC</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#2FB3AC;border:1px solid #ddd"></span></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--green · positive</div><div>#41C58A</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#41C58A;border:1px solid #ddd"></span></div><div>#12A87A</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#12A87A;border:1px solid #ddd"></span></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--red · negative</div><div>#F2767A</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#F2767A;border:1px solid #ddd"></span></div><div>#F2635C</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#F2635C;border:1px solid #ddd"></span></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--line · outlines</div><div>#283750</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#283750;border:1px solid #ddd"></span></div><div>#F1E2D6</div><div><span style="display:block;width:28px;height:18px;border-radius:5px;background:#F1E2D6;border:1px solid #ddd"></span></div></div>
+    <div style="display:grid;grid-template-columns:1.1fr 1fr 34px 1fr 34px;gap:10px;align-items:center;padding:9px 14px;border-top:1px solid #F1E2D6"><div style="font-weight:700">--sun / --teal (new)</div><div>—</div><div></div><div>#FFC24B / #2FB3AC</div><div></div></div>
+  </div>
+  <p style="margin:10px 0 0;font-size:10pt;color:#6C838B">The accent is exposed as a tweakable prop (<code>accentColor</code>) with curated swatches — teal #2FB3AC (default), coral #F2635C, amber #F2A03D, blue #5B8DEF, violet #7A5CF0, green #12A87A. Derived tokens <code>--primaryD</code> (accent darkened 24) and <code>--bluebg</code> (accent at 14% alpha) are computed from it, so changing one value re-themes buttons, links, active tabs and the balance hero together. Category tint/foreground pairs are unchanged in hue but now sit on light surfaces.</p>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">4. Typography</div>
+  <p style="margin:0 0 10px">Roboto → <strong>Nunito</strong> (400/600/700/800/900), a rounded humanist sans that carries the friendlier tone. The scale is broadly unchanged, with two deliberate increases: screen titles go 22–24px/800 → <strong>26px/900</strong> with -0.8px tracking, and the balance hero figure goes 42px/800 → <strong>46px/900</strong> with -1.4px tracking. Labels stay 11–12.5px uppercase 700–800. Body/list text stays 13–15px.</p>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">5. Shape, depth and the wave motif</div>
+  <ul style="margin:0;padding-left:20px">
+    <li><strong>Radii:</strong> controls, chips and inputs 14px; cards, sheets and tiles 20px; the balance hero 26px; all primary and secondary action buttons are <strong>fully pill</strong> (999px).</li>
+    <li><strong>Still zero shadows and zero gradients.</strong> Separation comes from flat surface colour, 1px hairlines (<code>--line</code>) and 2px outlines on outlined buttons.</li>
+    <li><strong>The wave motif is the new brand device.</strong> Hand-drawn-looking stroked SVG paths (6–7px round-cap white strokes at 25–50% opacity) sit inside accent-filled blocks. It appears in three places: the welcome hero (animated), the home balance card (static, top-right bleed), and the curved wave edge where the welcome hero meets the page. Waves are decorative only — never interactive, never carrying information.</li>
+    <li><strong>Phone shell:</strong> flat black bezel → flat deep-teal (#173F4A) bezel, so the frame belongs to the palette.</li>
+    <li><strong>Tab bar:</strong> dark translucent → light translucent white with a blur, accent-coloured active item.</li>
+  </ul>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">6. Iconography</div>
+  <p style="margin:0 0 10px">Category and activity glyphs were platform emoji rendered as text, so they changed appearance per OS and per font. They are now the <strong>Twemoji 15.1 flat SVG pack</strong>, loaded from jsDelivr and rendered as <code>&lt;img&gt;</code> elements sized to 58% of their tinted tile. The mapping is unchanged in meaning: groceries 🛒 1f6d2, rent 🏠 1f3e0, utilities 💡 1f4a1, eating out 🍝 1f35d, transport 🚗 1f697, household 🧴 1f9f4, entertainment 🎬 1f3ac, other 💳 1f4b3, settlement 🤝 1f91d, unknown 🧾 1f9fe, recurring 🔁 1f501. Implementation note: the image elements are constructed in the logic layer and passed to the template as values, not written as raw <code>src</code> holes in markup — a raw hole causes the browser to request the unresolved placeholder string during streaming. Before production, vendor the eleven SVGs locally instead of hitting the CDN.</p>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">7. Screen-by-screen presentation changes</div>
+  <div style="display:flex;flex-direction:column;gap:11px">
+    <div style="border-left:4px solid #2FB3AC;padding:2px 0 2px 14px"><div style="font-weight:900">Welcome / sign-in</div><div style="font-size:10.5pt">Was: centred icon + wordmark + tagline on a plain background, form below. Now: a 360px accent hero with four animated drifting wave lines (14s alternate loop), a 42pt/900 white wordmark, tagline, and an SVG wave that curves the hero into the page background. Content rises in with a 60–270ms stagger. App icon removed. The email field, "Email me a sign-in code" pill, divider and "Skip — explore the demo household" secondary pill are unchanged in function and order.</div></div>
+    <div style="border-left:4px solid #2FB3AC;padding:2px 0 2px 14px"><div style="font-weight:900">Home</div><div style="font-size:10.5pt">The balance block moved from a white card with dark text to a full-bleed accent wave card: white 46pt figure, white pill primary ("Add expense") and ghost-outline pill secondary ("Settle up"). Sync chip, upcoming-bill row and recent-activity card are unchanged in logic. Two presentation-level additions reuse data already computed for Reports: a "Spending in June" category breakdown with bars, and a Recurring bills shortcut row. Neither introduces new data or endpoints.</div></div>
+    <div style="border-left:4px solid #2FB3AC;padding:2px 0 2px 14px"><div style="font-weight:900">Expenses / Shopping list / Reports</div><div style="font-size:10.5pt">Static titles became sticky headers that collapse on scroll (see §8). Row content, grouping by date, totals and actions are unchanged; only tile radii, icon rendering and type weights differ.</div></div>
+    <div style="border-left:4px solid #2FB3AC;padding:2px 0 2px 14px"><div style="font-weight:900">Detail, sheets, onboarding, invite, settings</div><div style="font-size:10.5pt">Inherit the token, radius, pill-button and icon changes only. Field order, validation, sheet heights and flows are untouched. The wave hero has <em>not</em> yet been extended to OTP / onboarding / invite — that is outstanding work, not a decision.</div></div>
+  </div>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">8. Motion spec</div>
+  <ul style="margin:0;padding-left:20px">
+    <li><strong>Wave drift:</strong> welcome hero decoration translates -160px over 14s, linear, infinite alternate. Purely ambient.</li>
+    <li><strong>Rise-in:</strong> wordmark, tagline and form block fade up 18px over 500ms, cubic-bezier(.2,.8,.3,1), delays 60/130/200ms.</li>
+    <li><strong>Header collapse:</strong> on Home, Expenses, Shopping list and Reports the sticky header responds to scroll position. Progress <em>k</em> = scrollTop ÷ min(44px, available scroll range), clamped 0–1. Title font-size interpolates 26px → 18px; subtitle opacity 1 → 0 and max-height 20px → 0; header padding tightens 10/12px → 5/6px; a <code>--line</code> hairline fades in past k&gt;0.5. Transitions are 160–180ms linear. The header <strong>minimises, it never disappears</strong> — the title and account controls stay reachable at all scroll positions.</li>
+    <li>No other new animation. Existing sheet, fade, pop and spin keyframes are retained as-is.</li>
+  </ul>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">9. Explicitly unchanged</div>
+  <p style="margin:0 0 10px">Routes and navigation stack; tab structure (Home / Expenses / List / Reports) and the floating add button; split methods (equal, exact amounts, percentage, shares, salary-proportional) and their rounding/remainder distribution; multi-payer expenses; debt simplification; settlements and payment recording; recurring bills including pause and run-now; shopping list with check, clear and convert-to-expense; offline mode, pending-sync states and the optimistic pending flag; activity log and undo-delete; CSV export contents; onboarding (email → OTP → name → salary → space), invite by code or link, and all seeded demo data. <strong>Nothing in the reskin depends on a backend change.</strong></p>
+
+  <div style="font-size:16pt;font-weight:900;border-bottom:2px solid #173F4A;padding-bottom:6px;margin:30px 0 10px">10. Outstanding before handoff</div>
+  <ul style="margin:0;padding-left:20px">
+    <li>Logo asset — launch screen currently ships wordmark-only by design.</li>
+    <li>Extend the wave hero treatment to OTP, onboarding and invite screens.</li>
+    <li>Vendor the Twemoji SVGs locally; drop the CDN dependency.</li>
+    <li>Confirm the final accent (teal is the current default; five alternates are wired).</li>
+    <li>Accessibility pass on the accent-on-white pairs and on white text over the accent hero (currently ~3.1:1 for the 46pt figure — acceptable at that size, verify for smaller labels).</li>
+  </ul>
+
+</div>
+</x-import>
+</x-dc>
+</body>
+</html>

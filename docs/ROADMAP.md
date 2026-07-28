@@ -59,6 +59,7 @@ features people actually asked for before offline-first).
 | [8 — Splitty](phases/phase-08-splitty.md) | ✅ Shipped (2026-07-23) | M6 "Split with anyone" | Standalone bill-splitting via a shared link — no guest account needed (ADR-0013) |
 | [9 — Push notifications](phases/phase-09-push-notifications.md) | ✅ Shipped (2026-07-26) | M7 "Tally-ho!" | Web Push via VAPID — 5 triggers, "Tally-ho!" copy, Android-first (ADR-0014) |
 | [10 — Custom domain & public launch prep](phases/phase-10-custom-domain-launch.md) | 📝 Spec only — not built (2026-07-27) | — | Move off `*.vercel.app` onto a real domain, custom auth email (current mailer caps at 2/hr), free-tier watchlist (ADR-0015) |
+| [11 — Visual reskin (light "wave" theme)](phases/phase-11-visual-reskin.md) | 📝 Spec only — not built (2026-07-28) | — | Dark → light token swap, Nunito, pill geometry, wave motif, collapsing headers, sheet drag-to-dismiss. Presentation only (ADR-0016) |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, and [`docs/BACKLOG.md`](BACKLOG.md) for
