@@ -29,17 +29,30 @@ to fix there either. What actually needs to change is the **origin** those
 paths hang off.
 
 ## What Josh needs to do (his accounts only — Claude can't do these)
-1. **Buy the domain.** Any registrar. Recommend apex-primary (e.g.
-   `tally.app`, not `app.tally.app`) with `www` redirecting to apex —
-   simplest, most conventional for a PWA that *is* the whole product (no
-   separate marketing site).
-2. **Create a Resend account** (free tier: 3,000 emails/mo, 100/day) and add
-   the new domain there — Resend will hand back DNS records (SPF/DKIM,
-   usually 2–3 TXT/CNAME records) to add at the same registrar, same sitting
-   as the domain's own DNS setup.
-3. **Decide the sender address** for auth + notification email, e.g.
-   `noreply@yourdomain` or `hello@yourdomain`.
-4. **Optional, cosmetic:** pick a new GitHub repo name if you want
+**Registrar: Afrihost** (confirmed 2026-07-27). What that means concretely:
+1. **Buy the domain at Afrihost.** Recommend apex-primary (e.g. `tally.co.za`
+   or `.app`/`.com` if preferred, not `app.tally.co.za`) with `www`
+   redirecting to apex — simplest, most conventional for a PWA that *is* the
+   whole product (no separate marketing site).
+2. **Add DNS records in Afrihost's DNS Zone Editor** (client portal → the
+   domain → DNS management — no nameserver change needed, Afrihost stays the
+   DNS host, records just get added/edited there):
+   - The `A`/`CNAME` records Vercel gives you in step 1 of the checklist
+     below.
+   - The SPF/DKIM `TXT` records Resend gives you when you add the domain
+     there (step 2 below).
+   - **Check for a pre-existing `@` A record first** — Afrihost domains
+     sometimes ship with one pointing at a parking page or their own
+     hosting; it needs to be replaced, not left alongside Vercel's.
+3. **Create a Resend account** (free tier: 3,000 emails/mo, 100/day — not
+   an Afrihost product, separate free signup) and add the new domain there —
+   Resend hands back the DNS records for step 2 above.
+4. **Decide the sender address** for auth + notification email, e.g.
+   `noreply@yourdomain` or `hello@yourdomain`. (Afrihost also sells its own
+   mailboxes on the domain — fine if Josh wants a personal inbox like
+   `admin@yourdomain`, but not what sends the app's automated email; that's
+   Resend, for deliverability and rate limits.)
+5. **Optional, cosmetic:** pick a new GitHub repo name if you want
    `Josh-Morton/Splitclone` renamed (GitHub auto-redirects the old URL after
    a rename, so this is low-risk, but Claude has no GitHub token in this
    environment to do it — needs to happen in GitHub's own UI, or hand Claude
@@ -55,16 +68,18 @@ doc/package renames) — DNS propagation is the only real wait.
 
 ### 1. Attach the domain
 - Vercel → Project → Domains → add the new domain. Vercel returns the exact
-  DNS records to add (an `A` record to Vercel's apex IP, or nameserver
-  delegation — Vercel's UI states which, per-registrar).
-- Add those records at the registrar. Set the new domain **primary**; keep
-  `www` as a redirect to apex (Vercel does this with one checkbox).
+  DNS records to add — for a domain kept at Afrihost (not delegated to
+  Vercel's nameservers), that's an **`A` record** at the root (`@`) to
+  Vercel's apex IP (`76.76.21.21`) and a **`CNAME`** for `www` to
+  `cname.vercel-dns.com`. Add both in Afrihost's DNS Zone Editor.
+- Set the new domain **primary** in Vercel; keep `www` as a redirect to apex
+  (one checkbox in Vercel's domain settings).
 - TLS is automatic (Let's Encrypt) once DNS resolves — no separate cert step.
-- **Sequencing note:** DNS can take minutes to ~48h depending on the
-  registrar's TTL. Don't drop the old `*.vercel.app` from Supabase's
-  redirect allow-list (below) until the new domain is confirmed serving
-  traffic and auth works end-to-end on it — otherwise anyone mid-propagation
-  hits a broken magic-link redirect.
+- **Sequencing note:** DNS can take minutes to ~48h to propagate (Afrihost's
+  default TTLs are usually modest, but don't assume instant). Don't drop the
+  old `*.vercel.app` from Supabase's redirect allow-list (below) until the
+  new domain is confirmed serving traffic and auth works end-to-end on it —
+  otherwise anyone mid-propagation hits a broken magic-link redirect.
 
 ### 2. Reconfigure Supabase Auth (breaks auth if missed)
 Current live values (confirmed via the Management API):
