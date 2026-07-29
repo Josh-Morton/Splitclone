@@ -13,12 +13,17 @@ arising). Add new items here rather than letting them accumulate inside
   [Phase 10](phases/phase-10-custom-domain-launch.md) (Supabase's default
   mailer caps at 2 emails/hour project-wide). Magic-link/password sign-in is
   the flow until Phase 10 ships.
-- **Multi-currency support** — the app is ZAR-only today: `fmt()`/`fmtR()`
-  (`src/lib/domain/money.ts`), the `group.currency` check constraint, and
-  push-notification copy (`_push_fmt()`) all hardcode Rand. Flagged by Josh
-  while reviewing Phase 9, not a near-term priority — revisit only if a real
-  need appears (e.g. a non-South-African household). Full note in
+- **App-wide multi-currency support** — the *Tally's ledger currency* is
+  ZAR-only today: `fmt()`/`fmtR()` (`src/lib/domain/money.ts`), the
+  `group.currency` check constraint, and push-notification copy
+  (`_push_fmt()`) all hardcode Rand. Flagged by Josh while reviewing Phase 9,
+  not a near-term priority — revisit only if a real need appears (e.g. a
+  non-South-African household). Full note in
   [Phase 9](phases/phase-09-push-notifications.md#backlog-multi-currency-not-part-of-this-phase).
+  **Distinct from [Phase 14](phases/phase-14-multi-currency-expenses.md)**,
+  which is a narrower, now-scoped feature: a single *expense* entered in a
+  foreign currency, converted and locked to ZAR at save time — the Tally's
+  own ledger currency stays ZAR either way (ADR-0017).
 - **Privacy policy / terms page** — deferred by Josh while scoping Phase 10,
   despite real strangers' financial data (salaries, expenses) being stored
   once that phase ships. Not a law-firm document needed, just a short,

@@ -27,3 +27,4 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | [0014](0014-push-notifications.md) | Push notifications via Web Push (VAPID); 5 triggers, "Tally-ho!" copy, Android-first | Accepted |
 | [0015](0015-custom-domain-launch.md) | Custom domain + custom auth email via Resend, staying on free tiers | Accepted |
 | [0016](0016-light-theme-reskin.md) | Light "wave" theme + Nunito; token-level reskin, light-only | Accepted (amends 0007) |
+| [0017](0017-multi-currency-expenses.md) | Per-expense foreign currency, converted + rate-locked to ZAR at entry | Accepted |
