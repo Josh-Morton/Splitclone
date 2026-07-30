@@ -1,36 +1,37 @@
 "use client";
 
 /**
- * Shopping List tab (design: add-item input + "+", to-buy list with checkbox /
- * name / qty / estimate / adder avatar, "In cart · N" struck-through section
- * with Clear, and "Turn cart into an expense · Restimate" which prefills the
- * Add-expense sheet). Realtime: another device's edits appear live.
+ * Shopping List tab: add-item input + "+", a to-buy list (checkbox / name /
+ * qty / price estimate), and a "Sorted" section of crossed-off items showing
+ * when each was added and bought, with Clear to wipe it.
+ *
+ * Phase 13 removed "turn cart into an expense" — ticking an item just means
+ * bought. The price estimate is an indicator only: it never touches balances,
+ * splits or any expense.
+ *
+ * Realtime: another device's edits appear live.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import type { Repo } from "@/lib/data";
 import { fmt, parseCents, type ShoppingItem } from "@/lib/domain";
-import { Button, Card, Input } from "./ui";
+import { Card, Input } from "./ui";
 
-export interface CartDraft {
-  amountCents: number | null;
-  description: string;
-  note: string;
-}
+/** Compact date like "12 Jul" — same day/month shape the app uses elsewhere. */
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
 
 export function ListTab({
   repo,
   groupId,
   groupName,
   live,
-  onCartToExpense,
 }: {
   repo: Repo;
   groupId: string;
   groupName: string;
   /** True when backed by Supabase — enables the realtime subscription. */
   live: boolean;
-  onCartToExpense: (draft: CartDraft) => void;
 }) {
   const [items, setItems] = useState<ShoppingItem[] | null>(null);
   const [name, setName] = useState("");
@@ -70,17 +71,16 @@ export function ListTab({
     await load();
   }
 
-  async function clearCart() {
+  async function clearSorted() {
     await repo.clearCheckedShoppingItems(groupId);
     await load();
   }
 
   if (!items) return null;
   const toBuy = items.filter((i) => !i.checked);
-  const cart = items.filter((i) => i.checked);
-  const cartEstimate = cart.reduce((a, i) => a + (i.estPriceCents ?? 0), 0);
+  const sorted = items.filter((i) => i.checked);
 
-  const row = (item: ShoppingItem, inCart: boolean) => (
+  const row = (item: ShoppingItem, done: boolean) => (
     <div
       key={item.id}
       style={{
@@ -93,35 +93,42 @@ export function ListTab({
     >
       <button
         onClick={() => toggle(item)}
-        aria-label={inCart ? `Uncheck ${item.name}` : `Check ${item.name}`}
+        aria-label={done ? `Put ${item.name} back on the list` : `Cross off ${item.name}`}
         style={{
           width: 22,
           height: 22,
           borderRadius: 7,
           flexShrink: 0,
           cursor: "pointer",
-          border: `2px solid ${inCart ? "var(--green)" : "var(--line2)"}`,
-          background: inCart ? "var(--greenbg)" : "transparent",
+          border: `2px solid ${done ? "var(--green)" : "var(--line2)"}`,
+          background: done ? "var(--greenbg)" : "transparent",
           color: "var(--green)",
           fontSize: 13,
           fontWeight: 800,
           lineHeight: 1,
         }}
       >
-        {inCart ? "✓" : ""}
+        {done ? "✓" : ""}
       </button>
-      <p
-        style={{
-          flex: 1,
-          fontSize: 14.5,
-          fontWeight: 600,
-          textDecoration: inCart ? "line-through" : "none",
-          color: inCart ? "var(--faint)" : "var(--ink)",
-        }}
-      >
-        {item.name}
-        {item.qty ? <span style={{ color: "var(--faint)", fontWeight: 500 }}> ×{item.qty}</span> : null}
-      </p>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p
+          style={{
+            fontSize: 14.5,
+            fontWeight: 600,
+            textDecoration: done ? "line-through" : "none",
+            color: done ? "var(--faint)" : "var(--ink)",
+          }}
+        >
+          {item.name}
+          {item.qty ? <span style={{ color: "var(--faint)", fontWeight: 500 }}> ×{item.qty}</span> : null}
+        </p>
+        {done && (
+          <p style={{ fontSize: 11.5, color: "var(--faint)", marginTop: 2 }}>
+            Added {shortDate(item.createdAt)}
+            {item.completedAt ? ` · Bought ${shortDate(item.completedAt)}` : ""}
+          </p>
+        )}
+      </div>
       {item.estPriceCents != null && (
         <p style={{ fontSize: 12.5, color: "var(--muted)", fontWeight: 600 }}>{fmt(item.estPriceCents)}</p>
       )}
@@ -175,18 +182,21 @@ export function ListTab({
           +
         </button>
       </div>
+      <p style={{ fontSize: 11.5, color: "var(--faint)", marginBottom: 14 }}>
+        The estimate is just a rough guide — it isn&apos;t counted anywhere.
+      </p>
       {error && <p style={{ color: "var(--red)", fontSize: 13, marginBottom: 10 }}>{error}</p>}
 
       <Card style={{ padding: "4px 14px", marginBottom: 16 }}>
         {toBuy.length === 0 && (
           <p style={{ fontSize: 13.5, color: "var(--muted)", padding: "12px 0" }}>
-            Nothing to buy — add items above, tick them off in the shop.
+            Nothing to buy — add items above, cross them off in the shop.
           </p>
         )}
         {toBuy.map((i) => row(i, false))}
       </Card>
 
-      {cart.length > 0 && (
+      {sorted.length > 0 && (
         <>
           <div
             style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}
@@ -200,10 +210,10 @@ export function ListTab({
                 color: "var(--faint)",
               }}
             >
-              In cart · {cart.length}
+              Sorted · {sorted.length}
             </p>
             <button
-              onClick={clearCart}
+              onClick={clearSorted}
               style={{
                 background: "none",
                 border: "none",
@@ -216,20 +226,7 @@ export function ListTab({
               Clear
             </button>
           </div>
-          <Card style={{ padding: "4px 14px", marginBottom: 14 }}>{cart.map((i) => row(i, true))}</Card>
-          <Button
-            onClick={() =>
-              onCartToExpense({
-                amountCents: cartEstimate > 0 ? cartEstimate : null,
-                description: "Groceries",
-                note: cart
-                  .map((i) => `${i.name}${i.qty ? ` ×${i.qty}` : ""}${i.estPriceCents != null ? ` — ${fmt(i.estPriceCents)}` : ""}`)
-                  .join("\n"),
-              })
-            }
-          >
-            Turn cart into an expense{cartEstimate > 0 ? ` · ${fmt(cartEstimate)}` : ""}
-          </Button>
+          <Card style={{ padding: "4px 14px", marginBottom: 14 }}>{sorted.map((i) => row(i, true))}</Card>
         </>
       )}
     </>

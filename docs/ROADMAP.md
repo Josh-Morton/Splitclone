@@ -25,7 +25,7 @@
 >   phase) go in [`docs/BACKLOG.md`](BACKLOG.md), not here and not buried
 >   inside a phase file.
 
-**Last updated:** 2026-07-30 (Phase 12 shipped — "Tally" rename, consolidated Manage screen, per-Tally default split)
+**Last updated:** 2026-07-30 (Phase 13 shipped — shopping list: Sorted section with dates, cart→expense removed)
 
 ## Where we are
 
@@ -61,7 +61,7 @@ features people actually asked for before offline-first).
 | [10 — Custom domain & public launch prep](phases/phase-10-custom-domain-launch.md) | 📝 Spec only — not built (2026-07-27) | — | Move off `*.vercel.app` onto a real domain, custom auth email (current mailer caps at 2/hr), free-tier watchlist (ADR-0015) |
 | [11 — Visual reskin (light "wave" theme)](phases/phase-11-visual-reskin.md) | 📝 Spec only — not built (2026-07-28) | — | Dark → light token swap, Nunito, pill geometry, wave motif, collapsing headers, sheet drag-to-dismiss. Presentation only (ADR-0016) |
 | [12 — Tally management & terminology rename](phases/phase-12-tally-management.md) | ✅ Shipped (2026-07-30) | — | "Space"/"household" → "Tally" everywhere; one consolidated "Manage this Tally" screen; per-Tally default split method |
-| [13 — Shopping list rework](phases/phase-13-shopping-list-rework.md) | 📝 Spec only — not built (2026-07-29) | — | Drop cart→expense; checked items become a dated "Sorted" section instead |
+| [13 — Shopping list rework](phases/phase-13-shopping-list-rework.md) | ✅ Shipped (2026-07-30) | — | Drop cart→expense; checked items become a dated "Sorted" section instead |
 | [14 — Multi-currency expenses](phases/phase-14-multi-currency-expenses.md) | 📝 Spec only — not built (2026-07-29) | — | Per-expense foreign currency, converted + rate-locked to ZAR at entry; recently-used quick-pick (ADR-0017) |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural

@@ -1,12 +1,13 @@
 "use client";
 
 /**
- * Add Expense bottom sheet (design handoff "Add / Edit Expense", basic cut):
- * amount, description with auto-detected category (no manual picker,
- * ADR-0008), paid-by pills, split segmented Equal · Exact · Proportional
- * (defaulting Proportional per the design; falls back to equal when salaries
- * are missing), participant chips, live per-member shares with % of total.
- * Multi-payer and editing land in the full E4 pass.
+ * Add Expense bottom sheet: amount, description with auto-detected category
+ * (overridable — ADR-0011), paid-by pills, split segmented Equal · Exact ·
+ * Proportional, participant chips, live per-member shares with % of total.
+ *
+ * The split pre-selects the Tally's `defaultSplitMethod` (Phase 12) and stays
+ * fully interactive; Proportional still falls back to equal when any
+ * participant has no salary set.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -48,7 +49,6 @@ export function AddExpenseSheet({
   meUserId,
   defaultSplitMethod = "equal",
   editing = null,
-  draft = null,
 }: {
   open: boolean;
   onClose: () => void;
@@ -61,16 +61,12 @@ export function AddExpenseSheet({
   defaultSplitMethod?: Method;
   /** When set, the sheet edits this expense instead of creating one. */
   editing?: Expense | null;
-  /** Prefill for a new expense (cart→expense). Ignored when editing. */
-  draft?: { amountCents: number | null; description: string; note: string } | null;
 }) {
   const meMember = members.find((m) => m.userId === meUserId);
-  // Initial values come straight from `editing`/`draft`; the parent passes a
-  // `key` (expense id / "cart" / "new") so switching targets remounts fresh.
-  const [amount, setAmount] = useState(
-    editing ? centsToInput(editing.amountCents) : draft?.amountCents ? centsToInput(draft.amountCents) : ""
-  );
-  const [desc, setDesc] = useState(editing?.description ?? draft?.description ?? "");
+  // Initial values come straight from `editing`; the parent passes a `key`
+  // (expense id / "new" + default split) so switching targets remounts fresh.
+  const [amount, setAmount] = useState(editing ? centsToInput(editing.amountCents) : "");
+  const [desc, setDesc] = useState(editing?.description ?? "");
   const [date, setDate] = useState(editing ? isoToDateInput(editing.spentAt) : todayDateInput());
   const [payerId, setPayerId] = useState(
     editing?.payers[0]?.memberId ?? meMember?.id ?? members[0]?.id ?? ""
@@ -214,7 +210,7 @@ export function AddExpenseSheet({
         splitMethod: (method === "salary" && proportionalFallsBack ? "equal" : method) as SplitMethod,
         payers,
         splits,
-        note: editing ? editing.note : (scanNote ?? draft?.note ?? null),
+        note: editing ? editing.note : (scanNote ?? null),
       };
       if (editing) {
         await repo.updateExpense(editing.id, input);

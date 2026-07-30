@@ -561,6 +561,7 @@ export class SupabaseRepo implements Repo {
       qty: row.qty != null ? Number(row.qty) : null,
       estPriceCents: row.est_price_cents != null ? Number(row.est_price_cents) : null,
       checked: row.checked,
+      completedAt: row.completed_at ?? null,
       addedBy: row.added_by,
       ...syncMeta(row),
     }));
@@ -592,6 +593,7 @@ export class SupabaseRepo implements Repo {
       qty: data.qty != null ? Number(data.qty) : null,
       estPriceCents: data.est_price_cents != null ? Number(data.est_price_cents) : null,
       checked: data.checked,
+      completedAt: data.completed_at ?? null,
       addedBy: data.added_by,
       ...syncMeta(data),
     };
@@ -600,10 +602,15 @@ export class SupabaseRepo implements Repo {
   async setShoppingItemChecked(id: string, checked: boolean): Promise<void> {
     // Stamp updated_by so the row records who ticked it (bump_sync_meta only
     // maintains updated_at/version) — also drives the "crossed off" push.
+    // completed_at records when it was bought, cleared if it's un-ticked.
     const userId = await this.uid();
     const { error } = await this.sb
       .from("shopping_item")
-      .update({ checked, updated_by: userId })
+      .update({
+        checked,
+        completed_at: checked ? new Date().toISOString() : null,
+        updated_by: userId,
+      })
       .eq("id", id);
     if (error) this.fail(error);
   }

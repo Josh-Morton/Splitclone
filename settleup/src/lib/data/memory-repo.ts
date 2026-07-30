@@ -454,6 +454,7 @@ export class MemoryRepo implements Repo {
       qty: item.qty ?? null,
       estPriceCents: item.estPriceCents ?? null,
       checked: false,
+      completedAt: null,
       addedBy: this.user.id,
       ...meta(this.user.id),
     };
@@ -465,6 +466,8 @@ export class MemoryRepo implements Repo {
     const i = this.shopping.find((x) => x.id === id);
     if (!i) return;
     i.checked = checked;
+    // Records when it was bought; cleared if it's put back on the list.
+    i.completedAt = checked ? nowIso() : null;
     touch(i, this.user.id);
   }
 

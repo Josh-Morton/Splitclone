@@ -1,6 +1,26 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 13 — Shopping list rework: Sorted section, dates, drop cart→expense 📝 SPEC ONLY — NOT BUILT (2026-07-29)
+# Phase 13 — Shopping list rework: Sorted section, dates, drop cart→expense ✅ SHIPPED (2026-07-30)
+
+> **Live.** Migration `20260731000000_shopping_completed_at.sql` applied.
+> Cart→expense is gone end to end (`convertShop`, `cartEstimate`,
+> `onCartToExpense`, the `CartDraft` type, `AddExpenseSheet`'s `draft` prop,
+> and the now-orphaned `listRefresh` key — all removed rather than left as
+> dead code). "In cart · N" is now "Sorted · N" with an
+> `Added {date} · Bought {date}` line per row; Clear is unchanged.
+>
+> **Verified in-browser (demo):** crossing an item off moves it to Sorted with
+> both dates; putting it back removes the Bought line (i.e. `completed_at` is
+> cleared, not just hidden); Clear empties Sorted and leaves the to-buy list
+> intact; no cart→expense button anywhere; console clean.
+> **Verified on live Postgres:** `completed_at` round-trips null → set → null
+> across cross-off and put-back, and the Phase 9
+> `shopping_item_checked_push_trigger` is still attached and untouched.
+> 53 tests + build + lint green.
+>
+> Note: pre-existing checked rows keep `completed_at = null` — there's no
+> honest way to backfill when they were ticked, so those rows show only the
+> Added date. New cross-offs record both.
 
 ## Goal
 Simplify the shopping list's job to just: add things, cross them off, know

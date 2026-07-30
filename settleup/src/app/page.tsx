@@ -13,7 +13,7 @@ import { ActivityOverlay } from "@/components/activity-overlay";
 import { AddExpenseSheet } from "@/components/add-expense-sheet";
 import { ExpenseDetail } from "@/components/expense-detail";
 import { ExpensesTab } from "@/components/expenses-tab";
-import { ListTab, type CartDraft } from "@/components/list-tab";
+import { ListTab } from "@/components/list-tab";
 import { ManageTallySheet } from "@/components/manage-tally-sheet";
 import { RecurringOverlay } from "@/components/recurring";
 import { ReportsTab } from "@/components/reports-tab";
@@ -104,10 +104,8 @@ export default function HomePage() {
     "none" | "add" | "settle" | "manageTally" | "settings" | "spaces"
   >("none");
   const [editing, setEditing] = useState<Expense | null>(null);
-  const [cartDraft, setCartDraft] = useState<CartDraft | null>(null);
   const [recurringOpen, setRecurringOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
-  const [listRefresh, setListRefresh] = useState(0);
   const [viewing, setViewing] = useState<Expense | null>(null);
   // Push deep links (?expense=<id> / ?tab=list) are consumed exactly once.
   const deepLinkDone = useRef(false);
@@ -471,15 +469,10 @@ export default function HomePage() {
       {tab === "list" && (
         <div style={{ marginBottom: 90 }}>
           <ListTab
-            key={listRefresh}
             repo={d.repo}
             groupId={d.groupId}
             groupName={d.groupName}
             live={d.mode === "supabase"}
-            onCartToExpense={(draft) => {
-              setCartDraft(draft);
-              setSheet("add");
-            }}
           />
         </div>
       )}
@@ -544,25 +537,18 @@ export default function HomePage() {
       <AddExpenseSheet
         // Remount when the Tally's default split changes (or on switch), so the
         // pre-selected method reflects it — the sheet stays mounted otherwise.
-        key={`${editing?.id ?? (cartDraft ? "cart" : "new")}:${activeGroup?.defaultSplitMethod ?? "equal"}`}
+        key={`${editing?.id ?? "new"}:${activeGroup?.defaultSplitMethod ?? "equal"}`}
         open={sheet === "add"}
         onClose={() => {
           setSheet("none");
           setEditing(null);
-          setCartDraft(null);
         }}
         onSaved={async () => {
           const wasEdit = Boolean(editing);
-          const wasCart = Boolean(cartDraft);
           setSheet("none");
           setEditing(null);
-          setCartDraft(null);
-          if (wasCart) {
-            await d.repo.clearCheckedShoppingItems(d.groupId);
-            setListRefresh((k) => k + 1);
-          }
           await load();
-          showToast(wasCart ? "Cart converted to an expense" : wasEdit ? "Expense updated" : "Expense added");
+          showToast(wasEdit ? "Expense updated" : "Expense added");
         }}
         repo={d.repo}
         groupId={d.groupId}
@@ -570,7 +556,6 @@ export default function HomePage() {
         meUserId={d.user.id}
         defaultSplitMethod={activeGroup?.defaultSplitMethod ?? "equal"}
         editing={editing}
-        draft={cartDraft}
       />
       {activeGroup && (
         <ManageTallySheet

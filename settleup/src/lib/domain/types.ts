@@ -148,6 +148,8 @@ export interface ShoppingItem extends SyncMeta {
   qty: number | null;
   estPriceCents: Cents | null;
   checked: boolean;
+  /** When it was crossed off; null while still to buy (Phase 13). */
+  completedAt: string | null;
   addedBy: string;
 }
 
