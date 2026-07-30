@@ -25,6 +25,7 @@ import type {
   Settlement,
   ShoppingItem,
   SplitMethod,
+  SupportedSplitMethod,
   User,
   Category,
   Cents,
@@ -96,6 +97,8 @@ export interface Repo {
   /** Soft-delete (archive) a space. Caller should switch to another space after. */
   deleteGroup(groupId: string): Promise<void>;
   setSimplifyDebts(groupId: string, on: boolean): Promise<Group>;
+  /** Owner-set default that pre-selects in the Add-expense sheet (Phase 12). */
+  setDefaultSplitMethod(groupId: string, method: SupportedSplitMethod): Promise<Group>;
   listMembers(groupId: string): Promise<GroupMember[]>;
   addPlaceholderMember(groupId: string, name: string): Promise<GroupMember>;
   /**

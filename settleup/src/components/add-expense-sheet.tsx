@@ -46,6 +46,7 @@ export function AddExpenseSheet({
   groupId,
   members,
   meUserId,
+  defaultSplitMethod = "equal",
   editing = null,
   draft = null,
 }: {
@@ -56,6 +57,8 @@ export function AddExpenseSheet({
   groupId: string;
   members: GroupMember[];
   meUserId: string;
+  /** The Tally's default split (Phase 12) — pre-selects for new expenses. */
+  defaultSplitMethod?: Method;
   /** When set, the sheet edits this expense instead of creating one. */
   editing?: Expense | null;
   /** Prefill for a new expense (cart→expense). Ignored when editing. */
@@ -73,7 +76,7 @@ export function AddExpenseSheet({
     editing?.payers[0]?.memberId ?? meMember?.id ?? members[0]?.id ?? ""
   );
   const [method, setMethod] = useState<Method>(() => {
-    if (!editing) return "salary";
+    if (!editing) return defaultSplitMethod;
     // percent/shares expenses edit as exact amounts
     return editing.splitMethod === "exact" || editing.splitMethod === "equal" || editing.splitMethod === "salary"
       ? editing.splitMethod
@@ -161,7 +164,7 @@ export function AddExpenseSheet({
     setAmount("");
     setDesc("");
     setDate(todayDateInput());
-    setMethod("salary");
+    setMethod(defaultSplitMethod);
     setParts(members.map((m) => m.id));
     setExact({});
     setRepeats(false);

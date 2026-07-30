@@ -11,6 +11,14 @@ export type Cents = number;
 
 export type SplitMethod = "equal" | "exact" | "percent" | "shares" | "salary";
 
+/**
+ * The subset of SplitMethod actually surfaced in the UI (Equal · Exact ·
+ * Proportional). `percent`/`shares` exist in the domain layer and the DB enum
+ * but were deliberately never exposed — see docs/BACKLOG.md. A Tally's
+ * default split method is constrained to these three.
+ */
+export type SupportedSplitMethod = Extract<SplitMethod, "equal" | "exact" | "salary">;
+
 // Category (a subcategory/parent slug) is owned by ./category.ts; the domain
 // index re-exports it, so `import { Category } from "../domain"` still works.
 import type { Category } from "./category";
@@ -52,6 +60,8 @@ export interface Group extends SyncMeta {
   name: string;
   currency: "ZAR";
   simplifyDebts: boolean;
+  /** Pre-selects in the Add-expense sheet; the control stays interactive. */
+  defaultSplitMethod: SupportedSplitMethod;
   archived: boolean;
   createdBy: string;
 }

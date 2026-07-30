@@ -44,7 +44,7 @@ function OnboardingFlow() {
   const [step, setStep] = useState<Step>((params.get("step") as Step) || "name");
   const [name, setName] = useState("");
   const [salary, setSalary] = useState("");
-  const [space, setSpace] = useState("Our household");
+  const [space, setSpace] = useState("Our Tally");
   const [joinCode, setJoinCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -109,7 +109,7 @@ function OnboardingFlow() {
 
   async function createSpace() {
     if (!space.trim()) {
-      setError("Give your household a name");
+      setError("Give your Tally a name");
       return;
     }
     setBusy(true);
@@ -203,17 +203,17 @@ function OnboardingFlow() {
       {step === "space" && (
         <Card>
           <h1 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.5px", marginBottom: 6 }}>
-            Create your household
+            Create your Tally
           </h1>
           <p style={{ fontSize: 13.5, color: "var(--muted)", marginBottom: 20, lineHeight: 1.5 }}>
-            A space for you and your partner&apos;s shared expenses. You can invite them from Settings
-            once you&apos;re in.
+            A Tally for you and your partner&apos;s shared expenses. Once you&apos;re in, tap its
+            name at the top to invite them.
           </p>
-          <Label>Household name</Label>
+          <Label>Tally name</Label>
           <Input value={space} onChange={setSpace} placeholder="e.g. Our apartment" onEnter={createSpace} />
           <div style={{ height: 16 }} />
           <Button onClick={createSpace} disabled={busy}>
-            {busy ? "Creating…" : "Create household"}
+            {busy ? "Creating…" : "Create Tally"}
           </Button>
 
           <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "18px 0" }}>

@@ -244,7 +244,7 @@ function toRow(
         createdAt: a.createdAt,
         glyph: "👋",
         tint: "var(--greenbg)",
-        title: `${actor} joined the household`,
+        title: `${actor} joined the Tally`,
         meta: when,
         amount: null,
         expense: null,

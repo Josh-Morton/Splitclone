@@ -191,7 +191,7 @@ export function SettingsSheet({
             }}
           >
             <span style={{ fontSize: 14, fontWeight: 600, textAlign: "left" }}>
-              Let the household see my salary figure
+              Let the Tally see my salary figure
             </span>
             <span
               aria-checked={salaryVisible}
@@ -307,7 +307,7 @@ export function SettingsSheet({
 
           <div style={{ height: 22 }} />
           <Label>Manage</Label>
-          <SettingsRow icon="🏠" label="Spaces" hint="Switch, create, rename or delete" onClick={onManageSpaces} />
+          <SettingsRow icon="🏠" label="Tallies" hint="Switch between, create or join a Tally" onClick={onManageSpaces} />
           <SettingsRow icon="🔁" label="Recurring bills" hint="Weekly & monthly auto-expenses" onClick={onManageRecurring} />
 
           <div style={{ height: 18 }} />

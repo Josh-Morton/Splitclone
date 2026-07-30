@@ -181,6 +181,7 @@ export class MemoryRepo implements Repo {
       name,
       currency: "ZAR",
       simplifyDebts: true,
+      defaultSplitMethod: "equal",
       archived: false,
       createdBy: this.user.id,
       ...meta(this.user.id),
@@ -216,6 +217,16 @@ export class MemoryRepo implements Repo {
   async setSimplifyDebts(groupId: string, on: boolean): Promise<Group> {
     const g = this.mustGroup(groupId);
     g.simplifyDebts = on;
+    touch(g, this.user.id);
+    return g;
+  }
+
+  async setDefaultSplitMethod(
+    groupId: string,
+    method: import("../domain").SupportedSplitMethod
+  ): Promise<Group> {
+    const g = this.mustGroup(groupId);
+    g.defaultSplitMethod = method;
     touch(g, this.user.id);
     return g;
   }

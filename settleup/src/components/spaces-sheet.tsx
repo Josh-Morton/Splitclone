@@ -1,12 +1,13 @@
 "use client";
 
 /**
- * Spaces manager (Phase 6 + Tally polish): every space the user belongs to with
- * an active check; tap to switch (persists as default). Manage a space inline —
- * owners rename or delete; members you don't own can be left (with guards: at
- * least one space must remain; leaving/deleting the active space switches to
- * another first). Create a new space or join by code.
- * Opened from the header ▾ and from Settings → Manage spaces.
+ * Tally switcher (Phase 12): every Tally the user belongs to, with an active
+ * check; tap to switch (persists as default). Create a new Tally or join one
+ * by code.
+ *
+ * Managing a Tally (rename, members, default split method, delete/leave) lives
+ * in ManageTallySheet, reached by tapping the Tally name in the header — this
+ * sheet is purely for moving between them. Opened from Settings → Tallies.
  */
 
 import { useState } from "react";
@@ -26,7 +27,7 @@ export function SpacesSheet({
 }: {
   open: boolean;
   onClose: () => void;
-  /** Reload after a change; close the sheet only for switch/create/join. */
+  /** Reload after a change; every action here closes the sheet. */
   onChanged: (message: string, close: boolean) => void;
   repo: Repo;
   groups: Group[];
@@ -36,9 +37,6 @@ export function SpacesSheet({
   const [mode, setMode] = useState<"list" | "create" | "join">("list");
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const [manageId, setManageId] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState("");
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -46,8 +44,6 @@ export function SpacesSheet({
     setMode("list");
     setName("");
     setCode("");
-    setManageId(null);
-    setConfirmDelete(false);
     setError("");
   }
 
@@ -77,7 +73,7 @@ export function SpacesSheet({
         });
 
   const createSpace = () => {
-    if (!name.trim()) return setError("Give the space a name");
+    if (!name.trim()) return setError("Give the Tally a name");
     return run(async () => {
       const g = await repo.createGroup(name.trim());
       await setDefault(g.id);
@@ -94,45 +90,6 @@ export function SpacesSheet({
     });
   };
 
-  const renameSpace = (g: Group) => {
-    if (!renameValue.trim()) return setError("Give the space a name");
-    return run(async () => {
-      await repo.renameGroup(g.id, renameValue.trim());
-      return { message: "Space renamed", close: false };
-    });
-  };
-
-  const deleteSpace = (g: Group) => {
-    if (groups.length <= 1) {
-      setError("You need at least one space — create another first.");
-      return;
-    }
-    return run(async () => {
-      // If deleting the active space, switch to any other one first.
-      if (g.id === activeGroupId) {
-        const other = groups.find((x) => x.id !== g.id)!;
-        await setDefault(other.id);
-      }
-      await repo.deleteGroup(g.id);
-      return { message: `Deleted "${g.name}"`, close: false };
-    });
-  };
-
-  const leaveSpace = (g: Group) => {
-    if (groups.length <= 1) {
-      setError("You need at least one space — join or create another first.");
-      return;
-    }
-    return run(async () => {
-      if (g.id === activeGroupId) {
-        const other = groups.find((x) => x.id !== g.id)!;
-        await setDefault(other.id);
-      }
-      await repo.leaveGroup(g.id);
-      return { message: `Left "${g.name}"`, close: false };
-    });
-  };
-
   return (
     <Sheet
       open={open}
@@ -140,185 +97,41 @@ export function SpacesSheet({
         reset();
         onClose();
       }}
-      title="Spaces"
+      title="Your Tallies"
     >
       <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 14 }}>
-        A space is a household, trip, or shared budget. Everything — expenses, balances, the list —
-        belongs to the space you&apos;re in. Tap to switch; tap ⋯ to manage it.
+        A Tally is a household, trip, or shared budget. Everything — expenses, balances, the list —
+        belongs to the Tally you&apos;re in. Tap one to switch to it; to rename it, manage members
+        or change its split method, tap its name at the top of the app.
       </p>
 
       {groups.map((g) => {
         const active = g.id === activeGroupId;
-        const managing = manageId === g.id;
-        const isOwner = g.createdBy === meUserId;
         return (
-          <div key={g.id} style={{ marginBottom: 8 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "12px 14px",
-                borderRadius: "var(--r-card)",
-                background: active ? "var(--bluebg)" : "var(--surface)",
-                border: `1px solid ${active ? "var(--primary)" : "var(--line)"}`,
-              }}
-            >
-              <button
-                onClick={() => switchTo(g)}
-                disabled={busy}
-                aria-label={`Switch to ${g.name}`}
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  color: "var(--ink)",
-                }}
-              >
-                <span style={{ fontSize: 18 }}>🏠</span>
-                <span style={{ fontSize: 14.5, fontWeight: 700 }}>{g.name}</span>
-                {active && <span style={{ color: "var(--primary)", fontWeight: 800, fontSize: 15 }}>✓</span>}
-              </button>
-              <button
-                onClick={() => {
-                  setManageId(managing ? null : g.id);
-                  setRenameValue(g.name);
-                  setConfirmDelete(false);
-                }}
-                aria-label={`Manage ${g.name}`}
-                style={{
-                  background: "none",
-                  border: "none",
-                  color: "var(--muted)",
-                  fontSize: 18,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  padding: "0 6px",
-                }}
-              >
-                ⋯
-              </button>
-            </div>
-
-            {managing && (
-              <div
-                style={{
-                  border: "1px solid var(--line)",
-                  borderTop: "none",
-                  borderRadius: "0 0 var(--r-card) var(--r-card)",
-                  margin: "-4px 8px 0",
-                  padding: "12px 14px 14px",
-                  background: "var(--s2)",
-                }}
-              >
-                {isOwner ? (
-                  <>
-                    <Label>Rename</Label>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <div style={{ flex: 1 }}>
-                        <Input value={renameValue} onChange={setRenameValue} onEnter={() => renameSpace(g)} />
-                      </div>
-                      <Button variant="secondary" style={{ width: 84 }} disabled={busy} onClick={() => renameSpace(g)}>
-                        Save
-                      </Button>
-                    </div>
-                    <div style={{ height: 12 }} />
-                    {!confirmDelete ? (
-                      <button
-                        onClick={() => setConfirmDelete(true)}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "var(--red)",
-                          fontSize: 13,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                        }}
-                      >
-                        Delete this space
-                      </button>
-                    ) : (
-                      <div>
-                        <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 8 }}>
-                          Delete &quot;{g.name}&quot; and everything in it? This can&apos;t be undone.
-                        </p>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <Button variant="ghost" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>
-                            Keep it
-                          </Button>
-                          <button
-                            onClick={() => deleteSpace(g)}
-                            disabled={busy}
-                            style={{
-                              flex: 1,
-                              background: "var(--redbg)",
-                              border: "1px solid var(--red)",
-                              borderRadius: "var(--r-input)",
-                              color: "var(--red)",
-                              fontSize: 14,
-                              fontWeight: 700,
-                              padding: "12px 0",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : !confirmDelete ? (
-                  <button
-                    onClick={() => setConfirmDelete(true)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "var(--red)",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                    }}
-                  >
-                    Leave this space
-                  </button>
-                ) : (
-                  <div>
-                    <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 8 }}>
-                      Leave &quot;{g.name}&quot;? You&apos;ll lose access to its expenses. The owner can
-                      invite you back later. (You must be settled up first.)
-                    </p>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <Button variant="ghost" style={{ flex: 1 }} onClick={() => setConfirmDelete(false)}>
-                        Stay
-                      </Button>
-                      <button
-                        onClick={() => leaveSpace(g)}
-                        disabled={busy}
-                        style={{
-                          flex: 1,
-                          background: "var(--redbg)",
-                          border: "1px solid var(--red)",
-                          borderRadius: "var(--r-input)",
-                          color: "var(--red)",
-                          fontSize: 14,
-                          fontWeight: 700,
-                          padding: "12px 0",
-                          cursor: "pointer",
-                        }}
-                      >
-                        Leave
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <button
+            key={g.id}
+            onClick={() => switchTo(g)}
+            disabled={busy}
+            aria-label={`Switch to ${g.name}`}
+            style={{
+              width: "100%",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              padding: "12px 14px",
+              marginBottom: 8,
+              borderRadius: "var(--r-card)",
+              background: active ? "var(--bluebg)" : "var(--surface)",
+              border: `1px solid ${active ? "var(--primary)" : "var(--line)"}`,
+              cursor: "pointer",
+              textAlign: "left",
+              color: "var(--ink)",
+            }}
+          >
+            <span style={{ fontSize: 18 }}>🏠</span>
+            <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700 }}>{g.name}</span>
+            {active && <span style={{ color: "var(--primary)", fontWeight: 800, fontSize: 15 }}>✓</span>}
+          </button>
         );
       })}
 
@@ -326,7 +139,7 @@ export function SpacesSheet({
       {mode === "list" && (
         <div style={{ display: "flex", gap: 8 }}>
           <Button variant="secondary" style={{ flex: 1 }} onClick={() => setMode("create")}>
-            + Create a space
+            + Create a Tally
           </Button>
           <Button variant="secondary" style={{ flex: 1 }} onClick={() => setMode("join")}>
             Join with a code
@@ -336,7 +149,7 @@ export function SpacesSheet({
 
       {mode === "create" && (
         <>
-          <Label>New space name</Label>
+          <Label>New Tally name</Label>
           <Input value={name} onChange={setName} placeholder="e.g. December trip" autoFocus onEnter={createSpace} />
           <div style={{ height: 10 }} />
           <Button onClick={createSpace} disabled={busy}>

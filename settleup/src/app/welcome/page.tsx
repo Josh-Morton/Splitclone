@@ -193,7 +193,7 @@ export default function WelcomePage() {
           router.push("/");
         }}
       >
-        Skip — explore the demo household
+        Skip — explore the demo Tally
       </Button>
     </Screen>
   );

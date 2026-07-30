@@ -20,6 +20,7 @@ import type {
   RecurringExpense,
   Settlement,
   ShoppingItem,
+  SupportedSplitMethod,
   User,
 } from "../domain";
 import { autoCategory } from "../domain";
@@ -101,6 +102,7 @@ function mapGroup(row: any): Group {
     name: row.name,
     currency: "ZAR",
     simplifyDebts: row.simplify_debts,
+    defaultSplitMethod: row.default_split_method ?? "equal",
     archived: row.archived,
     createdBy: row.created_by,
     ...syncMeta(row),
@@ -285,6 +287,17 @@ export class SupabaseRepo implements Repo {
     const { data, error } = await this.sb
       .from("group")
       .update({ simplify_debts: on })
+      .eq("id", groupId)
+      .select()
+      .single();
+    if (error) this.fail(error);
+    return mapGroup(data);
+  }
+
+  async setDefaultSplitMethod(groupId: string, method: SupportedSplitMethod): Promise<Group> {
+    const { data, error } = await this.sb
+      .from("group")
+      .update({ default_split_method: method })
       .eq("id", groupId)
       .select()
       .single();

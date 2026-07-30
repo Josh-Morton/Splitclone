@@ -13,8 +13,8 @@ import { ActivityOverlay } from "@/components/activity-overlay";
 import { AddExpenseSheet } from "@/components/add-expense-sheet";
 import { ExpenseDetail } from "@/components/expense-detail";
 import { ExpensesTab } from "@/components/expenses-tab";
-import { InviteSheet } from "@/components/invite-sheet";
 import { ListTab, type CartDraft } from "@/components/list-tab";
+import { ManageTallySheet } from "@/components/manage-tally-sheet";
 import { RecurringOverlay } from "@/components/recurring";
 import { ReportsTab } from "@/components/reports-tab";
 import { SettingsSheet } from "@/components/settings-sheet";
@@ -82,7 +82,7 @@ async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string):
     repo,
     groupId,
     user: user!,
-    groupName: groups.find((g) => g.id === groupId)?.name ?? "Household",
+    groupName: groups.find((g) => g.id === groupId)?.name ?? "Tally",
     groups,
     members,
     expenses,
@@ -100,7 +100,9 @@ export default function HomePage() {
   const [data, setData] = useState<HomeData | null>(null);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<Tab>("home");
-  const [sheet, setSheet] = useState<"none" | "add" | "settle" | "invite" | "settings" | "spaces">("none");
+  const [sheet, setSheet] = useState<
+    "none" | "add" | "settle" | "manageTally" | "settings" | "spaces"
+  >("none");
   const [editing, setEditing] = useState<Expense | null>(null);
   const [cartDraft, setCartDraft] = useState<CartDraft | null>(null);
   const [recurringOpen, setRecurringOpen] = useState(false);
@@ -238,6 +240,10 @@ export default function HomePage() {
   }
 
   const d = data!;
+  // The full Group for the active Tally — ManageTallySheet needs more than the
+  // name (defaultSplitMethod, createdBy). Undefined only in the transient case
+  // where the active id isn't in the freshly-loaded list.
+  const activeGroup = d.groups.find((g) => g.id === d.groupId);
   const memberName = (id: string) => {
     const m = d.members.find((x) => x.id === id);
     if (!m) return "?";
@@ -270,8 +276,8 @@ export default function HomePage() {
             style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}
           >
             <button
-              onClick={() => setSheet("spaces")}
-              aria-label="Switch space"
+              onClick={() => setSheet("manageTally")}
+              aria-label="Manage Tally"
               style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer", color: "var(--ink)" }}
             >
               <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>
@@ -279,8 +285,8 @@ export default function HomePage() {
               </h1>
               <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
                 {d.members.length} member{d.members.length === 1 ? "" : "s"}
-                {d.groups.length > 1 ? ` · ${d.groups.length} spaces` : ""}
-                {d.mode === "demo" ? " · demo household" : ""}
+                {d.groups.length > 1 ? ` · ${d.groups.length} Tallies` : ""}
+                {d.mode === "demo" ? " · demo Tally" : ""}
               </p>
             </button>
             <div style={{ display: "flex", gap: 8 }}>
@@ -299,21 +305,6 @@ export default function HomePage() {
                 }}
               >
                 🔔
-              </button>
-              <button
-                onClick={() => setSheet("invite")}
-                style={{
-                  background: "var(--bluebg)",
-                  border: "1px solid var(--primary)",
-                  borderRadius: 999,
-                  color: "var(--primary)",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  padding: "8px 14px",
-                  cursor: "pointer",
-                }}
-              >
-                Invite
               </button>
               <button
                 onClick={() => setSheet("settings")}
@@ -346,7 +337,7 @@ export default function HomePage() {
                 marginBottom: 14,
               }}
             >
-              Demo data — nothing is saved. Sign in from the welcome screen to start your real household.
+              Demo data — nothing is saved. Sign in from the welcome screen to start your real Tally.
             </p>
           )}
 
@@ -551,7 +542,9 @@ export default function HomePage() {
       )}
 
       <AddExpenseSheet
-        key={editing?.id ?? (cartDraft ? "cart" : "new")}
+        // Remount when the Tally's default split changes (or on switch), so the
+        // pre-selected method reflects it — the sheet stays mounted otherwise.
+        key={`${editing?.id ?? (cartDraft ? "cart" : "new")}:${activeGroup?.defaultSplitMethod ?? "equal"}`}
         open={sheet === "add"}
         onClose={() => {
           setSheet("none");
@@ -575,19 +568,29 @@ export default function HomePage() {
         groupId={d.groupId}
         members={d.members}
         meUserId={d.user.id}
+        defaultSplitMethod={activeGroup?.defaultSplitMethod ?? "equal"}
         editing={editing}
         draft={cartDraft}
       />
-      <InviteSheet
-        open={sheet === "invite"}
-        onClose={() => setSheet("none")}
-        onMembersChanged={() => void load()}
-        repo={d.repo}
-        groupId={d.groupId}
-        groupName={d.groupName}
-        members={d.members}
-        meUserId={d.user.id}
-      />
+      {activeGroup && (
+        <ManageTallySheet
+          open={sheet === "manageTally"}
+          onClose={() => setSheet("none")}
+          onChanged={async (msg, close) => {
+            if (close) {
+              setSheet("none");
+              setViewing(null);
+            }
+            await load();
+            showToast(msg);
+          }}
+          repo={d.repo}
+          group={activeGroup}
+          groupCount={d.groups.length}
+          members={d.members}
+          meUserId={d.user.id}
+        />
+      )}
       <SpacesSheet
         open={sheet === "spaces"}
         onClose={() => setSheet("none")}

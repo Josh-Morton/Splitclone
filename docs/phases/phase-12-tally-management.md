@@ -1,10 +1,28 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 12 — Tally management & terminology rename 📝 SPEC ONLY — NOT BUILT (2026-07-29)
+# Phase 12 — Tally management & terminology rename ✅ SHIPPED (2026-07-30)
 
-> **Status: fully specced, zero code written.** Josh: "add these to the
-> backlog," scoped into a phase since each is substantial enough to need a
-> real plan first, matching the convention set by Phases 8–11.
+> **Live.** Migration `20260730000000_default_split_method.sql` applied (all 5
+> existing Tallies defaulted to `equal`); `ManageTallySheet` replaces the old
+> split between the header switcher and the standalone Invite button;
+> `invite-sheet.tsx` deleted (fully merged, no references left);
+> `spaces-sheet.tsx` trimmed to switch/create/join only.
+>
+> **Verified in-browser (demo):** header reads "demo Tally" with no Invite
+> button; tapping the Tally name opens one screen with rename + default split
+> + members + invite + delete; setting the default to Exact toasts and then
+> pre-selects Exact in Add expense; Settings → Tallies opens the trimmed
+> switcher. **Verified against live Postgres:** the column accepts
+> equal/exact/salary and the check constraint rejects `percent` (23514), so an
+> unsupported default can't be written even by a direct query. 53 tests +
+> build + lint green; console clean.
+>
+> ⚠️ **One deliberate behaviour change worth knowing:** Add expense used to
+> hard-code Proportional as its starting selection. Every existing Tally was
+> migrated to `equal`, so new expenses now start on **Equal** unless the owner
+> picks otherwise. That's the safer universal default (Proportional silently
+> falls back to equal when anyone lacks a salary), but it *is* different from
+> before — change it per-Tally in Manage if you'd rather have Proportional.
 
 ## Goal
 Three related changes, all about the "space" concept:

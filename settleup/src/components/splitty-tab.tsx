@@ -59,7 +59,7 @@ export function SplittyTab({ repo, demo }: { repo: Repo; demo: boolean }) {
       </div>
       <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 16, lineHeight: 1.5 }}>
         Scan a restaurant or bar bill, share the link, and everyone picks what they had — no account
-        needed for them. It stays separate from your spaces and balances.
+        needed for them. It stays separate from your Tallies and balances.
       </p>
 
       <Button onClick={() => setScanOpen(true)} style={{ marginBottom: 18 }}>
