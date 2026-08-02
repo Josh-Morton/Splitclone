@@ -20,6 +20,7 @@ export function SpacesSheet({
   open,
   onClose,
   onChanged,
+  onManage,
   repo,
   groups,
   activeGroupId,
@@ -29,6 +30,8 @@ export function SpacesSheet({
   onClose: () => void;
   /** Reload after a change; every action here closes the sheet. */
   onChanged: (message: string, close: boolean) => void;
+  /** Open full management for a Tally — not necessarily the active one. */
+  onManage: (group: Group) => void;
   repo: Repo;
   groups: Group[];
   activeGroupId: string;
@@ -101,37 +104,64 @@ export function SpacesSheet({
     >
       <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 14 }}>
         A Tally is a household, trip, or shared budget. Everything — expenses, balances, the list —
-        belongs to the Tally you&apos;re in. Tap one to switch to it; to rename it, manage members
-        or change its split method, tap its name at the top of the app.
+        belongs to the Tally you&apos;re in. Tap one to switch to it, or tap ⋯ to rename it, manage
+        members and change its split method.
       </p>
 
       {groups.map((g) => {
         const active = g.id === activeGroupId;
         return (
-          <button
+          <div
             key={g.id}
-            onClick={() => switchTo(g)}
-            disabled={busy}
-            aria-label={`Switch to ${g.name}`}
             style={{
-              width: "100%",
               display: "flex",
               alignItems: "center",
-              gap: 12,
-              padding: "12px 14px",
+              gap: 4,
               marginBottom: 8,
               borderRadius: "var(--r-card)",
               background: active ? "var(--bluebg)" : "var(--surface)",
               border: `1px solid ${active ? "var(--primary)" : "var(--line)"}`,
-              cursor: "pointer",
-              textAlign: "left",
-              color: "var(--ink)",
             }}
           >
-            <span style={{ fontSize: 18 }}>🏠</span>
-            <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700 }}>{g.name}</span>
-            {active && <span style={{ color: "var(--primary)", fontWeight: 800, fontSize: 15 }}>✓</span>}
-          </button>
+            <button
+              onClick={() => switchTo(g)}
+              disabled={busy}
+              aria-label={`Switch to ${g.name}`}
+              style={{
+                flex: 1,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "12px 4px 12px 14px",
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                textAlign: "left",
+                color: "var(--ink)",
+              }}
+            >
+              <span style={{ fontSize: 18 }}>🏠</span>
+              <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700 }}>{g.name}</span>
+              {active && <span style={{ color: "var(--primary)", fontWeight: 800, fontSize: 15 }}>✓</span>}
+            </button>
+            <button
+              onClick={() => onManage(g)}
+              disabled={busy}
+              aria-label={`Manage ${g.name}`}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--muted)",
+                fontSize: 18,
+                fontWeight: 800,
+                cursor: "pointer",
+                padding: "12px 14px",
+                lineHeight: 1,
+              }}
+            >
+              ⋯
+            </button>
+          </div>
         );
       })}
 

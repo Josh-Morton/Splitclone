@@ -18,7 +18,7 @@
  * you still can't delete or leave your last remaining Tally.
  */
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Repo } from "@/lib/data";
 import type { Group, GroupMember, SupportedSplitMethod } from "@/lib/domain";
 import { Button, ErrorText, Input, Label } from "./ui";
@@ -37,7 +37,6 @@ export function ManageTallySheet({
   repo,
   group,
   groupCount,
-  members,
   meUserId,
 }: {
   open: boolean;
@@ -48,9 +47,13 @@ export function ManageTallySheet({
   group: Group;
   /** How many Tallies the user belongs to — you can't leave/delete your last. */
   groupCount: number;
-  members: GroupMember[];
   meUserId: string;
 }) {
+  // Members are loaded here rather than passed in: this sheet can manage ANY
+  // Tally, including one that isn't currently active, and the caller only has
+  // the active Tally's members to hand. Deriving `iAmOwner` from the wrong
+  // Tally's membership would silently show the wrong permissions.
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [renameValue, setRenameValue] = useState(group.name);
   const [newName, setNewName] = useState("");
   const [forMemberId, setForMemberId] = useState<string | null>(null);
@@ -60,6 +63,19 @@ export function ManageTallySheet({
   const [confirmDanger, setConfirmDanger] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const loadMembers = useCallback(async () => {
+    try {
+      setMembers(await repo.listMembers(group.id));
+    } catch {
+      setMembers([]);
+    }
+  }, [repo, group.id]);
+
+  useEffect(() => {
+    if (!open) return;
+    void Promise.resolve().then(loadMembers);
+  }, [open, loadMembers]);
 
   const placeholders = members.filter((m) => !m.userId);
   const iAmOwner = members.find((m) => m.userId === meUserId)?.role === "owner";
@@ -97,6 +113,7 @@ export function ManageTallySheet({
       const removedUserId = await repo.removeMember(m.id);
       if (removedUserId) await repo.notifyRemoved(removedUserId, group.id);
       setConfirmRemoveId(null);
+      await loadMembers();
       onChanged(`Removed ${memberName(m)}`, false);
     });
 
@@ -105,6 +122,7 @@ export function ManageTallySheet({
     return guarded(async () => {
       await repo.addPlaceholderMember(group.id, newName.trim());
       setNewName("");
+      await loadMembers();
       onChanged("Member added", false);
     });
   };

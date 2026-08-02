@@ -104,6 +104,11 @@ export default function HomePage() {
     "none" | "add" | "settle" | "manageTally" | "settings" | "spaces"
   >("none");
   const [editing, setEditing] = useState<Expense | null>(null);
+  // Which Tally the Manage sheet is acting on — not necessarily the active
+  // one, since you can manage any Tally from the switcher. Stored as an id and
+  // resolved against fresh data below, so a rename or split change reflects
+  // immediately instead of showing a stale snapshot.
+  const [managingGroupId, setManagingGroupId] = useState<string | null>(null);
   const [recurringOpen, setRecurringOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [viewing, setViewing] = useState<Expense | null>(null);
@@ -242,6 +247,8 @@ export default function HomePage() {
   // name (defaultSplitMethod, createdBy). Undefined only in the transient case
   // where the active id isn't in the freshly-loaded list.
   const activeGroup = d.groups.find((g) => g.id === d.groupId);
+  // Resolved fresh each render; becomes null once a managed Tally is deleted.
+  const managingGroup = managingGroupId ? (d.groups.find((g) => g.id === managingGroupId) ?? null) : null;
   const memberName = (id: string) => {
     const m = d.members.find((x) => x.id === id);
     if (!m) return "?";
@@ -274,8 +281,8 @@ export default function HomePage() {
             style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}
           >
             <button
-              onClick={() => setSheet("manageTally")}
-              aria-label="Manage Tally"
+              onClick={() => setSheet("spaces")}
+              aria-label="Switch Tally"
               style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer", color: "var(--ink)" }}
             >
               <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>
@@ -394,7 +401,8 @@ export default function HomePage() {
             </div>
             {d.members.length === 1 && (
               <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 12 }}>
-                It&apos;s just you so far — tap Invite to add your partner (or a placeholder member).
+                It&apos;s just you so far — tap the Tally name above, then ⋯, to invite your partner
+                (or add a placeholder member).
               </p>
             )}
           </Card>
@@ -557,22 +565,28 @@ export default function HomePage() {
         defaultSplitMethod={activeGroup?.defaultSplitMethod ?? "equal"}
         editing={editing}
       />
-      {activeGroup && (
+      {managingGroup && (
         <ManageTallySheet
+          // Remount per Tally so rename/split state can't carry across.
+          key={managingGroup.id}
           open={sheet === "manageTally"}
-          onClose={() => setSheet("none")}
+          onClose={() => {
+            setSheet("spaces"); // back to the switcher we came from
+            setManagingGroupId(null);
+          }}
           onChanged={async (msg, close) => {
             if (close) {
+              // Deleted or left it — there's nothing to go back to.
               setSheet("none");
+              setManagingGroupId(null);
               setViewing(null);
             }
             await load();
             showToast(msg);
           }}
           repo={d.repo}
-          group={activeGroup}
+          group={managingGroup}
           groupCount={d.groups.length}
-          members={d.members}
           meUserId={d.user.id}
         />
       )}
@@ -586,6 +600,10 @@ export default function HomePage() {
           }
           await load();
           showToast(msg);
+        }}
+        onManage={(g) => {
+          setManagingGroupId(g.id);
+          setSheet("manageTally");
         }}
         repo={d.repo}
         groups={d.groups}

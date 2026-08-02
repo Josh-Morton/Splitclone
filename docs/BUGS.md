@@ -23,11 +23,11 @@ work as intended**.
 - Mark fixed bugs with ~~strikethrough~~ plus the phase/commit that fixed
   them — don't delete the history, same rule as everywhere else in this repo.
 
-## Open bugs
+## Fixed
 
-### BUG-001: Tally navigation — header should switch, Settings should manage
-**Reported:** 2026-07-30 (Josh) · **Status:** Open, promoted to
-[Phase 15](phases/phase-15-tally-navigation-fix.md) · **Severity:** UX
+### ~~BUG-001~~: Tally navigation — header should switch, Settings should manage
+**Reported:** 2026-07-30 (Josh) · **Status:** ✅ Fixed in
+[Phase 15](phases/phase-15-tally-navigation-fix.md) (2026-07-30) · **Severity:** UX
 regression — no data risk, but breaks the app's most-used piece of chrome.
 
 **What's wrong.** Tapping the Tally name / ▾ arrow at the top of the app
@@ -59,6 +59,9 @@ two taps deep in Settings is backwards. Confirmed by Josh after using it.
   them — i.e. a route back into `ManageTallySheet` reached from Settings,
   not from the header.
 
-Full plan, exact file-level changes and the open question about the Settings
-list's per-row interaction are in
-[Phase 15](phases/phase-15-tally-navigation-fix.md).
+**Fixed** in [Phase 15](phases/phase-15-tally-navigation-fix.md): header ▾
+opens the switcher, each switcher row gained a ⋯ for full management of that
+Tally. Implementing it surfaced a second, latent defect the bug report hadn't
+spotted — `ManageTallySheet` took `members` as a prop fed from the *active*
+Tally, so managing any other Tally would have shown the wrong members and
+wrong owner permissions. It now loads its own. Details in the phase file.

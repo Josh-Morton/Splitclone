@@ -1,10 +1,36 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 15 — Fix Tally navigation: header switches, Settings manages 📝 SPEC ONLY — NOT BUILT (2026-07-30)
+# Phase 15 — Fix Tally navigation: header switches, Settings manages ✅ SHIPPED (2026-07-30)
 
 > Fixes [BUG-001](../BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage).
-> Same convention as every other phase file — exhaustive enough to execute
-> from this document alone. Nothing built yet.
+>
+> **Live.** Header ▾ opens the Tally switcher again (`aria-label="Switch Tally"`);
+> each row in the switcher gained a ⋯ that opens full management for *that*
+> Tally. Reachable from both the header and Settings → Tallies, since both
+> open the same switcher.
+>
+> **The spec was wrong about one thing, and it mattered.** It said `group` was
+> the only active-scoped prop on `ManageTallySheet` "so this should be a
+> non-issue". In fact `members` was passed in too — from `page.tsx`'s
+> `d.members`, which is *always the active Tally's*. Managing a non-active
+> Tally would have shown the wrong member list **and** derived `iAmOwner`
+> from the wrong membership, i.e. silently wrong permissions. Fixed properly:
+> `ManageTallySheet` now loads members itself for its own `group.id` and
+> refetches after add/remove, so it's correct-by-construction for any Tally
+> and the caller can't pass a mismatched pair. The `members` prop is gone.
+>
+> Also fixed while here: `page.tsx` tracks the managed Tally by **id** and
+> resolves it against fresh data each render, so a rename shows immediately
+> instead of a stale snapshot; and Home's empty-state copy still said "tap
+> Invite" — a button Phase 12 deleted — now points at the Tally name → ⋯.
+>
+> **Verified in demo with two Tallies** (created a second so the non-active
+> case was real): header opens the switcher; managing non-active "Flat 4B"
+> showed its own 4 members while "Beach trip" (1 member) was active;
+> renaming it updated the sheet title live and left the active Tally alone;
+> Cancel returns to the switcher rather than dumping you home; switching
+> still works and closes the sheet. 53 tests + build + lint green; console
+> clean.
 
 ## Goal
 Un-invert the navigation Phase 12 introduced. The header (▾ next to the Tally
