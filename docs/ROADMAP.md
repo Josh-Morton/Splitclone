@@ -24,8 +24,13 @@
 > - Cross-cutting loose ends (design gaps, deferred items not worth a whole
 >   phase) go in [`docs/BACKLOG.md`](BACKLOG.md), not here and not buried
 >   inside a phase file.
+> - **Found a bug** (something already built that doesn't work as intended,
+>   as opposed to a feature that was never built)? Log it in
+>   [`docs/BUGS.md`](BUGS.md), not here and not in `BACKLOG.md`. If the fix
+>   is substantial, promote it to a phase file exactly like a backlog item
+>   would be, and link the two together.
 
-**Last updated:** 2026-07-30 (Phase 13 shipped — shopping list: Sorted section with dates, cart→expense removed)
+**Last updated:** 2026-07-30 (BUG-001 logged + promoted to Phase 15 — Tally navigation regression from Phase 12)
 
 ## Where we are
 
@@ -63,10 +68,12 @@ features people actually asked for before offline-first).
 | [12 — Tally management & terminology rename](phases/phase-12-tally-management.md) | ✅ Shipped (2026-07-30) | — | "Space"/"household" → "Tally" everywhere; one consolidated "Manage this Tally" screen; per-Tally default split method |
 | [13 — Shopping list rework](phases/phase-13-shopping-list-rework.md) | ✅ Shipped (2026-07-30) | — | Drop cart→expense; checked items become a dated "Sorted" section instead |
 | [14 — Multi-currency expenses](phases/phase-14-multi-currency-expenses.md) | 📝 Spec only — not built (2026-07-29) | — | Per-expense foreign currency, converted + rate-locked to ZAR at entry; recently-used quick-pick (ADR-0017) |
+| [15 — Fix Tally navigation](phases/phase-15-tally-navigation-fix.md) | 📝 Spec only — not built (2026-07-30) | — | Bug fix: header should switch Tallies, Settings should manage them — Phase 12 built it backwards ([BUG-001](BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage)) |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
-decisions (ADRs) behind these phases, and [`docs/BACKLOG.md`](BACKLOG.md) for
-cross-cutting loose ends that aren't a phase of their own.
+decisions (ADRs) behind these phases, [`docs/BACKLOG.md`](BACKLOG.md) for
+cross-cutting loose ends that aren't a phase of their own, and
+[`docs/BUGS.md`](BUGS.md) for confirmed defects in what's already built.
 
 ## Working agreements
 - Ship the correct ledger before anything clever; offline is architectural and

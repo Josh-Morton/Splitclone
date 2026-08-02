@@ -16,11 +16,14 @@ from any state — read it first, then follow the pointers.
    not in ROADMAP.md itself.
 2. **[docs/BACKLOG.md](docs/BACKLOG.md)** — cross-cutting loose ends that
    aren't worth a whole phase (deferred items, design-fidelity gaps).
-3. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the code is shaped,
+3. **[docs/BUGS.md](docs/BUGS.md)** — confirmed defects in what's already
+   built (as opposed to features never built — those go in BACKLOG.md).
+   Substantial fixes get promoted to a phase file, same as backlog items.
+4. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the code is shaped,
    plus the cross-cutting rules you must not violate.
-4. **[docs/decisions/](docs/decisions/README.md)** — settled decisions (ADRs).
+5. **[docs/decisions/](docs/decisions/README.md)** — settled decisions (ADRs).
    Don't relitigate them; supersede with a new ADR if something must change.
-5. **[docs/SETUP.md](docs/SETUP.md)** — the manual Supabase/Vercel steps that
+6. **[docs/SETUP.md](docs/SETUP.md)** — the manual Supabase/Vercel steps that
    need Josh's accounts.
 
 ## Source-of-truth documents (root of repo)
