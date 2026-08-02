@@ -8,6 +8,16 @@ arising). Add new items here rather than letting them accumulate inside
 `ROADMAP.md` or a phase file.
 
 ## Other open items
+- **Performance — cut the reload chain.** Josh reported ~1000ms delays
+  switching Tallies, closing the add-expense sheet, and logging in.
+  Investigated 2026-07-30: not one slow query, but nearly every action
+  re-running the *entire* home-screen load sequentially, with
+  `getCurrentUser`/`listGroups` each fetched twice per load and login paying
+  for the whole chain a second time on top of its own auth check. Scoped as
+  [Phase 16](phases/phase-16-performance.md) (spec only, not built —
+  investigation findings and fix direction are in that file; not implemented
+  without Josh's go-ahead since it touches the core load path everything
+  else depends on).
 - **Custom SMTP for real auth emails** (Resend) — was backlogged since Phase
   0/1; now scoped as an actual launch blocker inside
   [Phase 10](phases/phase-10-custom-domain-launch.md) (Supabase's default
