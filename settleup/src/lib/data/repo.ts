@@ -75,6 +75,12 @@ export interface Repo {
   // --- session / profile ---
   getCurrentUser(): Promise<User | null>;
   getProfile(userId: string): Promise<Profile | null>;
+  /**
+   * User + profile together. Both come from the same underlying row, so
+   * callers needing both (the home screen, to pick the active Tally) use this
+   * instead of paying for two round trips (Phase 16).
+   */
+  getMe(): Promise<{ user: User; profile: Profile | null } | null>;
   updateProfile(
     profile: Partial<Profile> & { userId: string; displayName?: string }
   ): Promise<Profile>;

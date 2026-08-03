@@ -53,27 +53,70 @@ export function ListTab({
     return unsubscribe;
   }, [load, live, repo, groupId]);
 
+  /**
+   * Applies a change to the on-screen list immediately, then writes it
+   * (Phase 16). Every action here used to await the write AND a full re-list
+   * before anything moved — two round trips of dead time on a tap that should
+   * feel instant. On failure we surface the error and re-read the server's
+   * truth, so a rejected write can't leave the UI lying.
+   */
+  async function optimistic(
+    apply: (prev: ShoppingItem[]) => ShoppingItem[],
+    write: () => Promise<unknown>
+  ) {
+    setItems((prev) => (prev ? apply(prev) : prev));
+    setError("");
+    try {
+      await write();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      await load();
+    }
+  }
+
   async function add() {
     if (!name.trim()) return;
     const estCents = parseCents(est);
-    await repo.addShoppingItem({
-      groupId,
-      name: name.trim(),
-      estPriceCents: estCents > 0 ? estCents : undefined,
-    });
+    const itemName = name.trim();
+    const estPriceCents = estCents > 0 ? estCents : undefined;
+    // The input clears right away; the row appears once the server hands back
+    // the real row (it owns the id and created_at, and the list is ordered by
+    // created_at — so appending matches the order a re-list would produce).
     setName("");
     setEst("");
-    await load();
+    setError("");
+    try {
+      const created = await repo.addShoppingItem({ groupId, name: itemName, estPriceCents });
+      setItems((prev) => (prev ? [...prev, created] : prev));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      await load();
+    }
   }
 
   async function toggle(item: ShoppingItem) {
-    await repo.setShoppingItemChecked(item.id, !item.checked);
-    await load();
+    const checked = !item.checked;
+    // completedAt mirrors what the repo writes; both render as a day-level
+    // date, and realtime replaces it with the server's exact value anyway.
+    const completedAt = checked ? new Date().toISOString() : null;
+    await optimistic(
+      (prev) => prev.map((i) => (i.id === item.id ? { ...i, checked, completedAt } : i)),
+      () => repo.setShoppingItemChecked(item.id, checked)
+    );
+  }
+
+  async function remove(item: ShoppingItem) {
+    await optimistic(
+      (prev) => prev.filter((i) => i.id !== item.id),
+      () => repo.removeShoppingItem(item.id)
+    );
   }
 
   async function clearSorted() {
-    await repo.clearCheckedShoppingItems(groupId);
-    await load();
+    await optimistic(
+      (prev) => prev.filter((i) => !i.checked),
+      () => repo.clearCheckedShoppingItems(groupId)
+    );
   }
 
   if (!items) return null;
@@ -133,7 +176,7 @@ export function ListTab({
         <p style={{ fontSize: 12.5, color: "var(--muted)", fontWeight: 600 }}>{fmt(item.estPriceCents)}</p>
       )}
       <button
-        onClick={() => repo.removeShoppingItem(item.id).then(load)}
+        onClick={() => remove(item)}
         aria-label={`Remove ${item.name}`}
         style={{
           background: "none",

@@ -55,19 +55,39 @@ interface HomeData {
   counterpartyName: string;
 }
 
-async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string): Promise<HomeData> {
-  // Catch-up first so bills that came due while no one had the app open
-  // appear in this load (the daily server cron is the primary generator).
-  await repo.processDueRecurring(groupId).catch(() => 0);
-  const [user, members, expenses, settlements, groups, recurring] = await Promise.all([
-    repo.getCurrentUser(),
+/**
+ * Fetches everything the home screen needs for one Tally.
+ *
+ * `user` and `groups` are passed in rather than refetched: the caller already
+ * has them from deciding WHICH Tally to load, and this used to fetch both a
+ * second time (Phase 16).
+ */
+async function loadHome(
+  repo: Repo,
+  mode: "demo" | "supabase",
+  groupId: string,
+  user: User,
+  groups: Group[]
+): Promise<HomeData> {
+  // The recurring catch-up runs alongside the reads rather than gating them —
+  // it only matters when it actually generates something, which is rare (the
+  // daily server cron is the primary generator). When it does, the expense and
+  // recurring snapshots taken in parallel predate the new rows, so those two
+  // are re-read below. Same end state, without a blocking round trip on every
+  // single load.
+  const [generated, members, expenses0, settlements, recurring0] = await Promise.all([
+    repo.processDueRecurring(groupId).catch(() => 0),
     repo.listMembers(groupId),
     repo.listExpenses(groupId),
     repo.listSettlements(groupId),
-    repo.listGroups(),
     repo.listRecurring(groupId),
   ]);
-  const you = members.find((m) => m.userId === user!.id);
+  const [expenses, recurring] =
+    generated > 0
+      ? await Promise.all([repo.listExpenses(groupId), repo.listRecurring(groupId)])
+      : [expenses0, recurring0];
+
+  const you = members.find((m) => m.userId === user.id);
   const balances = computeBalances(members.map((m) => m.id), expenses, settlements);
   const yourNet = you ? balances[you.id] : 0;
   const transactions = simplifyDebts(balances);
@@ -81,7 +101,7 @@ async function loadHome(repo: Repo, mode: "demo" | "supabase", groupId: string):
     mode,
     repo,
     groupId,
-    user: user!,
+    user,
     groupName: groups.find((g) => g.id === groupId)?.name ?? "Tally",
     groups,
     members,
@@ -119,29 +139,29 @@ export default function HomePage() {
 
   const load = useCallback(async () => {
     try {
+      // Identity and the Tally list are independent, so they go together —
+      // and getMe() folds the user + profile into a single round trip since
+      // they share a row. This chain used to be four sequential fetches with
+      // getCurrentUser and listGroups each run twice (Phase 16).
       let next: HomeData | null = null;
       if (session.status === "demo") {
         const { repo, groupId } = await getDemoRepo();
-        const user = await repo.getCurrentUser();
-        const profile = user ? await repo.getProfile(user.id) : null;
-        const groups = await repo.listGroups();
-        const gid = groups.find((g) => g.id === profile?.defaultGroupId)?.id ?? groupId;
-        next = await loadHome(repo, "demo", gid);
+        const [me, groups] = await Promise.all([repo.getMe(), repo.listGroups()]);
+        const gid = groups.find((g) => g.id === me?.profile?.defaultGroupId)?.id ?? groupId;
+        next = await loadHome(repo, "demo", gid, me!.user, groups);
       } else if (session.status === "supabase") {
         const repo = getSupabaseRepo();
-        const user = await repo.getCurrentUser();
-        if (!user?.displayName) {
+        const [me, groups] = await Promise.all([repo.getMe(), repo.listGroups()]);
+        if (!me?.user.displayName) {
           router.replace(await postAuthDestination());
           return;
         }
-        const groups = await repo.listGroups();
         if (groups.length === 0) {
           router.replace("/onboarding?step=space");
           return;
         }
-        const profile = await repo.getProfile(user.id);
-        const groupId = groups.find((g) => g.id === profile?.defaultGroupId)?.id ?? groups[0].id;
-        next = await loadHome(repo, "supabase", groupId);
+        const groupId = groups.find((g) => g.id === me.profile?.defaultGroupId)?.id ?? groups[0].id;
+        next = await loadHome(repo, "supabase", groupId, me.user, groups);
       }
       if (next) {
         setData(next);

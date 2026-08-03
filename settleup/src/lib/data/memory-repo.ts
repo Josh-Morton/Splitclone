@@ -133,6 +133,11 @@ export class MemoryRepo implements Repo {
     return this.profiles.get(userId) ?? null;
   }
 
+  async getMe(): Promise<{ user: User; profile: Profile | null } | null> {
+    if (!this.user) return null;
+    return { user: this.user, profile: this.profiles.get(this.user.id) ?? null };
+  }
+
   async getSalaryShares(
     groupId: string,
     totalCents: number,

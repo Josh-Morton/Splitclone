@@ -96,6 +96,41 @@ function syncMeta(row: any) {
   };
 }
 
+function mapRecurring(row: any): RecurringExpense {
+  return {
+    id: row.id,
+    groupId: row.group_id,
+    description: row.description,
+    category: row.category,
+    amountCents: Number(row.amount_cents),
+    frequency: row.frequency,
+    anchor: row.anchor,
+    nextRun: row.next_run,
+    endDate: row.end_date,
+    payerMemberId: row.payer_member_id,
+    splitMethod: row.split_method,
+    participantMemberIds: row.participant_member_ids ?? [],
+    fixedShares: Array.isArray(row.fixed_shares)
+      ? row.fixed_shares.map((s: any) => ({
+          memberId: s.member_id,
+          shareCents: Number(s.share_cents),
+        }))
+      : null,
+    paused: row.paused,
+    ...syncMeta(row),
+  };
+}
+
+function mapProfile(row: any): Profile {
+  return {
+    userId: row.user_id,
+    monthlySalaryCents: row.monthly_salary_cents != null ? Number(row.monthly_salary_cents) : null,
+    defaultSplitMethod: row.default_split_method,
+    defaultGroupId: row.default_group_id,
+    salaryVisible: row.salary_visible,
+  };
+}
+
 function mapGroup(row: any): Group {
   return {
     id: row.id,
@@ -174,10 +209,30 @@ export function generateInviteCode(): string {
 export class SupabaseRepo implements Repo {
   constructor(private sb: SupabaseClient) {}
 
+  /**
+   * The signed-in user, read from the locally-cached session (Phase 16).
+   *
+   * Deliberately `getSession()` and NOT `getUser()`: `getUser()` issues an
+   * HTTPS round trip to /auth/v1/user on every single call, which this class
+   * used to pay before every write and twice per home-screen load.
+   * `getSession()` reads the cached session and only touches the network when
+   * the token has actually expired, in which case it still auto-refreshes.
+   *
+   * Safe because the client-side id is never a security boundary here: it only
+   * stamps created_by/updated_by and drives "is this me?" in the UI. RLS
+   * re-derives auth.uid() from the JWT server-side, so a tampered local id
+   * buys nothing — the write just fails its policy check.
+   */
+  private async sessionUser(): Promise<{ id: string; email: string } | null> {
+    const { data } = await this.sb.auth.getSession();
+    const u = data.session?.user;
+    return u ? { id: u.id, email: u.email ?? "" } : null;
+  }
+
   private async uid(): Promise<string> {
-    const { data, error } = await this.sb.auth.getUser();
-    if (error || !data.user) throw new ValidationError("Not signed in");
-    return data.user.id;
+    const u = await this.sessionUser();
+    if (!u) throw new ValidationError("Not signed in");
+    return u.id;
   }
 
   private fail(error: { message: string } | null): never {
@@ -186,18 +241,44 @@ export class SupabaseRepo implements Repo {
 
   // --- session / profile ---
   async getCurrentUser(): Promise<User | null> {
-    const { data } = await this.sb.auth.getUser();
-    if (!data.user) return null;
+    const u = await this.sessionUser();
+    if (!u) return null;
     const { data: prof } = await this.sb
       .from("profile")
       .select("display_name, avatar_url")
-      .eq("user_id", data.user.id)
+      .eq("user_id", u.id)
       .maybeSingle();
     return {
-      id: data.user.id,
-      email: data.user.email ?? "",
+      id: u.id,
+      email: u.email,
       displayName: prof?.display_name ?? "",
       avatarUrl: prof?.avatar_url ?? null,
+    };
+  }
+
+  /**
+   * User + profile in ONE query (Phase 16). They live in the same `profile`
+   * row, so callers that need both — the home screen does, to pick the active
+   * Tally — were fetching it twice: once via getCurrentUser, once via
+   * getProfile. Both of those stay for callers that genuinely need only one.
+   */
+  async getMe(): Promise<{ user: User; profile: Profile | null } | null> {
+    const u = await this.sessionUser();
+    if (!u) return null;
+    const { data, error } = await this.sb
+      .from("profile")
+      .select("*")
+      .eq("user_id", u.id)
+      .maybeSingle();
+    if (error) this.fail(error);
+    return {
+      user: {
+        id: u.id,
+        email: u.email,
+        displayName: data?.display_name ?? "",
+        avatarUrl: data?.avatar_url ?? null,
+      },
+      profile: data ? mapProfile(data) : null,
     };
   }
 
@@ -208,14 +289,7 @@ export class SupabaseRepo implements Repo {
       .eq("user_id", userId)
       .maybeSingle();
     if (error) this.fail(error);
-    if (!data) return null;
-    return {
-      userId: data.user_id,
-      monthlySalaryCents: data.monthly_salary_cents != null ? Number(data.monthly_salary_cents) : null,
-      defaultSplitMethod: data.default_split_method,
-      defaultGroupId: data.default_group_id,
-      salaryVisible: data.salary_visible,
-    };
+    return data ? mapProfile(data) : null;
   }
 
   async updateProfile(p: Partial<Profile> & { userId: string; displayName?: string }): Promise<Profile> {
@@ -225,9 +299,17 @@ export class SupabaseRepo implements Repo {
     if ("defaultGroupId" in p) patch.default_group_id = p.defaultGroupId;
     if ("salaryVisible" in p) patch.salary_visible = p.salaryVisible;
     if ("displayName" in p) patch.display_name = p.displayName;
-    const { error } = await this.sb.from("profile").update(patch).eq("user_id", p.userId);
+    // `.select()` returns the updated row in the same round trip — this used
+    // to update, then re-read the very row it had just written (Phase 16).
+    // Matters because switching Tally goes through here.
+    const { data, error } = await this.sb
+      .from("profile")
+      .update(patch)
+      .eq("user_id", p.userId)
+      .select("*")
+      .single();
     if (error) this.fail(error);
-    return (await this.getProfile(p.userId))!;
+    return mapProfile(data);
   }
 
   // --- groups & members ---
@@ -461,12 +543,15 @@ export class SupabaseRepo implements Repo {
     });
     if (error) this.fail(error);
     const row = Array.isArray(data) ? data[0] : data;
-    return (await this.getExpense(row.id))!;
+    // The RPC hands back the expense row, and the payers/splits it just wrote
+    // are exactly what we sent — so re-reading them was a wasted round trip
+    // sitting between "Save" and the sheet closing (Phase 16).
+    return { ...mapExpense(row), payers: input.payers, splits: input.splits };
   }
 
   async updateExpense(id: string, input: NewExpenseInput): Promise<Expense> {
     validateExpense(input);
-    const { error } = await this.sb.rpc("update_expense", {
+    const { data, error } = await this.sb.rpc("update_expense", {
       p_id: id,
       p_expense: {
         description: input.description,
@@ -484,7 +569,10 @@ export class SupabaseRepo implements Repo {
       })),
     });
     if (error) this.fail(error);
-    return (await this.getExpense(id))!;
+    // Same as createExpense: the RPC returns the updated row, and it rewrote
+    // payers/splits to exactly what we sent (Phase 16).
+    const row = Array.isArray(data) ? data[0] : data;
+    return { ...mapExpense(row), payers: input.payers, splits: input.splits };
   }
 
   async deleteExpense(id: string): Promise<void> {
@@ -656,28 +744,7 @@ export class SupabaseRepo implements Repo {
       .is("deleted_at", null)
       .order("next_run");
     if (error) this.fail(error);
-    return (data ?? []).map((row: any) => ({
-      id: row.id,
-      groupId: row.group_id,
-      description: row.description,
-      category: row.category,
-      amountCents: Number(row.amount_cents),
-      frequency: row.frequency,
-      anchor: row.anchor,
-      nextRun: row.next_run,
-      endDate: row.end_date,
-      payerMemberId: row.payer_member_id,
-      splitMethod: row.split_method,
-      participantMemberIds: row.participant_member_ids ?? [],
-      fixedShares: Array.isArray(row.fixed_shares)
-        ? row.fixed_shares.map((s: any) => ({
-            memberId: s.member_id,
-            shareCents: Number(s.share_cents),
-          }))
-        : null,
-      paused: row.paused,
-      ...syncMeta(row),
-    }));
+    return (data ?? []).map(mapRecurring);
   }
 
   async createRecurring(input: NewRecurringInput): Promise<RecurringExpense> {
@@ -711,7 +778,9 @@ export class SupabaseRepo implements Repo {
       .select()
       .single();
     if (error) this.fail(error);
-    return (await this.listRecurring(input.groupId)).find((r) => r.id === data.id)!;
+    // The insert already returned the new row — fetching every rule in the
+    // Tally just to find it again was a second, larger round trip (Phase 16).
+    return mapRecurring(data);
   }
 
   async setRecurringPaused(id: string, paused: boolean): Promise<void> {
@@ -740,9 +809,15 @@ export class SupabaseRepo implements Repo {
 
   // --- receipts ---
   async attachReceipt(expenseId: string, image: Blob): Promise<void> {
-    const expense = await this.getExpense(expenseId);
-    if (!expense) throw new ValidationError("Expense not found");
-    const path = `${expense.groupId}/${expenseId}.jpg`;
+    // Only the group id is needed to build the path — getExpense() would drag
+    // in every payer and split row to find it (Phase 16).
+    const { data: row } = await this.sb
+      .from("expense")
+      .select("group_id")
+      .eq("id", expenseId)
+      .maybeSingle();
+    if (!row) throw new ValidationError("Expense not found");
+    const path = `${row.group_id}/${expenseId}.jpg`;
     const { error: upErr } = await this.sb.storage
       .from("receipts")
       .upload(path, image, { upsert: true, contentType: "image/jpeg" });
@@ -752,9 +827,13 @@ export class SupabaseRepo implements Repo {
   }
 
   async removeReceipt(expenseId: string): Promise<void> {
-    const expense = await this.getExpense(expenseId);
-    if (!expense?.receiptUrl) return;
-    await this.sb.storage.from("receipts").remove([expense.receiptUrl]);
+    const { data: row } = await this.sb
+      .from("expense")
+      .select("receipt_url")
+      .eq("id", expenseId)
+      .maybeSingle();
+    if (!row?.receipt_url) return;
+    await this.sb.storage.from("receipts").remove([row.receipt_url]);
     const { error } = await this.sb.from("expense").update({ receipt_url: null }).eq("id", expenseId);
     if (error) this.fail(error);
   }
