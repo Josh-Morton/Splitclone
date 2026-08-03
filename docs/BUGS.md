@@ -23,13 +23,14 @@ work as intended**.
 - Mark fixed bugs with ~~strikethrough~~ plus the phase/commit that fixed
   them — don't delete the history, same rule as everywhere else in this repo.
 
-## Open bugs
+## Fixed
 
-### BUG-002: Add-expense fails with "member is not in the expense's group" after switching Tallies
-**Reported:** 2026-07-30 (Josh) · **Status:** Open, root cause confirmed —
-small fix, no phase needed · **Severity:** Data-loss risk (the save fails
-outright) — not silent corruption, but blocks logging an expense until the
-app is restarted.
+### ~~BUG-002~~: Add-expense breaks after switching Tallies (failed save AND broken split percentages)
+**Reported:** 2026-07-30 (Josh) · **Status:** ✅ Fixed 2026-07-31 (commit on
+`main`, no phase file needed) · **Severity:** Was the worst bug logged so far —
+in production the save failed outright; in any client without the database
+trigger it would have silently written an expense against another Tally's
+members.
 
 **What's wrong.** Saving an expense sometimes fails with a Postgres error
 naming a member id and saying it "is not in the expense's group" (Josh's
@@ -63,16 +64,36 @@ explains why "even the proportional splitting works as expected": the
 client-side math in `getSalaryShares`/`splitEqual` doesn't validate
 membership at all, only the database trigger does, right at save time.
 
-**Suggested fix.** Add `groupId` to the remount key (e.g.
-`` `${editing?.id ?? "new"}:${groupId}:${activeGroup?.defaultSplitMethod ?? "equal"}` ``)
-so any Tally switch forces a fresh `parts`/`payerId`/`exact` init regardless
-of whether the two Tallies share a default split method. Small, contained
-change — one line, no migration, no phase file needed. Worth adding a test
-or at least a manual check: open Add on Tally A, switch to Tally B (same
-default split), reopen Add, confirm the participant list is B's members, not
-A's stale ids.
+**Second symptom, same cause (reported separately by Josh 2026-07-31):**
+"it seems to break the split percentages when I follow the same steps." The
+share rows render as `members.filter((m) => parts.includes(m.id))`
+(`add-expense-sheet.tsx`). After the missed remount, `members` is the new
+Tally's while `parts` holds the old Tally's ids — the two sets don't
+intersect, so **every share row disappears** while `splits` still allocates
+the full amount to those now-invisible stale ids. One cause, two symptoms.
 
-## Fixed
+**Fixed** by adding `groupId` to the remount key in `page.tsx`, so any Tally
+switch forces a fresh `parts`/`payerId`/`exact` init regardless of whether
+the two Tallies share a default split method.
+
+**A second, unreported instance of the same bug was found while fixing this**
+and fixed alongside it: `NewRecurringSheet` (inside `recurring.tsx`) is also
+always mounted and also seeds `payerId` from `members` via a `useState`
+initializer. Open Recurring → close → switch Tally → reopen, and it would
+pair the *old* Tally's payer with the new Tally's participants (the latter
+are read fresh at save time), generating expenses that hit the very same
+database rejection. `RecurringOverlay` is now keyed by `groupId` too.
+`SettleSheet` was checked and is fine — it holds only transient state and
+renders straight from props. A grep confirmed `add-expense-sheet.tsx` was the
+only other component seeding participant state from the `members` prop.
+
+**Verified by reproducing it first.** With the old key, the demo showed **0
+share rows** after switching from a 1-member Tally to a 4-member one; with
+the fix, **4 rows at 25%**, and the save then succeeded with the balance
+moving exactly +R75 on a R100 expense split four ways. Worth noting the demo
+(`MemoryRepo`) has no database trigger, so there the bad save "succeeded"
+silently — which is exactly why this surfaced as an error in production but
+looked like a display glitch locally.
 
 ### ~~BUG-001~~: Tally navigation — header should switch, Settings should manage
 **Reported:** 2026-07-30 (Josh) · **Status:** ✅ Fixed in

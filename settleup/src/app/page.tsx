@@ -563,9 +563,16 @@ export default function HomePage() {
       )}
 
       <AddExpenseSheet
-        // Remount when the Tally's default split changes (or on switch), so the
-        // pre-selected method reflects it — the sheet stays mounted otherwise.
-        key={`${editing?.id ?? "new"}:${activeGroup?.defaultSplitMethod ?? "equal"}`}
+        // The sheet seeds participants, payer and split method from props via
+        // useState initializers, which run once — so it MUST remount whenever
+        // the Tally changes. `groupId` belongs in this key even though
+        // `defaultSplitMethod` is here: two Tallies usually share a default
+        // (every one starts on "equal"), which made the key identical across a
+        // switch. React then kept the old instance, leaving `parts`/`payerId`
+        // holding the previous Tally's member ids while `members` updated — so
+        // the share rows (rendered as members ∩ parts) vanished, and saving
+        // sent foreign ids that the database correctly rejected (BUG-002).
+        key={`${editing?.id ?? "new"}:${d.groupId}:${activeGroup?.defaultSplitMethod ?? "equal"}`}
         open={sheet === "add"}
         onClose={() => {
           setSheet("none");
@@ -679,6 +686,11 @@ export default function HomePage() {
         expenses={d.expenses}
       />
       <RecurringOverlay
+        // Same reason as the Add-expense sheet: the new-rule form seeds
+        // `payerId` from `members` via a useState initializer and never
+        // remounts on its own, so after a Tally switch it would pair a stale
+        // payer with the new Tally's participants.
+        key={d.groupId}
         open={recurringOpen}
         onClose={() => setRecurringOpen(false)}
         onChanged={async (msg) => {
