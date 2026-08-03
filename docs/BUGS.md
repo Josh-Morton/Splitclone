@@ -23,6 +23,55 @@ work as intended**.
 - Mark fixed bugs with ~~strikethrough~~ plus the phase/commit that fixed
   them — don't delete the history, same rule as everywhere else in this repo.
 
+## Open bugs
+
+### BUG-002: Add-expense fails with "member is not in the expense's group" after switching Tallies
+**Reported:** 2026-07-30 (Josh) · **Status:** Open, root cause confirmed —
+small fix, no phase needed · **Severity:** Data-loss risk (the save fails
+outright) — not silent corruption, but blocks logging an expense until the
+app is restarted.
+
+**What's wrong.** Saving an expense sometimes fails with a Postgres error
+naming a member id and saying it "is not in the expense's group" (Josh's
+paraphrase: "member 2a571c... is not part of this expense group which they
+clearly are"). Restarting the app fixes it. Reported after the app had been
+open a while — but see root cause below, idle time isn't actually the
+trigger.
+
+**Root cause — confirmed by reading the code, not guessed.** The exact error
+text comes from `check_member_in_expense_group()`
+(`supabase/migrations/20260702000000_phase1_schema.sql:158`): a trigger on
+`expense_payer`/`expense_split` that rejects a `member_id` whose
+`group_member.group_id` doesn't match the expense's `group_id`. That only
+fires when the client actually sends a mismatched member id — and it can,
+because of [`page.tsx`](../settleup/src/app/page.tsx)'s remount key on
+`AddExpenseSheet`:
+```
+key={`${editing?.id ?? "new"}:${activeGroup?.defaultSplitMethod ?? "equal"}`}
+```
+This was written (Phase 12) to remount the sheet — resetting its internal
+`parts`/`payerId`/`exact` state, which only ever initializes once via
+`useState` — whenever the *split method* changes. But it doesn't include
+`groupId`. **Switch from one Tally to another that happens to have the same
+default split method** (e.g. both "Equal" — the default for every existing
+Tally) **and the key string is identical, so React does not remount the
+sheet.** `groupId` and `members` props update to the new Tally silently, but
+`parts` (the selected participants) keeps the *previous* Tally's
+`group_member` ids. Submitting then sends those stale ids against the new
+`groupId` — exactly the mismatch the trigger correctly rejects. This also
+explains why "even the proportional splitting works as expected": the
+client-side math in `getSalaryShares`/`splitEqual` doesn't validate
+membership at all, only the database trigger does, right at save time.
+
+**Suggested fix.** Add `groupId` to the remount key (e.g.
+`` `${editing?.id ?? "new"}:${groupId}:${activeGroup?.defaultSplitMethod ?? "equal"}` ``)
+so any Tally switch forces a fresh `parts`/`payerId`/`exact` init regardless
+of whether the two Tallies share a default split method. Small, contained
+change — one line, no migration, no phase file needed. Worth adding a test
+or at least a manual check: open Add on Tally A, switch to Tally B (same
+default split), reopen Add, confirm the participant list is B's members, not
+A's stale ids.
+
 ## Fixed
 
 ### ~~BUG-001~~: Tally navigation — header should switch, Settings should manage

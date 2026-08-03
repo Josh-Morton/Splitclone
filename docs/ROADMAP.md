@@ -30,7 +30,7 @@
 >   is substantial, promote it to a phase file exactly like a backlog item
 >   would be, and link the two together.
 
-**Last updated:** 2026-07-30 (Phase 16 spec added — perf investigation: home-screen reload chain is the ~1000ms delay culprit)
+**Last updated:** 2026-07-30 (Phase 17 spec added — unified cross-Tally shopping list; BUG-002 logged — stale participants after switching Tallies)
 
 ## Where we are
 
@@ -70,6 +70,7 @@ features people actually asked for before offline-first).
 | [14 — Multi-currency expenses](phases/phase-14-multi-currency-expenses.md) | 📝 Spec only — not built (2026-07-29) | — | Per-expense foreign currency, converted + rate-locked to ZAR at entry; recently-used quick-pick (ADR-0017) |
 | [15 — Fix Tally navigation](phases/phase-15-tally-navigation-fix.md) | ✅ Shipped (2026-07-30) | — | Bug fix: header should switch Tallies, Settings should manage them — Phase 12 built it backwards ([BUG-001](BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage)) |
 | [16 — Performance: cut the reload chain](phases/phase-16-performance.md) | 📝 Spec only — not built (2026-07-30) | — | ~1000ms delays switching Tallies/saving/logging in — every action reloads the whole home screen sequentially, with several calls duplicated |
+| [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | 📝 Spec only — not built (2026-07-30) | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, [`docs/BACKLOG.md`](BACKLOG.md) for

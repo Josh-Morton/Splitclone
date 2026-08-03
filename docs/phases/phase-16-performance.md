@@ -5,6 +5,25 @@
 > Requested by Josh: switching Tallies, closing the add-expense sheet, and
 > login all feel like a ~1000ms wait — "too slow" for a PWA that stores
 > comparatively little data. Investigated on request; not implemented yet.
+>
+> **2026-07-30 update — a concrete, named instance of finding #4.** Josh
+> separately reported the shopping list specifically: ticking an item off
+> should move it to Sorted "quickly," but there's a solid one-second delay.
+> Confirmed in [`list-tab.tsx`](../../settleup/src/components/list-tab.tsx)'s
+> `toggle()`:
+> ```
+> async function toggle(item: ShoppingItem) {
+>   await repo.setShoppingItemChecked(item.id, !item.checked);
+>   await load();
+> }
+> ```
+> Two full sequential round trips (the write, then a full re-list) before
+> anything on screen moves — textbook case of finding #4 (no optimistic UI).
+> Folded in here rather than a separate phase since it's the same root cause
+> and Josh explicitly called it "part of the large [performance] initiative."
+> The list-specific UX rework (unified cross-Tally list, drop the price
+> estimate, default-Tally picker on add) is a different, feature-shaped
+> change — that's [Phase 17](phase-17-unified-shopping-list.md) instead.
 
 ## Investigation findings
 
