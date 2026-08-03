@@ -8,7 +8,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Repo } from "@/lib/data";
-import { categoryMeta, fmt, type Expense, type GroupMember } from "@/lib/domain";
+import {
+  categoryMeta,
+  currencyMeta,
+  fmt,
+  fmtCurrency,
+  type Expense,
+  type GroupMember,
+} from "@/lib/domain";
 import { compressImage } from "@/lib/image";
 import { Avatar, memberDisplayName } from "./avatar";
 import { CategoryTile } from "./expenses-tab";
@@ -173,6 +180,13 @@ export function ExpenseDetail({
           <p style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-1px", margin: "4px 0" }}>
             {fmt(expense.amountCents)}
           </p>
+          {expense.originalCurrency && expense.originalAmountCents != null && (
+            <p style={{ fontSize: 12.5, color: "var(--faint)", marginBottom: 2 }}>
+              {currencyMeta(expense.originalCurrency).flag}{" "}
+              {fmtCurrency(expense.originalAmountCents, expense.originalCurrency)} at R
+              {expense.fxRateToZar?.toFixed(4)} per {expense.originalCurrency}
+            </p>
+          )}
           <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
             {categoryMeta(expense.category).label} · {fullDate}
           </p>

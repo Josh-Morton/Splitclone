@@ -1,6 +1,13 @@
 # ADR-0017: Per-expense foreign currency, converted and locked to ZAR at entry
 
-**Status:** Accepted (2026-07-29) · **Source:** Josh (Phase 14 backlog) · ROADMAP Phase 14
+**Status:** Accepted (2026-07-29), partly superseded (2026-08-03) · **Source:** Josh (Phase 14 backlog) · ROADMAP Phase 14
+
+> **See [ADR-0018](0018-exchange-rate-provider.md).** The *rate provider*
+> chosen below (Frankfurter) was replaced during the Phase 14 build: it quotes
+> only 30 ECB currencies and omits Dubai, Mauritius, Namibia and Botswana —
+> the destinations this feature is most for. ADR-0018 also amends the
+> "re-lock the rate on edit" consequence below, so unrelated edits can't
+> silently re-price an expense. **Everything else here still stands.**
 
 ## Context
 Tally is ZAR-only end to end today: `fmt()`/`fmtR()` hardcode "R", and

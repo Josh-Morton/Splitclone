@@ -27,8 +27,10 @@ import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
 import {
   categoryMeta,
   computeBalances,
+  pushRecentCurrency,
   fmt,
   simplifyDebts,
+  type ExchangeRate,
   type Expense,
   type Group,
   type GroupMember,
@@ -53,6 +55,9 @@ interface HomeData {
   transactions: SettleTransaction[];
   recurring: RecurringExpense[];
   counterpartyName: string;
+  /** Phase 14: cached FX rates + this user's recent picks (sticky currency). */
+  rates: ExchangeRate[];
+  recentCurrencies: string[];
 }
 
 /**
@@ -67,7 +72,8 @@ async function loadHome(
   mode: "demo" | "supabase",
   groupId: string,
   user: User,
-  groups: Group[]
+  groups: Group[],
+  recentCurrencies: string[]
 ): Promise<HomeData> {
   // The recurring catch-up runs alongside the reads rather than gating them —
   // it only matters when it actually generates something, which is rare (the
@@ -75,12 +81,15 @@ async function loadHome(
   // recurring snapshots taken in parallel predate the new rows, so those two
   // are re-read below. Same end state, without a blocking round trip on every
   // single load.
-  const [generated, members, expenses0, settlements, recurring0] = await Promise.all([
+  const [generated, members, expenses0, settlements, recurring0, rates] = await Promise.all([
     repo.processDueRecurring(groupId).catch(() => 0),
     repo.listMembers(groupId),
     repo.listExpenses(groupId),
     repo.listSettlements(groupId),
     repo.listRecurring(groupId),
+    // Rides along in the existing batch, and an empty list just means the
+    // picker offers Rand only — never a blocked load.
+    repo.listExchangeRates().catch(() => []),
   ]);
   const [expenses, recurring] =
     generated > 0
@@ -111,6 +120,8 @@ async function loadHome(
     transactions,
     recurring,
     counterpartyName: other?.profileName || other?.placeholderName || "your partner",
+    rates,
+    recentCurrencies,
   };
 }
 
@@ -148,7 +159,7 @@ export default function HomePage() {
         const { repo, groupId } = await getDemoRepo();
         const [me, groups] = await Promise.all([repo.getMe(), repo.listGroups()]);
         const gid = groups.find((g) => g.id === me?.profile?.defaultGroupId)?.id ?? groupId;
-        next = await loadHome(repo, "demo", gid, me!.user, groups);
+        next = await loadHome(repo, "demo", gid, me!.user, groups, me?.profile?.recentCurrencies ?? []);
       } else if (session.status === "supabase") {
         const repo = getSupabaseRepo();
         const [me, groups] = await Promise.all([repo.getMe(), repo.listGroups()]);
@@ -161,7 +172,7 @@ export default function HomePage() {
           return;
         }
         const groupId = groups.find((g) => g.id === me.profile?.defaultGroupId)?.id ?? groups[0].id;
-        next = await loadHome(repo, "supabase", groupId, me.user, groups);
+        next = await loadHome(repo, "supabase", groupId, me.user, groups, me.profile?.recentCurrencies ?? []);
       }
       if (next) {
         setData(next);
@@ -590,6 +601,18 @@ export default function HomePage() {
         members={d.members}
         meUserId={d.user.id}
         defaultSplitMethod={activeGroup?.defaultSplitMethod ?? "equal"}
+        rates={d.rates}
+        recentCurrencies={d.recentCurrencies}
+        onCurrencyUsed={async (code) => {
+          const next = pushRecentCurrency(d.recentCurrencies, code);
+          // Only write when the order actually moves — most saves are in the
+          // currency that's already at the head.
+          if (next.join(",") === d.recentCurrencies.join(",")) return;
+          setData((prev) => (prev ? { ...prev, recentCurrencies: next } : prev));
+          await d.repo
+            .updateProfile({ userId: d.user.id, recentCurrencies: next })
+            .catch(() => {});
+        }}
         editing={editing}
       />
       {managingGroup && (

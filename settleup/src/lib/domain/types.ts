@@ -53,6 +53,12 @@ export interface Profile {
   defaultGroupId: string | null;
   /** Whether group members may see the salary figure (default false). */
   salaryVisible: boolean;
+  /**
+   * Currencies this user picked recently, most-recent-first (Phase 14). The
+   * head doubles as the sticky default for the next expense, so it follows
+   * them across devices rather than living in one browser's storage.
+   */
+  recentCurrencies: string[];
 }
 
 export interface Group extends SyncMeta {
@@ -108,8 +114,26 @@ export interface Expense extends SyncMeta {
   recurringId: string | null;
   note: string | null;
   createdBy: string;
+  /**
+   * Phase 14 — what this expense was entered in, when that wasn't Rand. All
+   * three are null together for a ZAR expense (which is every historical one).
+   * `amountCents` above remains the authoritative Rand amount either way;
+   * these exist only so the UI can show where it came from, and are never a
+   * second source of truth (ADR-0017).
+   */
+  originalCurrency: string | null;
+  originalAmountCents: Cents | null;
+  /** 1 unit of originalCurrency = this many ZAR, locked at entry. */
+  fxRateToZar: number | null;
   /** Client-only: awaiting sync to the backend (drives the amber sync pill). */
   pending?: boolean;
+}
+
+/** A cached rate: 1 unit of `code` = `rateToZar` Rand (Phase 14). */
+export interface ExchangeRate {
+  code: string;
+  rateToZar: number;
+  fetchedAt: string;
 }
 
 export interface Settlement extends SyncMeta {

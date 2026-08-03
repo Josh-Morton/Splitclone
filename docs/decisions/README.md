@@ -28,3 +28,4 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | [0015](0015-custom-domain-launch.md) | Custom domain + custom auth email via Resend, staying on free tiers | Accepted |
 | [0016](0016-light-theme-reskin.md) | Light "wave" theme + Nunito; token-level reskin, light-only | Accepted (amends 0007) |
 | [0017](0017-multi-currency-expenses.md) | Per-expense foreign currency, converted + rate-locked to ZAR at entry | Accepted |
+| [0018](0018-exchange-rate-provider.md) | Exchange rates from open.er-api.com (166 currencies) instead of Frankfurter (30) | Accepted (supersedes 0017's provider clause) |

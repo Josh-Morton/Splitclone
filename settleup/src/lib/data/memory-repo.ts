@@ -169,6 +169,7 @@ export class MemoryRepo implements Repo {
       defaultSplitMethod: null,
       defaultGroupId: null,
       salaryVisible: false,
+      recentCurrencies: [],
     };
     const next = { ...existing, ...p };
     this.profiles.set(p.userId, next);
@@ -361,6 +362,23 @@ export class MemoryRepo implements Repo {
     return this.expenses.find((e) => e.id === id) ?? null;
   }
 
+  /**
+   * A small fixed set for the demo. Real rates come from the daily-refreshed
+   * `exchange_rate` cache; these just let the picker be explored offline.
+   */
+  async listExchangeRates(): Promise<import("../domain").ExchangeRate[]> {
+    const fetchedAt = nowIso();
+    return [
+      ["ZAR", 1], ["USD", 16.4875], ["EUR", 19.0219], ["GBP", 22.237],
+      ["AED", 4.4895], ["MUR", 0.3522], ["NAD", 1], ["BWP", 1.2454],
+      ["THB", 0.4944], ["AUD", 11.5393], ["JPY", 0.1051], ["INR", 0.1927],
+    ].map(([code, rateToZar]) => ({
+      code: code as string,
+      rateToZar: rateToZar as number,
+      fetchedAt,
+    }));
+  }
+
   async createExpense(input: NewExpenseInput): Promise<Expense> {
     validateExpense(input);
     const e: Expense = {
@@ -377,6 +395,9 @@ export class MemoryRepo implements Repo {
       recurringId: input.recurringId ?? null,
       note: input.note ?? null,
       createdBy: this.user.id,
+      originalCurrency: input.originalCurrency ?? null,
+      originalAmountCents: input.originalAmountCents ?? null,
+      fxRateToZar: input.fxRateToZar ?? null,
       ...meta(this.user.id),
     };
     this.expenses.push(e);
@@ -397,6 +418,9 @@ export class MemoryRepo implements Repo {
       payers: input.payers,
       splits: input.splits,
       note: input.note ?? null,
+      originalCurrency: input.originalCurrency ?? null,
+      originalAmountCents: input.originalAmountCents ?? null,
+      fxRateToZar: input.fxRateToZar ?? null,
     });
     touch(e, this.user.id);
     this.log("expense_edited", e.groupId, e.id);

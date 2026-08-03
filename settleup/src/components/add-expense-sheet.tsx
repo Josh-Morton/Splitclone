@@ -15,17 +15,21 @@ import type { Repo } from "@/lib/data";
 import {
   autoCategory,
   categoryMeta,
+  convertToZarCents,
+  currencyMeta,
   fmt,
   parseCents,
   splitEqual,
   splitsReconcile,
   type Category,
+  type ExchangeRate,
   type Expense,
   type ExpenseSplit,
   type GroupMember,
   type SplitMethod,
 } from "@/lib/domain";
 import { CategoryPickerSheet } from "./category-picker-sheet";
+import { CurrencyPickerSheet } from "./currency-picker-sheet";
 import { ReceiptScanSheet } from "./receipt-scan-sheet";
 import { Button, ErrorText, Input, Label } from "./ui";
 import { Pill, Sheet } from "./sheet";
@@ -48,6 +52,9 @@ export function AddExpenseSheet({
   members,
   meUserId,
   defaultSplitMethod = "equal",
+  rates,
+  recentCurrencies,
+  onCurrencyUsed,
   editing = null,
 }: {
   open: boolean;
@@ -59,13 +66,28 @@ export function AddExpenseSheet({
   meUserId: string;
   /** The Tally's default split (Phase 12) — pre-selects for new expenses. */
   defaultSplitMethod?: Method;
+  /** Cached daily rates (Phase 14); empty until they load, or if none cached. */
+  rates: ExchangeRate[];
+  /** Most-recent-first; the head is the sticky default for a new expense. */
+  recentCurrencies: string[];
+  /** Persist a pick so it sticks to the next expense and tops the list. */
+  onCurrencyUsed: (code: string) => void;
   /** When set, the sheet edits this expense instead of creating one. */
   editing?: Expense | null;
 }) {
   const meMember = members.find((m) => m.userId === meUserId);
   // Initial values come straight from `editing`; the parent passes a `key`
   // (expense id / "new" + default split) so switching targets remounts fresh.
-  const [amount, setAmount] = useState(editing ? centsToInput(editing.amountCents) : "");
+  // Editing a foreign-currency expense puts you back in that currency, showing
+  // what you actually typed; a new expense starts on whatever currency was
+  // used last, so a trip stays in one currency until you change it (Phase 14).
+  const [currency, setCurrency] = useState<string>(
+    () => editing?.originalCurrency ?? (editing ? "ZAR" : (recentCurrencies[0] ?? "ZAR"))
+  );
+  const [currencyOpen, setCurrencyOpen] = useState(false);
+  const [amount, setAmount] = useState(
+    editing ? centsToInput(editing.originalAmountCents ?? editing.amountCents) : ""
+  );
   const [desc, setDesc] = useState(editing?.description ?? "");
   const [date, setDate] = useState(editing ? isoToDateInput(editing.spentAt) : todayDateInput());
   const [payerId, setPayerId] = useState(
@@ -98,7 +120,20 @@ export function AddExpenseSheet({
   const [scanOpen, setScanOpen] = useState(false);
   const [scanNote, setScanNote] = useState<string | null>(null);
 
-  const total = parseCents(amount);
+  const isForeign = currency !== "ZAR";
+  const cachedRate = rates.find((r) => r.code === currency)?.rateToZar;
+  /**
+   * Reuse the rate this expense was already locked at, unless the amount or
+   * the currency changed — otherwise fixing a typo in the description would
+   * silently re-price the expense and move everyone's balance (Josh's call).
+   */
+  const enteredCents = parseCents(amount);
+  const rateUnchanged =
+    editing?.originalCurrency === currency && editing?.originalAmountCents === enteredCents;
+  const fxRate = rateUnchanged ? (editing?.fxRateToZar ?? cachedRate) : cachedRate;
+  const rateMissing = isForeign && !fxRate;
+  // What the ledger records. For a Rand expense this is just what was typed.
+  const total = isForeign && fxRate ? convertToZarCents(enteredCents, fxRate) : enteredCents;
   // Category auto-detects from the description unless the user overrides it
   // (ADR-0011). Editing seeds the override with the stored value.
   const [categoryOverride, setCategoryOverride] = useState<Category | null>(
@@ -157,6 +192,7 @@ export function AddExpenseSheet({
   }
 
   function reset() {
+    // `currency` deliberately survives: it sticks until the user changes it.
     setAmount("");
     setDesc("");
     setDate(todayDateInput());
@@ -174,6 +210,10 @@ export function AddExpenseSheet({
 
   async function save() {
     setError("");
+    if (rateMissing) {
+      setError(`No exchange rate cached for ${currency} yet — pick another currency.`);
+      return;
+    }
     if (total <= 0) {
       setError("Enter an amount");
       return;
@@ -211,6 +251,12 @@ export function AddExpenseSheet({
         payers,
         splits,
         note: editing ? editing.note : (scanNote ?? null),
+        // amountCents above is already Rand; these only record where it came
+        // from. All null for a Rand expense, which also clears them if an
+        // edit switches back to Rand (ADR-0017).
+        originalCurrency: isForeign ? currency : null,
+        originalAmountCents: isForeign ? enteredCents : null,
+        fxRateToZar: isForeign ? (fxRate ?? null) : null,
       };
       if (editing) {
         await repo.updateExpense(editing.id, input);
@@ -234,6 +280,7 @@ export function AddExpenseSheet({
           });
         }
       }
+      onCurrencyUsed(currency);
       reset();
       onSaved();
     } catch (e) {
@@ -272,7 +319,26 @@ export function AddExpenseSheet({
     >
       <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
         <div style={{ display: "inline-flex", alignItems: "flex-start", gap: 2 }}>
-          <span style={{ fontSize: 30, fontWeight: 700, color: "var(--faint)", lineHeight: "60px" }}>R</span>
+          <button
+            onClick={() => setCurrencyOpen(true)}
+            aria-label={`Currency: ${currencyMeta(currency).name}. Tap to change`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 3,
+              background: "none",
+              border: "none",
+              padding: "0 2px 0 0",
+              cursor: "pointer",
+              color: isForeign ? "var(--primary)" : "var(--faint)",
+              fontSize: 30,
+              fontWeight: 700,
+              lineHeight: "60px",
+            }}
+          >
+            {currencyMeta(currency).symbol}
+            <span style={{ fontSize: 13, lineHeight: "60px" }}>▾</span>
+          </button>
           <input
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
@@ -296,6 +362,23 @@ export function AddExpenseSheet({
             }}
           />
         </div>
+        {isForeign && (
+          <p style={{ fontSize: 13, color: "var(--muted)", marginTop: -2, fontWeight: 600 }}>
+            {rateMissing ? (
+              <span style={{ color: "var(--amber)" }}>
+                No rate cached for {currency} yet — pick another currency.
+              </span>
+            ) : (
+              <>
+                {fmt(total)}{" "}
+                <span style={{ color: "var(--faint)", fontWeight: 500 }}>
+                  at R{fxRate!.toFixed(4)} per {currency}
+                  {rateUnchanged && editing ? " · locked when saved" : ""}
+                </span>
+              </>
+            )}
+          </p>
+        )}
       </div>
       <div style={{ height: 6 }} />
       <Input value={desc} onChange={setDesc} placeholder="What was it for?" center />
@@ -606,6 +689,17 @@ export function AddExpenseSheet({
               : "Save expense"}
       </Button>
 
+      <CurrencyPickerSheet
+        open={currencyOpen}
+        onClose={() => setCurrencyOpen(false)}
+        onPick={(code) => {
+          setCurrency(code);
+          setCurrencyOpen(false);
+        }}
+        rates={rates}
+        recent={recentCurrencies}
+        selected={currency}
+      />
       <CategoryPickerSheet
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}

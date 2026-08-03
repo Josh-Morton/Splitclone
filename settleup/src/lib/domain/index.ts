@@ -3,3 +3,4 @@ export * from "./money";
 export * from "./split";
 export * from "./balance";
 export * from "./category";
+export * from "./currency";

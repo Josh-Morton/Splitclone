@@ -12,6 +12,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { v4 as uuid } from "uuid";
 import type {
   Activity,
+  ExchangeRate,
   Expense,
   ExpenseSplit,
   Group,
@@ -128,6 +129,7 @@ function mapProfile(row: any): Profile {
     defaultSplitMethod: row.default_split_method,
     defaultGroupId: row.default_group_id,
     salaryVisible: row.salary_visible,
+    recentCurrencies: row.recent_currencies ?? [],
   };
 }
 
@@ -178,6 +180,9 @@ function mapExpense(row: any): Expense {
     recurringId: row.recurring_id,
     note: row.note,
     createdBy: row.created_by,
+    originalCurrency: row.original_currency ?? null,
+    originalAmountCents: row.original_amount_cents != null ? Number(row.original_amount_cents) : null,
+    fxRateToZar: row.fx_rate_to_zar != null ? Number(row.fx_rate_to_zar) : null,
     ...syncMeta(row),
   };
 }
@@ -298,6 +303,7 @@ export class SupabaseRepo implements Repo {
     if ("defaultSplitMethod" in p) patch.default_split_method = p.defaultSplitMethod;
     if ("defaultGroupId" in p) patch.default_group_id = p.defaultGroupId;
     if ("salaryVisible" in p) patch.salary_visible = p.salaryVisible;
+    if ("recentCurrencies" in p) patch.recent_currencies = p.recentCurrencies;
     if ("displayName" in p) patch.display_name = p.displayName;
     // `.select()` returns the updated row in the same round trip — this used
     // to update, then re-read the very row it had just written (Phase 16).
@@ -533,6 +539,9 @@ export class SupabaseRepo implements Repo {
         split_method: input.splitMethod,
         note: input.note ?? null,
         recurring_id: input.recurringId ?? null,
+        original_currency: input.originalCurrency ?? null,
+        original_amount_cents: input.originalAmountCents ?? null,
+        fx_rate_to_zar: input.fxRateToZar ?? null,
       },
       p_payers: input.payers.map((p) => ({ member_id: p.memberId, paid_cents: p.paidCents })),
       p_splits: input.splits.map((s) => ({
@@ -549,6 +558,19 @@ export class SupabaseRepo implements Repo {
     return { ...mapExpense(row), payers: input.payers, splits: input.splits };
   }
 
+  async listExchangeRates(): Promise<ExchangeRate[]> {
+    const { data, error } = await this.sb
+      .from("exchange_rate")
+      .select("*")
+      .order("currency_code");
+    if (error) this.fail(error);
+    return (data ?? []).map((r: any) => ({
+      code: r.currency_code,
+      rateToZar: Number(r.rate_to_zar),
+      fetchedAt: r.fetched_at,
+    }));
+  }
+
   async updateExpense(id: string, input: NewExpenseInput): Promise<Expense> {
     validateExpense(input);
     const { data, error } = await this.sb.rpc("update_expense", {
@@ -560,6 +582,9 @@ export class SupabaseRepo implements Repo {
         spent_at: input.spentAt,
         split_method: input.splitMethod,
         note: input.note ?? null,
+        original_currency: input.originalCurrency ?? null,
+        original_amount_cents: input.originalAmountCents ?? null,
+        fx_rate_to_zar: input.fxRateToZar ?? null,
       },
       p_payers: input.payers.map((p) => ({ member_id: p.memberId, paid_cents: p.paidCents })),
       p_splits: input.splits.map((s) => ({

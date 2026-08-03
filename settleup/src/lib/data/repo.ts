@@ -15,6 +15,7 @@
 
 import type {
   Activity,
+  ExchangeRate,
   Expense,
   ExpensePayer,
   ExpenseSplit,
@@ -43,6 +44,15 @@ export interface NewExpenseInput {
   splits: ExpenseSplit[];
   note?: string | null;
   recurringId?: string | null;
+  /**
+   * Phase 14: set together when the expense was entered in a foreign
+   * currency. `amountCents` above must ALREADY be the converted Rand amount —
+   * the splits are computed from it client-side, so it has to be settled
+   * before this ever reaches the repo (ADR-0017).
+   */
+  originalCurrency?: string | null;
+  originalAmountCents?: Cents | null;
+  fxRateToZar?: number | null;
 }
 
 export interface NewRecurringInput {
@@ -137,6 +147,12 @@ export interface Repo {
    * Validates before writing: amount > 0, ≥1 participant,
    * Σ payers.paidCents === amount, Σ splits.shareCents === amount.
    */
+  /**
+   * Cached daily rates for the currency picker (Phase 14). Read-only; the
+   * cache is refreshed server-side on a cron, never during expense entry.
+   */
+  listExchangeRates(): Promise<ExchangeRate[]>;
+
   createExpense(input: NewExpenseInput): Promise<Expense>;
   updateExpense(id: string, input: NewExpenseInput): Promise<Expense>;
   /** Soft delete (sets deletedAt). Reversible with restoreExpense — drives the Undo toast. */

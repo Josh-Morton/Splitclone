@@ -22,6 +22,11 @@ function expense(partial: Partial<Expense> & Pick<Expense, "payers" | "splits" |
     recurringId: null,
     note: null,
     createdBy: "u1",
+    // Phase 14: a plain ZAR expense. Balances read amountCents only and never
+    // look at these — a foreign-currency expense behaves identically here.
+    originalCurrency: null,
+    originalAmountCents: null,
+    fxRateToZar: null,
     ...meta,
     ...partial,
   };
