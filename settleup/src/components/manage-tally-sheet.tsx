@@ -72,10 +72,25 @@ export function ManageTallySheet({
     }
   }, [repo, group.id]);
 
+  // This sheet stays mounted while closed (see the note where it's rendered),
+  // so reopening has to clear whatever the last visit left behind — otherwise
+  // a half-typed rename or an armed delete confirmation would still be there.
   useEffect(() => {
     if (!open) return;
-    void Promise.resolve().then(loadMembers);
-  }, [open, loadMembers]);
+    // Deferred a tick: the lint rule forbids setting state synchronously
+    // inside an effect, and the same pattern is used elsewhere in the app.
+    void Promise.resolve().then(() => {
+      setRenameValue(group.name);
+      setNewName("");
+      setForMemberId(null);
+      setCode("");
+      setCopied(false);
+      setConfirmRemoveId(null);
+      setConfirmDanger(false);
+      setError("");
+      return loadMembers();
+    });
+  }, [open, group.name, loadMembers]);
 
   const placeholders = members.filter((m) => !m.userId);
   const iAmOwner = members.find((m) => m.userId === meUserId)?.role === "owner";

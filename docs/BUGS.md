@@ -25,6 +25,47 @@ work as intended**.
 
 ## Fixed
 
+### ~~BUG-003~~: Manage-a-Tally sheet couldn't be closed — Cancel did nothing
+**Reported:** 2026-08-04 (Josh) · **Status:** ✅ Fixed same day (commit
+following [Phase 14](phases/phase-14-multi-currency-expenses.md)) ·
+**Severity:** Trapped the user — the only escape was reloading the app.
+
+**What was wrong.** Tally name in the header → ⋯ on a Tally → the manage
+screen opens fine, but **Cancel does nothing and there is no way out of the
+navigation at all.**
+
+**Root cause.** `ManageTallySheet` was the only sheet in `page.tsx` rendered
+*inside a conditional wrapper* (`{managingGroup && …}`) **and** carrying a
+`key`. Every other sheet is always mounted and driven purely by its `open`
+prop. That combination broke React's reconciliation of that sibling list:
+React logged *"Encountered two children with the same key … non-unique keys
+may cause children to be duplicated and/or omitted"* and then stopped
+re-rendering the subtree. Proven with a temporary state probe — after Cancel
+the component state was **already correct** (`sheet: "spaces"`,
+`managingGroupId: null`), but the sheet's fiber still held `open: true` and
+its DOM was still on screen. So two scrims stacked, and Cancel on the stale
+one only re-set state that was already set — hence "nothing happens".
+
+Two earlier attempts did *not* fix it, which is worth recording: keeping the
+id on close, and making the wrapper condition stable. Only removing the `key`
+restored correct behaviour, and the duplicate-key warnings disappeared with
+it.
+
+**Fixed by** dropping the `key` and giving `ManageTallySheet` a
+reset-on-open effect instead — clearing a half-typed rename, an armed delete
+confirmation, a generated invite code and any error. That is what the key was
+really for (fresh state per Tally), achieved without the remount that broke
+reconciliation. The sheet is now rendered like every other one: stable
+wrapper, single `open` gate, no key.
+
+**Verified** in the demo across two Tallies: Cancel returns to the switcher
+(one sheet), a second Cancel exits fully, tapping the scrim behaves the same,
+the flow survives repeat passes, managing a *non-active* Tally still shows
+that Tally's own members, an abandoned rename does not persist into the next
+open, and the active Tally is never changed by any of it. Console clean on a
+fresh server — no duplicate-key warnings.
+
+
 ### ~~BUG-002~~: Add-expense breaks after switching Tallies (failed save AND broken split percentages)
 **Reported:** 2026-07-30 (Josh) · **Status:** ✅ Fixed 2026-07-31 (commit on
 `main`, no phase file needed) · **Severity:** Was the worst bug logged so far —

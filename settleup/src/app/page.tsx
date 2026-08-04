@@ -615,27 +615,41 @@ export default function HomePage() {
         }}
         editing={editing}
       />
-      {managingGroup && (
+      {/*
+        Gated on `activeGroup`, NOT on the Tally being managed. That wrapper
+        condition has to stay stable while this sheet opens and closes: when it
+        was `{managingGroup && ...}`, closing both unmounted the sheet and
+        opened another one in the same commit, and React kept the closed
+        sheet's DOM — two scrims stacked with no way out (Josh, 2026-08-04).
+        Every other sheet here is always mounted and driven purely by `open`;
+        this one now matches.
+      */}
+      {activeGroup && (
         <ManageTallySheet
-          // Remount per Tally so rename/split state can't carry across.
-          key={managingGroup.id}
-          open={sheet === "manageTally"}
-          onClose={() => {
-            setSheet("spaces"); // back to the switcher we came from
-            setManagingGroupId(null);
-          }}
+          // No `key` here on purpose. It used to remount the sheet per Tally,
+          // but a keyed child inside a conditional sibling stopped React
+          // re-rendering this subtree on close, leaving its DOM on screen with
+          // a dead Cancel button. The sheet now clears its own state when it
+          // opens instead, which is what the key was really for.
+          open={sheet === "manageTally" && Boolean(managingGroup)}
+          // Closing only changes WHICH sheet is open. It must not also clear
+          // managingGroupId: doing both in one commit unmounted this sheet and
+          // opened another simultaneously, and React left the old sheet's DOM
+          // behind — two scrims stacked, and no way out of the screen. The id
+          // is harmless once `open` is false, and is overwritten next time a
+          // Tally is managed.
+          onClose={() => setSheet("spaces")} // back to the switcher we came from
           onChanged={async (msg, close) => {
             if (close) {
               // Deleted or left it — there's nothing to go back to.
               setSheet("none");
-              setManagingGroupId(null);
               setViewing(null);
             }
             await load();
             showToast(msg);
           }}
           repo={d.repo}
-          group={managingGroup}
+          group={managingGroup ?? activeGroup}
           groupCount={d.groups.length}
           meUserId={d.user.id}
         />
