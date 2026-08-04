@@ -509,8 +509,8 @@ export default function HomePage() {
         <div style={{ marginBottom: 90 }}>
           <ListTab
             repo={d.repo}
-            groupId={d.groupId}
-            groupName={d.groupName}
+            groups={d.groups}
+            activeGroupId={d.groupId}
             live={d.mode === "supabase"}
           />
         </div>

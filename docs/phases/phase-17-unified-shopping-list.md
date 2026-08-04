@@ -1,9 +1,11 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 17 — Unified shopping list across Tallies 📝 SPEC ONLY — NOT BUILT (2026-07-30)
+# Phase 17 — Unified shopping list across Tallies ✅ SHIPPED (2026-08-04)
 
-> Requested by Josh while using the app with multiple Tallies. Investigated
-> and clarified via questions; not implemented yet.
+> Requested by Josh while using the app with multiple Tallies.
+>
+> **The spec below is kept as written.** The shipped section at the bottom
+> records what was actually built and the two decisions the spec left open.
 
 ## Goal
 Three related changes to the List tab, all from the same real usage
@@ -117,3 +119,70 @@ accidentally scope the trigger, or a client-side echo suppression, to the
   members.
 - `npm test` + build + lint green; browser-verify with two demo Tallies
   (same approach used to verify Phase 15).
+
+
+---
+
+# Shipped — 2026-08-04
+
+## Built
+- **A segmented control across the top of the List tab**, one pill per Tally,
+  defaulting to the app's active Tally. Hidden entirely when you only belong
+  to one Tally — there'd be nothing to choose between.
+- **That same control is the add target** (the spec's recommendation, and what
+  Josh described as seamless). The input's placeholder reads
+  "Add to Beach trip…" and the subheading "Adding to Beach trip — everyone in
+  it sees the same list", so where an item will land is never a guess. A
+  second, independent picker would have allowed the visible list and the add
+  target to disagree silently.
+- **Segment choice is local to this tab** — it does not change the Tally the
+  rest of the app is in. When the app's *active* Tally changes, the segment
+  follows it, so the two can't drift apart.
+- **Realtime follows the segment**, re-subscribing on change, so the live feed
+  is always for the list actually on screen.
+- **The price estimate is gone** — input, per-row column, and the "rough
+  guide" note.
+
+## The two decisions the spec left open
+1. **`estPriceCents`: removed from the client, kept in the database.** After
+   the UI went, its only remaining readers were plumbing (domain type, both
+   repo mappers, demo seeds), so leaving it would have been exactly the dead
+   scaffolding this project avoids — it's now fully gone from `src/`. The
+   **`shopping_item.est_price_cents` column is deliberately left in place**:
+   dropping it would irreversibly destroy real values on existing production
+   rows for a purely cosmetic cleanup. It is simply never read or written now.
+   Revisit only if there's a reason beyond tidiness.
+2. **One control, not two** — as recommended above.
+
+## Also handled
+- **A new item is pinned to the Tally it was added to**, even if the segment
+  changes while the write is in flight: the target is captured up front and
+  the optimistic append is guarded against a live ref, so a row can never
+  appear under the wrong Tally.
+- **A stale segment self-heals.** If the picked Tally is deleted or left, the
+  selection falls back to the active one rather than showing an empty list for
+  something that no longer exists.
+
+## Verified
+Demo, one Tally: no segments, no estimate input, no price column, Sorted
+section and its Added/Bought dates untouched. With two Tallies: both segments
+render, default to the active one, and switching shows that Tally's own items
+with the placeholder updating. **Adding "Sunscreen" while viewing the
+non-active Beach trip put it in Beach trip and *not* in Flat 4B**, and it
+survived a segment round-trip (a real re-read, not just optimistic state).
+Switching the app's active Tally re-pointed the segment at it. Crucially,
+**switching segments never changed the app's active Tally** — verified by
+returning to Home each time. Console clean; 74 tests + build + lint green.
+
+Push notifications confirmed unchanged and correct: `shopping_item_added_push`
+and `shopping_item_checked_push` both resolve recipients from `new.group_id`
+— the *item's* Tally, not the viewer's — so crossing something off in a
+non-active segment still alerts the right people.
+
+## Not done
+- Segment choice **resets to the active Tally when you leave and re-enter the
+  List tab** (the component unmounts). That matches the spec's "defaults to
+  the active Tally on first open"; making it persist would need to lift the
+  state up. Left as-is unless it grates in real use.
+- Sorted, its dates, and the optimistic behaviour from Phase 16 are all
+  untouched.

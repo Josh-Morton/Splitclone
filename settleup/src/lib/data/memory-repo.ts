@@ -474,14 +474,13 @@ export class MemoryRepo implements Repo {
   }
 
   async addShoppingItem(
-    item: Pick<ShoppingItem, "groupId" | "name"> & Partial<Pick<ShoppingItem, "qty" | "estPriceCents">>
+    item: Pick<ShoppingItem, "groupId" | "name"> & Partial<Pick<ShoppingItem, "qty">>
   ): Promise<ShoppingItem> {
     const i: ShoppingItem = {
       id: uuid(),
       groupId: item.groupId,
       name: item.name,
       qty: item.qty ?? null,
-      estPriceCents: item.estPriceCents ?? null,
       checked: false,
       completedAt: null,
       addedBy: this.user.id,
@@ -1103,10 +1102,10 @@ export async function seedDemo(repo: MemoryRepo): Promise<{ groupId: string }> {
   // ── Shopping list (checked = in the cart, plus qty and estimates) ───────────
   await repo.addShoppingItem({ groupId: group.id, name: "Milk", qty: 2 });
   await repo.addShoppingItem({ groupId: group.id, name: "Brown bread" });
-  await repo.addShoppingItem({ groupId: group.id, name: "Coffee beans", estPriceCents: 18000 });
-  await repo.addShoppingItem({ groupId: group.id, name: "Dishwashing liquid", qty: 1, estPriceCents: 4500 });
-  await repo.addShoppingItem({ groupId: group.id, name: "Eggs (18)", estPriceCents: 6500 });
-  const toilet = await repo.addShoppingItem({ groupId: group.id, name: "Toilet paper (9s)", estPriceCents: 9900 });
+  await repo.addShoppingItem({ groupId: group.id, name: "Coffee beans" });
+  await repo.addShoppingItem({ groupId: group.id, name: "Dishwashing liquid", qty: 1 });
+  await repo.addShoppingItem({ groupId: group.id, name: "Eggs (18)" });
+  const toilet = await repo.addShoppingItem({ groupId: group.id, name: "Toilet paper (9s)" });
   const bins = await repo.addShoppingItem({ groupId: group.id, name: "Bin bags" });
   await repo.setShoppingItemChecked(toilet.id, true); // already in the trolley
   await repo.setShoppingItemChecked(bins.id, true);

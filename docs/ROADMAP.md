@@ -30,7 +30,7 @@
 >   is substantial, promote it to a phase file exactly like a backlog item
 >   would be, and link the two together.
 
-**Last updated:** 2026-08-03 (Phase 14 shipped — per-expense foreign currency, 166 currencies, sticky picker, always recorded in Rand)
+**Last updated:** 2026-08-04 (Phase 17 shipped — one List tab covering every Tally; price estimate removed)
 
 ## Where we are
 
@@ -70,7 +70,7 @@ features people actually asked for before offline-first).
 | [14 — Multi-currency expenses](phases/phase-14-multi-currency-expenses.md) | ✅ Shipped (2026-08-03) | — | Per-expense foreign currency, converted + rate-locked to ZAR at entry; recently-used quick-pick (ADR-0017/0018) |
 | [15 — Fix Tally navigation](phases/phase-15-tally-navigation-fix.md) | ✅ Shipped (2026-07-30) | — | Bug fix: header should switch Tallies, Settings should manage them — Phase 12 built it backwards ([BUG-001](BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage)) |
 | [16 — Performance: cut the reload chain](phases/phase-16-performance.md) | ✅ Shipped (2026-07-31) | — | ~1000ms delays switching Tallies/saving/logging in — every action reloads the whole home screen sequentially, with several calls duplicated |
-| [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | 📝 Spec only — not built (2026-07-30) | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
+| [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | ✅ Shipped (2026-08-04) | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, [`docs/BACKLOG.md`](BACKLOG.md) for

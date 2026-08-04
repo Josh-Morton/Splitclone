@@ -166,7 +166,7 @@ export interface Repo {
   // --- shopping list ---
   listShoppingItems(groupId: string): Promise<ShoppingItem[]>;
   addShoppingItem(
-    item: Pick<ShoppingItem, "groupId" | "name"> & Partial<Pick<ShoppingItem, "qty" | "estPriceCents">>
+    item: Pick<ShoppingItem, "groupId" | "name"> & Partial<Pick<ShoppingItem, "qty">>
   ): Promise<ShoppingItem>;
   setShoppingItemChecked(id: string, checked: boolean): Promise<void>;
   removeShoppingItem(id: string): Promise<void>;

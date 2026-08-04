@@ -672,7 +672,6 @@ export class SupabaseRepo implements Repo {
       groupId: row.group_id,
       name: row.name,
       qty: row.qty != null ? Number(row.qty) : null,
-      estPriceCents: row.est_price_cents != null ? Number(row.est_price_cents) : null,
       checked: row.checked,
       completedAt: row.completed_at ?? null,
       addedBy: row.added_by,
@@ -682,7 +681,7 @@ export class SupabaseRepo implements Repo {
 
   async addShoppingItem(
     item: Pick<ShoppingItem, "groupId" | "name"> &
-      Partial<Pick<ShoppingItem, "qty" | "estPriceCents">>
+      Partial<Pick<ShoppingItem, "qty">>
   ): Promise<ShoppingItem> {
     const userId = await this.uid();
     const { data, error } = await this.sb
@@ -692,7 +691,6 @@ export class SupabaseRepo implements Repo {
         group_id: item.groupId,
         name: item.name,
         qty: item.qty ?? null,
-        est_price_cents: item.estPriceCents ?? null,
         added_by: userId,
         updated_by: userId,
       })
@@ -704,7 +702,6 @@ export class SupabaseRepo implements Repo {
       groupId: data.group_id,
       name: data.name,
       qty: data.qty != null ? Number(data.qty) : null,
-      estPriceCents: data.est_price_cents != null ? Number(data.est_price_cents) : null,
       checked: data.checked,
       completedAt: data.completed_at ?? null,
       addedBy: data.added_by,
