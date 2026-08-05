@@ -1,6 +1,13 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
 # Phase 2 — Offline-first → M2 "Works anywhere" (MOVED TO END — ADR-0009, Josh 2026-07-13)
+
+> **Effort:** XL · **Credits:** ~60–110 — a local store, an outbox, conflict
+> resolution and a sync engine, touching every repo method. The riskiest
+> unbuilt phase: correctness bugs here corrupt the ledger rather than just
+> looking wrong, so budget heavily for verification. See
+> [Estimating scale](../ROADMAP.md#estimating-scale).
+
 - [ ] Dexie local store behind the Repo · outbox + sync engine · SW precache +
       background sync · LWW conflict resolution · sync-state pill (synced /
       pending / offline per design) · offline fallbacks for the server RPCs

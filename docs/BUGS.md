@@ -22,6 +22,14 @@ work as intended**.
   one link, same treatment as `BACKLOG.md`.
 - Mark fixed bugs with ~~strikethrough~~ plus the phase/commit that fixed
   them — don't delete the history, same rule as everywhere else in this repo.
+- **Open bugs carry an effort size and a rough Claude-credits band**, same as
+  backlog items — see
+  [ROADMAP.md → Estimating scale](ROADMAP.md#estimating-scale). Estimate the
+  *fix*, and be aware the scale's own warning applies most sharply here:
+  BUG-003 was a one-line change that cost far more than its size, because
+  finding it was the work. When the cause is unknown, say so in the estimate
+  rather than quoting a number as if it were.
+- There are currently **no open bugs** — all three logged so far are fixed.
 
 ## Fixed
 

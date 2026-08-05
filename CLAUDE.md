@@ -19,6 +19,15 @@ from any state — read it first, then follow the pointers.
 3. **[docs/BUGS.md](docs/BUGS.md)** — confirmed defects in what's already
    built (as opposed to features never built — those go in BACKLOG.md).
    Substantial fixes get promoted to a phase file, same as backlog items.
+
+   **Anything not yet built — a new phase, a backlog item, an open bug —
+   must carry an effort size and a rough Claude-credits band** (e.g.
+   `**Effort:** M · **Credits:** ~8–20`), so the cost is visible before the
+   work is agreed. The scale, its calibration against phases already shipped
+   here, and the honest caveat that credits are inferred from work volume
+   rather than measured, are in
+   [ROADMAP.md → Estimating scale](docs/ROADMAP.md#estimating-scale).
+   Estimate when you add the item, not later.
 4. **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — how the code is shaped,
    plus the cross-cutting rules you must not violate.
 5. **[docs/decisions/](docs/decisions/README.md)** — settled decisions (ADRs).

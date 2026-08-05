@@ -29,6 +29,11 @@
 >   [`docs/BUGS.md`](BUGS.md), not here and not in `BACKLOG.md`. If the fix
 >   is substantial, promote it to a phase file exactly like a backlog item
 >   would be, and link the two together.
+> - **Every not-yet-built item carries an estimate.** New phases, backlog
+>   items and open bugs each get an **Effort** size and a rough **Claude
+>   credits** band, written as one line: `**Effort:** M · **Credits:** ~8–20`.
+>   Shipped work doesn't need one — the estimate exists to price the decision
+>   *before* committing to it. Scale + calibration: [Estimating scale](#estimating-scale).
 
 **Last updated:** 2026-08-04 (Phase 17 shipped — one List tab covering every Tally; price estimate removed)
 
@@ -51,31 +56,55 @@ Actual build order was 0 → 1 → 3 → 4 → 5 → 6 → 7 → 8 → 9, with *
 deliberately deferred to last** (ADR-0009: ship the correct ledger and the
 features people actually asked for before offline-first).
 
-| Phase | Status | Milestone | Summary |
-|---|---|---|---|
-| [0 — Foundations](phases/phase-00-foundations.md) | ✅ Done | — | Repo scaffold, design tokens, domain layer, Supabase project, Vercel deploy |
-| [1 — Core ledger (MVP)](phases/phase-01-core-ledger.md) | ✅ Built · ⏳ M1 trial pending | M1 "It works for us" | Auth, onboarding, invites, add/edit/delete expenses, settle-up |
-| [2 — Offline-first](phases/phase-02-offline-first.md) | 🔜 Not started (deferred) | M2 "Works anywhere" | Dexie local store, outbox/sync engine, full offline PWA — moved to end, ADR-0009 |
-| [3 — Fair-share & richer splits](phases/phase-03-fair-share-splits.md) | ✅ Done | — | Salary-proportional splits via a privacy-preserving server RPC (ADR-0010) |
-| [4 — Recurring & shopping list](phases/phase-04-recurring-shopping-list.md) | ✅ Done (2026-07-13) | M3 "Fair & automatic" | Recurring bills (pg_cron), shared shopping list, cart→expense |
-| [5 — Insight & export](phases/phase-05-insight-export.md) | ✅ Done (2026-07-16) | M4 "Complete v1" | Reports tab, Excel export, activity feed, receipt photos |
-| [6 — Polish & hardening](phases/phase-06-polish-hardening.md) | 🟡 Ongoing | — | Spaces switcher, invite rework, categories, auth rebuild, membership management, empty/error states, a11y, security/perf passes |
-| [7 — Receipt line-item scanning](phases/phase-07-receipt-scanning.md) | ✅ Shipped (2026-07-22) | M5 "Scan the slip" | Photo a till slip → Gemini extracts line items → tick what's yours |
-| [8 — Splitty](phases/phase-08-splitty.md) | ✅ Shipped (2026-07-23) | M6 "Split with anyone" | Standalone bill-splitting via a shared link — no guest account needed (ADR-0013) |
-| [9 — Push notifications](phases/phase-09-push-notifications.md) | ✅ Shipped (2026-07-26) | M7 "Tally-ho!" | Web Push via VAPID — 5 triggers, "Tally-ho!" copy, Android-first (ADR-0014) |
-| [10 — Custom domain & public launch prep](phases/phase-10-custom-domain-launch.md) | 📝 Spec only — not built (2026-07-27) | — | Move off `*.vercel.app` onto a real domain, custom auth email (current mailer caps at 2/hr), free-tier watchlist (ADR-0015) |
-| [11 — Visual reskin (light "wave" theme)](phases/phase-11-visual-reskin.md) | 📝 Spec only — not built (2026-07-28) | — | Dark → light token swap, Nunito, pill geometry, wave motif, collapsing headers, sheet drag-to-dismiss. Presentation only (ADR-0016) |
-| [12 — Tally management & terminology rename](phases/phase-12-tally-management.md) | ✅ Shipped (2026-07-30) | — | "Space"/"household" → "Tally" everywhere; one consolidated "Manage this Tally" screen; per-Tally default split method |
-| [13 — Shopping list rework](phases/phase-13-shopping-list-rework.md) | ✅ Shipped (2026-07-30) | — | Drop cart→expense; checked items become a dated "Sorted" section instead |
-| [14 — Multi-currency expenses](phases/phase-14-multi-currency-expenses.md) | ✅ Shipped (2026-08-03) | — | Per-expense foreign currency, converted + rate-locked to ZAR at entry; recently-used quick-pick (ADR-0017/0018) |
-| [15 — Fix Tally navigation](phases/phase-15-tally-navigation-fix.md) | ✅ Shipped (2026-07-30) | — | Bug fix: header should switch Tallies, Settings should manage them — Phase 12 built it backwards ([BUG-001](BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage)) |
-| [16 — Performance: cut the reload chain](phases/phase-16-performance.md) | ✅ Shipped (2026-07-31) | — | ~1000ms delays switching Tallies/saving/logging in — every action reloads the whole home screen sequentially, with several calls duplicated |
-| [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | ✅ Shipped (2026-08-04) | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
+| Phase | Status | Est. | Milestone | Summary |
+|---|---|---|---|---|
+| [0 — Foundations](phases/phase-00-foundations.md) | ✅ Done | — | — | Repo scaffold, design tokens, domain layer, Supabase project, Vercel deploy |
+| [1 — Core ledger (MVP)](phases/phase-01-core-ledger.md) | ✅ Built · ⏳ M1 trial pending | — | M1 "It works for us" | Auth, onboarding, invites, add/edit/delete expenses, settle-up |
+| [2 — Offline-first](phases/phase-02-offline-first.md) | 🔜 Not started (deferred) | **XL** · ~60–110 | M2 "Works anywhere" | Dexie local store, outbox/sync engine, full offline PWA — moved to end, ADR-0009 |
+| [3 — Fair-share & richer splits](phases/phase-03-fair-share-splits.md) | ✅ Done | — | — | Salary-proportional splits via a privacy-preserving server RPC (ADR-0010) |
+| [4 — Recurring & shopping list](phases/phase-04-recurring-shopping-list.md) | ✅ Done (2026-07-13) | — | M3 "Fair & automatic" | Recurring bills (pg_cron), shared shopping list, cart→expense |
+| [5 — Insight & export](phases/phase-05-insight-export.md) | ✅ Done (2026-07-16) | — | M4 "Complete v1" | Reports tab, Excel export, activity feed, receipt photos |
+| [6 — Polish & hardening](phases/phase-06-polish-hardening.md) | 🟡 Ongoing | rolling | — | Spaces switcher, invite rework, categories, auth rebuild, membership management, empty/error states, a11y, security/perf passes |
+| [7 — Receipt line-item scanning](phases/phase-07-receipt-scanning.md) | ✅ Shipped (2026-07-22) | — | M5 "Scan the slip" | Photo a till slip → Gemini extracts line items → tick what's yours |
+| [8 — Splitty](phases/phase-08-splitty.md) | ✅ Shipped (2026-07-23) | — | M6 "Split with anyone" | Standalone bill-splitting via a shared link — no guest account needed (ADR-0013) |
+| [9 — Push notifications](phases/phase-09-push-notifications.md) | ✅ Shipped (2026-07-26) | — | M7 "Tally-ho!" | Web Push via VAPID — 5 triggers, "Tally-ho!" copy, Android-first (ADR-0014) |
+| [10 — Custom domain & public launch prep](phases/phase-10-custom-domain-launch.md) | 📝 Spec only — not built (2026-07-27) | **S** · ~5–12 | — | Move off `*.vercel.app` onto a real domain, custom auth email (current mailer caps at 2/hr), free-tier watchlist (ADR-0015) |
+| [11 — Visual reskin (light "wave" theme)](phases/phase-11-visual-reskin.md) | 📝 Spec only — not built (2026-07-28) | **XL** · ~50–90 | — | Dark → light token swap, Nunito, pill geometry, wave motif, collapsing headers, sheet drag-to-dismiss. Presentation only (ADR-0016) |
+| [12 — Tally management & terminology rename](phases/phase-12-tally-management.md) | ✅ Shipped (2026-07-30) | — | — | "Space"/"household" → "Tally" everywhere; one consolidated "Manage this Tally" screen; per-Tally default split method |
+| [13 — Shopping list rework](phases/phase-13-shopping-list-rework.md) | ✅ Shipped (2026-07-30) | — | — | Drop cart→expense; checked items become a dated "Sorted" section instead |
+| [14 — Multi-currency expenses](phases/phase-14-multi-currency-expenses.md) | ✅ Shipped (2026-08-03) | — | — | Per-expense foreign currency, converted + rate-locked to ZAR at entry; recently-used quick-pick (ADR-0017/0018) |
+| [15 — Fix Tally navigation](phases/phase-15-tally-navigation-fix.md) | ✅ Shipped (2026-07-30) | — | — | Bug fix: header should switch Tallies, Settings should manage them — Phase 12 built it backwards ([BUG-001](BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage)) |
+| [16 — Performance: cut the reload chain](phases/phase-16-performance.md) | ✅ Shipped (2026-07-31) | — | — | ~1000ms delays switching Tallies/saving/logging in — every action reloads the whole home screen sequentially, with several calls duplicated |
+| [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | ✅ Shipped (2026-08-04) | — | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, [`docs/BACKLOG.md`](BACKLOG.md) for
 cross-cutting loose ends that aren't a phase of their own, and
 [`docs/BUGS.md`](BUGS.md) for confirmed defects in what's already built.
+
+## Estimating scale
+
+Anchored to phases already built in this repo, so the sizes mean something
+concrete rather than being abstract points.
+
+| Effort | Shape of the work | Credits (rough) |
+|---|---|---|
+| **XS** | One file, no new concepts — a copy fix, a prop, a one-line guard. | ~1–3 |
+| **S** | A few files. No migration, no new server piece. | ~3–8 |
+| **M** | A component rewrite plus repo/plumbing and docs. *Phase 17 was M.* | ~8–20 |
+| **L** | Migration + server work + UI + tests + an ADR. *Phase 14 was L.* | ~20–45 |
+| **XL** | Cross-cutting: most screens, or the data model itself. *Phase 11 and app-wide multi-currency are XL.* | ~45–100+ |
+
+**Read the credit figures as sizing, not billing.** Nothing in this repo can
+see the account's actual metering, so they're inferred from work volume and
+calibrated against the phases named above — re-anchor them once real usage is
+known. Two things reliably blow an estimate, and neither shows up in the size:
+
+- **Debugging.** [BUG-003](BUGS.md) was a one-line fix — XS by shape — that
+  cost far more than any XS, because finding it needed a state probe and three
+  failed attempts.
+- **Manual/external steps.** [Phase 10](phases/phase-10-custom-domain-launch.md)
+  is small in code and still gated on buying a domain and waiting on DNS.
 
 ## Working agreements
 - Ship the correct ledger before anything clever; offline is architectural and

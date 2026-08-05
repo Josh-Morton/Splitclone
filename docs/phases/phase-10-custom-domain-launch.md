@@ -2,6 +2,11 @@
 
 # Phase 10 — Custom domain & public launch prep 📝 SPEC ONLY — NOT BUILT (2026-07-27)
 
+> **Effort:** S · **Credits:** ~5–12 — small in code (env vars, a redirect,
+> Resend keys) but gated on Josh buying the domain and on DNS propagation, so
+> elapsed time far exceeds the work. See
+> [Estimating scale](../ROADMAP.md#estimating-scale).
+
 > **Status: fully specced, zero changes made.** Same convention as Phases 8/9:
 > exhaustive enough to execute from this document alone. This is a
 > **planning** phase per Josh's request — nothing below has been done yet.

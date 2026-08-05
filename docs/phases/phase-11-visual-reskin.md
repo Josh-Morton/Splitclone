@@ -2,6 +2,12 @@
 
 # Phase 11 — Visual reskin (light "wave" theme) 📝 SPEC ONLY — NOT BUILT (2026-07-28)
 
+> **Effort:** XL · **Credits:** ~50–90 — every screen, plus ~14 screens the
+> prototype never designed and which have to be extrapolated. The single
+> largest piece of work currently specced. Worth combining with the "Tally-ho"
+> brand item in [BACKLOG.md](../BACKLOG.md) rather than reskinning twice. See
+> [Estimating scale](../ROADMAP.md#estimating-scale).
+
 > **Status: fully specced, zero code written.** Same convention as Phases
 > 8–10. See **[ADR-0016](../decisions/0016-light-theme-reskin.md)** for the
 > decisions this implements — read it first.
