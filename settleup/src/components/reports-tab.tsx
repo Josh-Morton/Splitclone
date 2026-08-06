@@ -7,6 +7,7 @@
  */
 
 import { useState } from "react";
+import { CollapsingHeader } from "./collapsing-header";
 import {
   categoryMeta,
   CATEGORY_META,
@@ -122,21 +123,15 @@ export function ReportsTab({
 
   return (
     <>
-      <header
-        style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}
-      >
-        <div>
-          <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Reports</h1>
-          <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-            {label} · {fmt(rangeTotal)} across {filtered.length} expense
-            {filtered.length === 1 ? "" : "s"} · {groupName}
-          </p>
-        </div>
-        <button
+      <CollapsingHeader
+        title="Reports"
+        subtitle={`${label} · ${fmt(rangeTotal)} across ${filtered.length} expense${filtered.length === 1 ? "" : "s"} · ${groupName}`}
+        right={
+          <button
           onClick={doExport}
           disabled={exporting || filtered.length === 0}
           style={{
-            background: "var(--bluebg)",
+            background: "var(--accentbg)",
             border: "1px solid var(--primary)",
             borderRadius: 999,
             color: "var(--primary)",
@@ -147,9 +142,11 @@ export function ReportsTab({
             opacity: exporting || filtered.length === 0 ? 0.55 : 1,
           }}
         >
-          {exporting ? "Exporting…" : "Export ⬇"}
-        </button>
-      </header>
+            {exporting ? "Exporting…" : "Export ⬇"}
+          </button>
+        }
+      />
+      <div style={{ height: 12 }} />
 
       <button
         onClick={() => setFilterOpen(true)}
@@ -159,7 +156,7 @@ export function ReportsTab({
           gap: 8,
           width: "100%",
           marginBottom: 16,
-          background: isDefault(filters) ? "var(--s2)" : "var(--bluebg)",
+          background: isDefault(filters) ? "var(--s2)" : "var(--accentbg)",
           border: `1px solid ${isDefault(filters) ? "var(--line)" : "var(--primary)"}`,
           borderRadius: 999,
           padding: "10px 16px",

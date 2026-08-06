@@ -7,7 +7,16 @@
 
 import type { GroupMember } from "@/lib/domain";
 
-const HUES = ["#6FD7AC", "#E9BF73", "#C9A6F4", "#F39DC0", "#74D2E0", "#A9ABF8"];
+// Token references, not literals — avatars re-theme with the palette
+// (Phase 11). The count must match the --avatar-N tokens in globals.css.
+const HUES = [
+  "var(--avatar-0)",
+  "var(--avatar-1)",
+  "var(--avatar-2)",
+  "var(--avatar-3)",
+  "var(--avatar-4)",
+  "var(--avatar-5)",
+];
 
 export function memberDisplayName(m: GroupMember | undefined, meUserId: string): string {
   if (!m) return "?";
@@ -52,9 +61,9 @@ export function Avatar({
         alignItems: "center",
         justifyContent: "center",
         fontSize: size * 0.34,
-        fontWeight: 800,
-        color: you ? "#fff" : "#0E1521",
-        background: you ? "var(--brand-gradient)" : hueFor(member?.id ?? "?"),
+        fontWeight: "var(--w-heavy)" as unknown as number,
+        color: "var(--on-avatar)",
+        background: you ? "var(--primary)" : hueFor(member?.id ?? "?"),
       }}
     >
       {label}

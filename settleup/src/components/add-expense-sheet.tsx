@@ -630,7 +630,7 @@ export function AddExpenseSheet({
                   width: 20,
                   height: 20,
                   borderRadius: "50%",
-                  background: "#fff",
+                  background: "var(--surface)",
                   transition: "left .16s",
                 }}
               />

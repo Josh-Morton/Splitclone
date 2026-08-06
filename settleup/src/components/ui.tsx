@@ -2,8 +2,11 @@
 
 /**
  * Tiny shared UI primitives styled purely with the design tokens
- * (globals.css / ADR-0007). Screens compose these; nothing here invents
- * colors or fonts outside the token set.
+ * (globals.css / ADR-0007, retuned by ADR-0016).
+ *
+ * These are the leverage points for a reskin: the more a screen composes
+ * from here, the less a future theme change costs. Nothing in this file
+ * invents a colour, radius, size or weight — every value is a token.
  */
 
 import type { CSSProperties, ReactNode } from "react";
@@ -21,7 +24,7 @@ export function Screen({
     <main
       style={{
         minHeight: "100dvh",
-        background: "var(--shell-gradient)",
+        background: "var(--bg)",
         padding: `max(env(safe-area-inset-top), 24px) ${padding}px 32px`,
         maxWidth: 430,
         margin: "0 auto",
@@ -42,7 +45,6 @@ export function Card({ children, style }: { children: ReactNode; style?: CSSProp
         background: "var(--surface)",
         borderRadius: "var(--r-card)",
         border: "1px solid var(--line)",
-        boxShadow: "var(--shadow-card)",
         padding: 22,
         ...style,
       }}
@@ -67,27 +69,28 @@ export function Button({
   type?: "button" | "submit";
   style?: CSSProperties;
 }) {
+  // Fully pill (ADR-0016) and flat — separation comes from colour and
+  // hairlines now, not shadow.
   const base: CSSProperties = {
     width: "100%",
     padding: "14px 18px",
-    borderRadius: "var(--r-input)",
+    borderRadius: "var(--r-pill)",
     fontSize: 15,
-    fontWeight: 700,
+    fontWeight: "var(--w-bold)" as unknown as number,
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.55 : 1,
-    border: "1px solid transparent",
-    transition: "opacity .15s",
+    border: "2px solid transparent",
+    transition: "opacity var(--d-fast), transform var(--d-fast)",
   };
   const variants: Record<string, CSSProperties> = {
     primary: {
       background: "var(--primary)",
-      color: "#fff",
-      boxShadow: "var(--shadow-primary-btn)",
+      color: "var(--on-accent)",
     },
     secondary: {
-      background: "var(--s2)",
+      background: "var(--surface)",
       color: "var(--ink)",
-      border: "1px solid var(--line2)",
+      border: "2px solid var(--line2)",
     },
     ghost: {
       background: "transparent",
@@ -140,13 +143,13 @@ export function Input({
       }}
       style={{
         width: "100%",
-        background: prefix ? "transparent" : "var(--s2)",
-        border: prefix ? "none" : "1px solid var(--line2)",
+        background: prefix ? "transparent" : "var(--surface)",
+        border: prefix ? "none" : "2px solid var(--line)",
         borderRadius: "var(--r-input)",
         outline: "none",
         color: "var(--ink)",
         fontSize: 16,
-        fontWeight: 600,
+        fontWeight: "var(--w-medium)" as unknown as number,
         padding: prefix ? "14px 8px 14px 0" : "14px 16px",
         textAlign: center ? "center" : "left",
         letterSpacing: letterSpacing ? `${letterSpacing}px` : undefined,
@@ -159,13 +162,13 @@ export function Input({
       style={{
         display: "flex",
         alignItems: "center",
-        background: "var(--s2)",
-        border: "1px solid var(--line2)",
+        background: "var(--surface)",
+        border: "2px solid var(--line)",
         borderRadius: "var(--r-input)",
         paddingLeft: 16,
       }}
     >
-      <span style={{ color: "var(--faint)", fontSize: 16, fontWeight: 700 }}>{prefix}</span>
+      <span style={{ color: "var(--faint)", fontSize: 16, fontWeight: "var(--w-bold)" as unknown as number }}>{prefix}</span>
       {input}
     </div>
   );
@@ -175,8 +178,8 @@ export function Label({ children }: { children: ReactNode }) {
   return (
     <p
       style={{
-        fontSize: 11.5,
-        fontWeight: 700,
+        fontSize: "var(--t-label)",
+        fontWeight: "var(--w-heavy)" as unknown as number,
         textTransform: "uppercase",
         letterSpacing: "0.05em",
         color: "var(--faint)",
@@ -203,7 +206,7 @@ export function Logo({ size = 64 }: { size?: number }) {
 
 export function ErrorText({ children }: { children: ReactNode }) {
   if (!children) return null;
-  return <p style={{ color: "var(--red)", fontSize: 13, fontWeight: 600, marginTop: 10 }}>{children}</p>;
+  return <p style={{ color: "var(--red)", fontSize: "var(--t-body-sm)", fontWeight: "var(--w-medium)" as unknown as number, marginTop: 10 }}>{children}</p>;
 }
 
 export function Spinner() {
@@ -213,7 +216,7 @@ export function Spinner() {
       style={{
         width: 22,
         height: 22,
-        border: "3px solid var(--line2)",
+        border: "3px solid var(--line)",
         borderTopColor: "var(--primary)",
         borderRadius: "50%",
         animation: "spin 1.4s linear infinite",

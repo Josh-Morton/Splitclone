@@ -119,7 +119,7 @@ export function SpacesSheet({
               gap: 4,
               marginBottom: 8,
               borderRadius: "var(--r-card)",
-              background: active ? "var(--bluebg)" : "var(--surface)",
+              background: active ? "var(--accentbg)" : "var(--surface)",
               border: `1px solid ${active ? "var(--primary)" : "var(--line)"}`,
             }}
           >

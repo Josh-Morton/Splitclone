@@ -23,6 +23,7 @@ import { SettleSheet } from "@/components/settle-sheet";
 import { SplittyTab } from "@/components/splitty-tab";
 import { TabBar, type Tab } from "@/components/tab-bar";
 import { Button, Card, Screen, Spinner } from "@/components/ui";
+import { WaveCard } from "@/components/wave";
 import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
 import {
   categoryMeta,
@@ -301,7 +302,6 @@ export default function HomePage() {
         : multiParty
           ? "You owe"
           : `You owe ${d.counterpartyName}`;
-  const heroColor = d.yourNet === 0 ? "var(--muted)" : d.yourNet > 0 ? "var(--green)" : "var(--red)";
   const recent = d.expenses.slice(0, 5);
 
   return (
@@ -366,8 +366,8 @@ export default function HomePage() {
               style={{
                 fontSize: 12.5,
                 color: "var(--amber)",
-                background: "rgba(227,165,60,.12)",
-                border: "1px solid rgba(227,165,60,.3)",
+                background: "var(--amberbg)",
+                border: "1px solid var(--amber)",
                 borderRadius: 10,
                 padding: "8px 12px",
                 marginBottom: 14,
@@ -377,19 +377,29 @@ export default function HomePage() {
             </p>
           )}
 
-          <Card style={{ marginBottom: 16, textAlign: "center" }}>
+          <WaveCard style={{ marginBottom: 16, textAlign: "center" }}>
             <p
               style={{
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: "var(--w-bold)" as unknown as number,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
-                color: "var(--faint)",
+                opacity: 0.85,
               }}
             >
               {heroText}
             </p>
-            <p style={{ fontSize: 42, fontWeight: 800, letterSpacing: "-1.2px", color: heroColor, marginBottom: 14 }}>
+            {/* On the accent panel the figure is always white — owed/owing is
+                already carried by the label above and the breakdown below, so
+                red/green here would fail contrast for no extra meaning. */}
+            <p
+              style={{
+                fontSize: "var(--t-hero)",
+                fontWeight: "var(--w-black)" as unknown as number,
+                letterSpacing: "-1.4px",
+                marginBottom: 14,
+              }}
+            >
               {fmt(Math.abs(d.yourNet))}
             </p>
             {/* 3+ members: break the net down per person */}
@@ -397,7 +407,7 @@ export default function HomePage() {
               <div
                 style={{
                   textAlign: "left",
-                  borderTop: "1px solid var(--line)",
+                  borderTop: "1px solid color-mix(in srgb, var(--on-accent) 30%, transparent)",
                   margin: "0 0 14px",
                   paddingTop: 12,
                 }}
@@ -407,8 +417,8 @@ export default function HomePage() {
                     key={t.fromMemberId + t.toMemberId}
                     style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}
                   >
-                    <span style={{ fontSize: 13, color: "var(--muted)" }}>{memberName(t.fromMemberId)} owes you</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>{fmt(t.amountCents)}</span>
+                    <span style={{ fontSize: 13, opacity: 0.85 }}>{memberName(t.fromMemberId)} owes you</span>
+                    <span style={{ fontSize: 13, fontWeight: "var(--w-bold)" as unknown as number }}>{fmt(t.amountCents)}</span>
                   </div>
                 ))}
                 {iOwe.map((t) => (
@@ -416,27 +426,39 @@ export default function HomePage() {
                     key={t.fromMemberId + t.toMemberId}
                     style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}
                   >
-                    <span style={{ fontSize: 13, color: "var(--muted)" }}>You owe {memberName(t.toMemberId)}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{fmt(t.amountCents)}</span>
+                    <span style={{ fontSize: 13, opacity: 0.85 }}>You owe {memberName(t.toMemberId)}</span>
+                    <span style={{ fontSize: 13, fontWeight: "var(--w-bold)" as unknown as number }}>{fmt(t.amountCents)}</span>
                   </div>
                 ))}
               </div>
             )}
             <div style={{ display: "flex", gap: 10 }}>
-              <Button onClick={() => setSheet("settle")} variant="secondary" style={{ flex: 1 }}>
+              <Button
+                onClick={() => setSheet("settle")}
+                variant="secondary"
+                style={{
+                  flex: 1,
+                  background: "transparent",
+                  color: "var(--on-accent)",
+                  border: "2px solid color-mix(in srgb, var(--on-accent) 55%, transparent)",
+                }}
+              >
                 Clear the tally
               </Button>
-              <Button onClick={() => setSheet("add")} style={{ flex: 1 }}>
+              <Button
+                onClick={() => setSheet("add")}
+                style={{ flex: 1, background: "var(--on-accent)", color: "var(--primary)" }}
+              >
                 Add expense
               </Button>
             </div>
             {d.members.length === 1 && (
-              <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 12 }}>
+              <p style={{ fontSize: 12.5, opacity: 0.85, marginTop: 12 }}>
                 It&apos;s just you so far — tap the Tally name above, then ⋯, to invite your partner
                 (or add a placeholder member).
               </p>
             )}
-          </Card>
+          </WaveCard>
 
           <Card style={{ padding: 14, marginBottom: 90 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -543,7 +565,7 @@ export default function HomePage() {
             borderRadius: "50%",
             border: "none",
             background: "var(--primary)",
-            color: "#fff",
+            color: "var(--on-accent)",
             fontSize: 28,
             fontWeight: 700,
             cursor: "pointer",

@@ -8,6 +8,7 @@
 
 import { categoryMeta, fmt, type Expense, type GroupMember } from "@/lib/domain";
 import { memberDisplayName } from "./avatar";
+import { CollapsingHeader } from "./collapsing-header";
 
 export function dayLabel(iso: string): string {
   const d = new Date(iso);
@@ -66,12 +67,11 @@ export function ExpensesTab({
 
   return (
     <>
-      <header style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Expenses</h1>
-        <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-          {expenses.length} expense{expenses.length === 1 ? "" : "s"} · {fmt(total)} · {groupName}
-        </p>
-      </header>
+      <CollapsingHeader
+        title="Expenses"
+        subtitle={`${expenses.length} expense${expenses.length === 1 ? "" : "s"} · ${fmt(total)} · ${groupName}`}
+      />
+      <div style={{ height: 12 }} />
 
       {expenses.length === 0 && (
         <p style={{ fontSize: 13.5, color: "var(--muted)" }}>

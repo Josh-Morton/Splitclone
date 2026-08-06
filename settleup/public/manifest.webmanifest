@@ -4,8 +4,8 @@
   "description": "Shared expenses for your home — always know who owes whom.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0E1521",
-  "theme_color": "#0E1521",
+  "background_color": "#FFF7EF",
+  "theme_color": "#FFF7EF",
   "orientation": "portrait",
   "icons": [
     {

@@ -1,62 +1,143 @@
 /*
- * SettleUp design tokens — canonical values from the design handoff README
- * (design_handoff_settleup/README.md "Design Tokens"). Dark-mode-only design.
- * Do not invent new colors; add tokens here if the design gains them.
+ * Tally design tokens (Phase 11, ADR-0016).
+ *
+ * ── How this file is organised, and why ──────────────────────────────────
+ * Three layers, so a future reskin is a contained change rather than a
+ * rewrite. Phase 11 swapped a dark palette for the light "wave" one by
+ * editing only LAYER 1 — that property is worth preserving.
+ *
+ *   LAYER 1  Theme palette. Colour only, inside a [data-theme="…"] block.
+ *            A new theme = a new sibling block. Nothing else needs to know.
+ *   LAYER 2  Derived accent. Computed from --primary via color-mix(), so
+ *            re-accenting the entire app really is one value.
+ *   LAYER 3  Primitives — radii, type scale, weights, motion. Shared by
+ *            every theme; these describe SHAPE, not colour.
+ *
+ * Rules that keep it that way:
+ *   • No hex/rgb literals in components. `grep -rE '#[0-9a-fA-F]{3,8}'`
+ *     over src/ should only hit this file.
+ *   • No magic numbers for radius/weight/size in components — use LAYER 3
+ *     tokens so the next reskin can retune globally.
+ *   • A new colour means a new token here, not an inline value.
  */
 
-:root {
+/* ══ LAYER 1 ══ Theme palette. Add a sibling block to add a theme. ══════ */
+[data-theme="wave"] {
   /* Surfaces */
-  --bg: #0e1521;
-  --surface: #161f2e;
-  --s2: #1f2a3b;
-  --s3: #29374c;
-  --sheet: #16212f;
-  --line: #283750;
-  --line2: #36475f;
+  --bg: #fff7ef;
+  --surface: #ffffff;
+  --s2: #fdf0e6;
+  --s3: #fbe2d2;
+  --sheet: #ffffff;
+  --line: #f1e2d6;
+  --line2: #e2cdba;
 
   /* Text */
-  --ink: #eaf0f8;
-  --muted: #93a0b5;
-  --faint: #64708a;
+  --ink: #173f4a;
+  --muted: #6c838b;
+  --faint: #8298a0;
 
-  /* Brand & semantic */
-  --primary: #4e9bf0;
-  --primary-dark: #3a86dc;
-  --bluebg: rgba(78, 155, 240, 0.14);
-  --green: #41c58a;
-  --greenbg: rgba(65, 197, 138, 0.15);
-  --red: #f2767a;
-  --redbg: rgba(242, 118, 122, 0.15);
-  --amber: #e3a53c;
+  /* Accent — the single value that re-themes buttons, links, active tabs
+     and the balance hero; LAYER 2 derives the rest.
+     Curated alternatives (ADR-0016): coral #f2635c, amber #f2a03d,
+     blue #5b8def, violet #7a5cf0, green #12a87a. */
+  --primary: #2fb3ac;
 
-  /* Category accents */
-  --cat-groceries: #7fb6f5;
-  --cat-rent: #a9abf8;
-  --cat-utilities: #e9bf73;
-  --cat-eatingout: #6fd7ac;
-  --cat-transport: #74d2e0;
-  --cat-household: #c9a6f4;
-  --cat-entertainment: #f39dc0;
-  --cat-other: #aeb9cc;
+  /* Semantic */
+  --green: #0f8f68;
+  --red: #d94a43;
+  --amber: #b96f14;
+  --sun: #ffc24b;
 
-  /* Gradients */
-  --shell-gradient: radial-gradient(1200px 700px at 50% -10%, #15243b 0%, #0a111c 55%, #070b12 100%);
-  --brand-gradient: linear-gradient(155deg, #4e9bf0, #2f6dd0);
+  /* Ink that sits ON the accent (wave card, primary buttons). */
+  --on-accent: #ffffff;
 
-  /* Radii */
-  --r-card: 18px;
-  --r-input: 13px;
+  /* Member avatar hues — stable per-member, retuned for a light background.
+     Read via var(--avatar-N) so a theme can restyle avatars too. */
+  --avatar-0: #2f9e8f;
+  --avatar-1: #c98a2b;
+  --avatar-2: #7a6cc4;
+  --avatar-3: #c4608a;
+  --avatar-4: #2f8fa8;
+  --avatar-5: #6b7fd6;
+  /* Ink that sits on an avatar hue. */
+  --on-avatar: #ffffff;
+
+  /* Category accents — retuned for a light background. */
+  --cat-groceries: #2f7f9e;
+  --cat-rent: #6a5cc4;
+  --cat-utilities: #b8801f;
+  --cat-eatingout: #0f8f68;
+  --cat-transport: #2b8ea1;
+  --cat-household: #8a5cc4;
+  --cat-entertainment: #c1517d;
+  --cat-other: #6c838b;
+}
+
+:root {
+  color-scheme: light;
+}
+
+/* ══ LAYER 2 ══ Derived from the accent — never hand-write these. ═══════ */
+:root {
+  --primary-dark: color-mix(in srgb, var(--primary) 82%, #000);
+  /* Accent tint behind active pills, selected rows, the balance chip.
+     Named --accentbg since Phase 11: it was --bluebg back when the accent
+     happened to be blue, which stopped being true. */
+  --accentbg: color-mix(in srgb, var(--primary) 14%, transparent);
+  --greenbg: color-mix(in srgb, var(--green) 14%, transparent);
+  --redbg: color-mix(in srgb, var(--red) 14%, transparent);
+  --amberbg: color-mix(in srgb, var(--amber) 14%, transparent);
+  --scrim: color-mix(in srgb, var(--ink) 42%, transparent);
+  /* Translucent surface for the tab bar / sticky headers. */
+  --surface-blur: color-mix(in srgb, var(--bg) 82%, transparent);
+}
+
+/* ══ LAYER 3 ══ Shape primitives. Theme-independent. ═══════════════════ */
+:root {
+  /* Radii — controls 14, cards 20, hero/sheet 26, pill 999 (ADR-0016). */
+  --r-input: 14px;
+  --r-chip: 14px;
+  --r-card: 20px;
+  --r-tile: 20px;
   --r-sheet: 26px;
+  --r-hero: 26px;
   --r-pill: 999px;
 
-  /* Shadows */
-  --shadow-primary-btn: 0 10px 22px -10px rgba(78, 155, 240, 0.7);
-  --shadow-card: 0 12px 30px -18px rgba(0, 0, 0, 0.7);
-  --shadow-fab: 0 14px 28px -8px rgba(78, 155, 240, 0.75);
-  --shadow-sheet: 0 -20px 50px -20px rgba(0, 0, 0, 0.6);
+  /* Type scale — reference these instead of raw px so the whole app can be
+     retuned from one place. */
+  --t-hero: 46px;
+  --t-title: 26px;
+  --t-title-sm: 18px;
+  --t-section: 17px;
+  --t-body: 14.5px;
+  --t-body-sm: 13.5px;
+  --t-meta: 12.5px;
+  --t-label: 11.5px;
+
+  /* Weights — Nunito ships 400/600/700/800/900. */
+  --w-regular: 400;
+  --w-medium: 600;
+  --w-bold: 700;
+  --w-heavy: 800;
+  --w-black: 900;
 
   /* Motion */
   --ease-sheet: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-rise: cubic-bezier(0.2, 0.8, 0.3, 1);
+  --d-fast: 160ms;
+  --d-med: 280ms;
+  --d-slow: 500ms;
+
+  /* Phase 11 removed shadows and gradients — separation now comes from flat
+     surface colour, 1px hairlines and 2px outlines. Kept as no-ops so any
+     straggling reference degrades to nothing rather than breaking. */
+  --shadow-primary-btn: none;
+  --shadow-card: none;
+  --shadow-fab: none;
+  --shadow-sheet: none;
+  --shell-gradient: var(--bg);
+  --brand-gradient: var(--primary);
 }
 
 * {
@@ -68,14 +149,17 @@
 html,
 body {
   max-width: 100vw;
-  overflow-x: hidden;
+  /* `clip`, not `hidden`: hidden makes these a scroll container, which
+     silently breaks `position: sticky` on the collapsing headers. clip
+     still prevents sideways scroll but keeps the viewport as the scroller. */
+  overflow-x: clip;
 }
 
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+  font-family: var(--font-nunito), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -84,7 +168,10 @@ a {
   text-decoration: none;
 }
 
-button {
+button,
+input,
+textarea,
+select {
   font-family: inherit;
 }
 
@@ -115,5 +202,48 @@ input::placeholder {
   to {
     transform: translateY(0);
     opacity: 1;
+  }
+}
+
+/* Ambient drift on the welcome hero waves. */
+@keyframes waveDrift {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-160px);
+  }
+}
+
+/* Staggered entrance for wordmark / tagline / form. */
+@keyframes riseIn {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise-in {
+  animation: riseIn var(--d-slow) var(--ease-rise) both;
+}
+
+/*
+ * Reduced motion. The app had no handling at all before Phase 11. Decorative
+ * animation (wave drift, rise-in) is what matters most here; functional
+ * transitions are collapsed rather than removed so the UI still reads as
+ * connected instead of teleporting.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

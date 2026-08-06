@@ -36,7 +36,10 @@ export function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) =
         transform: "translateX(-50%)",
         width: "100%",
         maxWidth: 430,
-        background: "var(--sheet)",
+        // Translucent + blurred so content scrolls under it (ADR-0016).
+        background: "var(--surface-blur)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
         borderTop: "1px solid var(--line)",
         display: "flex",
         padding: "6px 8px calc(env(safe-area-inset-bottom) + 8px)",
