@@ -14,6 +14,13 @@ are in [ROADMAP.md → Estimating scale](ROADMAP.md#estimating-scale). Sizes are
 inferred from work volume, not measured spend.
 
 ## Other open items
+- **Formal a11y pass (WCAG)** — Phase 6's closing audit found the basics in
+  place (32 aria-labels, no unlabelled click targets) but no formal pass:
+  programmatic `<label for>` association, focus-visible states, and a
+  colour-contrast audit. **Do this after
+  [Phase 11](phases/phase-11-visual-reskin.md) merges** — the light theme
+  changes every contrast ratio, so auditing first would be wasted.
+  **Effort:** M · **Credits:** ~10–20
 - ~~**Performance — cut the reload chain**~~ → **shipped** as
   [Phase 16](phases/phase-16-performance.md) (2026-07-31). Kept as the record
   of where it came from: the cause turned out to be a network auth call before

@@ -29,9 +29,58 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- There are currently **no open bugs** — all three logged so far are fixed.
+- All logged bugs are currently fixed.
 
 ## Fixed
+
+### ~~BUG-004~~: `profile_public` leaked every profile in the system, to anyone
+**Found:** 2026-08-28, by the Phase 6 security re-audit (not user-reported) ·
+**Status:** ✅ Fixed same day, migration
+`20260828000000_fix_profile_public_leak.sql` applied to production ·
+**Severity:** **Critical** — cross-tenant data exposure plus unauthenticated
+read and authenticated write, straight through the project's stated security
+boundary.
+
+**What was wrong.** `profile_public` — the view that hydrates other members'
+display names — was a plain view owned by `postgres` with
+`security_invoker = false`. A view in that mode runs with its OWNER's rights,
+so **RLS on the underlying `profile` table never applied to it.** Default
+grants then handed `anon` and `authenticated` full INSERT/UPDATE/DELETE/
+TRUNCATE on top.
+
+**Demonstrated against production before fixing**, rather than inferred:
+
+| Probe | Before | After |
+|---|---|---|
+| `authenticated`, JWT owning nothing — `select count(*) from profile` | 0 (RLS correct) | 0 |
+| same session — `select count(*) from profile_public` | **9 (every profile)** | 0 |
+| `anon` (unauthenticated) — `select count(*) from profile_public` | **9** | permission denied |
+| `authenticated` — `update profile_public set display_name…` on another user | **SUCCEEDED** | blocked |
+| a real member — co-members visible | 9 | 2 (self + co-member) ✓ |
+
+So every user's `display_name` and `avatar_url` were readable by the public
+internet — the anon key ships in the client bundle by design — and any signed-in
+user could rename anybody. No salary was actually exposed, but only because no
+user had `salary_visible` switched on yet; the mechanism was live, and that flag
+means "my Tally may see it", never "the internet may see it" (ADR-0010).
+
+**Why the obvious fix would have been worse.** Setting `security_invoker = true`
+would have (1) reduced the view to your own row, breaking member-name hydration,
+and (2) if patched with a co-member RLS policy on `profile`, granted co-members
+SELECT on the BASE table — and RLS is row-level, not column-level, so they could
+have read `monthly_salary_cents` raw, past the `salary_visible` gate. That trades
+one leak for a worse one.
+
+**Fixed by** keeping the view definer-rights (so the salary CASE gate still
+works) and moving the boundary into the view's own WHERE clause: you see
+yourself, plus people you share an active Tally membership with. `auth.uid()` is
+NULL for anon, so anon matches nothing. Write grants revoked; `authenticated`
+holds SELECT only; `anon` removed entirely.
+
+**Lesson worth keeping:** every other table was correctly protected — 18/18 with
+RLS enabled. The hole was in the one object where RLS silently doesn't apply.
+Any future view over a protected table needs this same check.
+
 
 ### ~~BUG-003~~: Manage-a-Tally sheet couldn't be closed — Cancel did nothing
 **Reported:** 2026-08-04 (Josh) · **Status:** ✅ Fixed same day (commit
