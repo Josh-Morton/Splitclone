@@ -215,6 +215,13 @@ deliberate choice from a matcher guess (ADR-0019).
 7. Report subcategory filtering.
 8. Backfill script — dry run, diff, then apply.
 9. Update the privacy-policy backlog item to name the global rule table.
+10. **Regenerate [`docs/CATEGORY-MATRIX.md`](../CATEGORY-MATRIX.md).** That
+    readable snapshot currently documents the OLD engine — it states that
+    `autoCategory` "walks the subcategory registry **in the order below** and
+    returns the first subcategory with a keyword hit", and that order is
+    therefore meaningful. Both stop being true the moment §1 lands: scoring
+    replaces first-match, and order degrades to a tie-breaker. Leaving it
+    would actively mislead the next reader.
 
 ## Verify
 
