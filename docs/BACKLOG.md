@@ -49,6 +49,11 @@ inferred from work volume, not measured spend.
   Phase 10 goes live publicly.
   **Effort:** S · **Credits:** ~4–9 *(one static route plus footer links — the
   cost is deciding the wording, not building it.)*
+  ⚠️ **[Phase 18](phases/phase-18-learning-categorisation.md) raises this from
+  "should" to "must".** That phase introduces the project's first
+  cross-tenant table — category corrections shared between unrelated
+  households — and the policy has to name it. Ship the policy with or before
+  Phase 18, not after.
 - **CAPTCHA / bot-signup prevention** — Supabase's `security_captcha_enabled`
   is off; signup is fully open. Only worth doing if bot signups become an
   observed problem post-launch (Phase 10), not preemptively — would need an
