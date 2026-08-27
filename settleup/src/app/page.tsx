@@ -307,7 +307,7 @@ export default function HomePage() {
   return (
     <Screen>
       {tab === "home" && (
-        <>
+        <div key="home" className="tab-in">
           <header
             style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}
           >
@@ -392,7 +392,11 @@ export default function HomePage() {
             {/* On the accent panel the figure is always white — owed/owing is
                 already carried by the label above and the breakdown below, so
                 red/green here would fail contrast for no extra meaning. */}
+            {/* Keyed on the value so a change remounts and replays the pop —
+                money moving is the most important thing on this screen. */}
             <p
+              key={d.yourNet}
+              className="value-pop"
               style={{
                 fontSize: "var(--t-hero)",
                 fontWeight: "var(--w-black)" as unknown as number,
@@ -407,9 +411,11 @@ export default function HomePage() {
               <div
                 style={{
                   textAlign: "left",
-                  borderTop: "1px solid color-mix(in srgb, var(--on-accent) 30%, transparent)",
+                  // No rule here: a hard straight line cuts across the wave
+                  // motif and reads as a rendering artifact. Spacing separates
+                  // these rows well enough on a flat accent panel.
                   margin: "0 0 14px",
-                  paddingTop: 12,
+                  paddingTop: 4,
                 }}
               >
                 {owedToMe.map((t) => (
@@ -512,11 +518,11 @@ export default function HomePage() {
               </div>
             ))}
           </Card>
-        </>
+        </div>
       )}
 
       {tab === "expenses" && (
-        <div style={{ marginBottom: 90 }}>
+        <div key="expenses" className="tab-in" style={{ marginBottom: 90 }}>
           <ExpensesTab
             expenses={d.expenses}
             members={d.members}
@@ -528,7 +534,7 @@ export default function HomePage() {
       )}
 
       {tab === "list" && (
-        <div style={{ marginBottom: 90 }}>
+        <div key="list" className="tab-in" style={{ marginBottom: 90 }}>
           <ListTab
             repo={d.repo}
             groups={d.groups}
@@ -539,7 +545,7 @@ export default function HomePage() {
       )}
 
       {tab === "reports" && (
-        <div style={{ marginBottom: 90 }}>
+        <div key="reports" className="tab-in" style={{ marginBottom: 90 }}>
           <ReportsTab
             groupName={d.groupName}
             expenses={d.expenses}
@@ -550,7 +556,11 @@ export default function HomePage() {
         </div>
       )}
 
-      {tab === "splitty" && <SplittyTab repo={d.repo} demo={d.mode === "demo"} />}
+      {tab === "splitty" && (
+        <div key="splitty" className="tab-in">
+          <SplittyTab repo={d.repo} demo={d.mode === "demo"} />
+        </div>
+      )}
 
       {tab !== "splitty" && (
         <button

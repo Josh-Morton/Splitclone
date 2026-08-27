@@ -37,16 +37,40 @@ export type ParentCategory =
 /** A stored category slug — a subcategory, or a bare parent slug (legacy/general). */
 export type Category = string;
 
-/** Parent display metadata: labels + accent colours + emoji glyphs (design tokens). */
-export const CATEGORY_META: Record<ParentCategory, { label: string; color: string; icon: string }> = {
-  groceries: { label: "Groceries", color: "#7FB6F5", icon: "🛒" },
-  eatingout: { label: "Eating out", color: "#6FD7AC", icon: "🍽️" },
-  bills: { label: "Bills & rent", color: "#A9ABF8", icon: "🏠" },
-  transport: { label: "Transport", color: "#74D2E0", icon: "🚗" },
-  household: { label: "Household", color: "#C9A6F4", icon: "🧺" },
-  leisure: { label: "Leisure", color: "#F39DC0", icon: "🎬" },
-  other: { label: "Other", color: "#AEB9CC", icon: "🧾" },
+/**
+ * Parent display metadata (Phase 11).
+ *
+ * `color` is a TOKEN REFERENCE, not a literal — these used to be the dark
+ * theme's hex values baked in here, so they survived the reskin unchanged and
+ * ignored the palette entirely. Anything tinting from them must use
+ * `color-mix()`; string-concatenating an alpha suffix onto a hex only worked
+ * while these were literals.
+ *
+ * `codepoint` is the Twemoji glyph vendored in /public/icons/twemoji, so the
+ * icon looks identical on every OS instead of shifting with the platform's
+ * emoji font. `icon` stays as the plain character for text-only contexts and
+ * as a fallback.
+ */
+export const CATEGORY_META: Record<
+  ParentCategory,
+  { label: string; color: string; icon: string; codepoint: string }
+> = {
+  groceries: { label: "Groceries", color: "var(--cat-groceries)", icon: "🛒", codepoint: "1f6d2" },
+  eatingout: { label: "Eating out", color: "var(--cat-eatingout)", icon: "🍝", codepoint: "1f35d" },
+  bills: { label: "Bills & rent", color: "var(--cat-rent)", icon: "🏠", codepoint: "1f3e0" },
+  transport: { label: "Transport", color: "var(--cat-transport)", icon: "🚗", codepoint: "1f697" },
+  household: { label: "Household", color: "var(--cat-household)", icon: "🧴", codepoint: "1f9f4" },
+  leisure: { label: "Leisure", color: "var(--cat-entertainment)", icon: "🎬", codepoint: "1f3ac" },
+  other: { label: "Other", color: "var(--cat-other)", icon: "💳", codepoint: "1f4b3" },
 };
+
+/** Non-category glyphs the design also specifies, same vendored set. */
+export const GLYPHS = {
+  settlement: "1f91d",
+  unknown: "1f9fe",
+  recurring: "1f501",
+  utilities: "1f4a1",
+} as const;
 
 export const PARENT_CATEGORIES = Object.keys(CATEGORY_META) as ParentCategory[];
 
@@ -194,6 +218,7 @@ export function categoryMeta(slug: Category): {
   parentLabel: string;
   color: string;
   icon: string;
+  codepoint: string;
 } {
   const parent = parentOf(slug);
   const pm = CATEGORY_META[parent];
@@ -204,6 +229,7 @@ export function categoryMeta(slug: Category): {
     parentLabel: pm.label,
     color: pm.color,
     icon: pm.icon,
+    codepoint: pm.codepoint,
   };
 }
 

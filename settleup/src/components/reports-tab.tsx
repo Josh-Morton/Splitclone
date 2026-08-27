@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { CollapsingHeader } from "./collapsing-header";
+import { Glyph } from "./category-icon";
 import {
   categoryMeta,
   CATEGORY_META,
@@ -243,7 +244,7 @@ export function ReportsTab({
               >
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
                   <p style={{ fontSize: 13.5, fontWeight: 600 }}>
-                    {meta.icon} {meta.label}
+                    <Glyph codepoint={meta.codepoint} alt={meta.icon} size={16} /> {meta.label}
                     <span style={{ color: "var(--faint)", fontWeight: 700, marginLeft: 8, fontSize: 11.5 }}>
                       {pct}%
                     </span>

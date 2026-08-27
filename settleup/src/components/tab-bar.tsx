@@ -53,6 +53,7 @@ export function TabBar({ active, onChange }: { active: Tab; onChange: (t: Tab) =
             key={t}
             onClick={() => onChange(t)}
             aria-label={`${LABELS[t]} tab`}
+            className="press"
             style={{
               flex: 1,
               background: "none",

@@ -231,6 +231,70 @@ input::placeholder {
   animation: riseIn var(--d-slow) var(--ease-rise) both;
 }
 
+/* Tab content cross-fades + rises slightly when you switch tabs, so the
+   change reads as a transition rather than an instant swap. */
+@keyframes tabIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-in {
+  animation: tabIn 220ms var(--ease-rise) both;
+}
+
+/* List rows arrive staggered instead of all at once. The delay is set
+   inline per row (capped, so a long list doesn't crawl). */
+@keyframes rowIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.row-in {
+  animation: rowIn 280ms var(--ease-rise) both;
+}
+
+/* The balance figure pops when it changes, so money moving is noticeable. */
+@keyframes valuePop {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.045);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.value-pop {
+  animation: valuePop 420ms var(--ease-rise);
+}
+
+/*
+ * Press feedback. Nothing in the app had any before Phase 11 — the cheapest
+ * possible "this is an app, not a web page" cue. Applied via a class so it
+ * can go on any tappable element without repeating the rule.
+ */
+.press {
+  transition: transform 90ms ease-out, opacity 90ms ease-out;
+}
+.press:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
 /*
  * Reduced motion. The app had no handling at all before Phase 11. Decorative
  * animation (wave drift, rise-in) is what matters most here; functional

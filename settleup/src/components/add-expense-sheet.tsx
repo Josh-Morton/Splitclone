@@ -29,6 +29,7 @@ import {
   type SplitMethod,
 } from "@/lib/domain";
 import { CategoryPickerSheet } from "./category-picker-sheet";
+import { Glyph } from "./category-icon";
 import { CurrencyPickerSheet } from "./currency-picker-sheet";
 import { ReceiptScanSheet } from "./receipt-scan-sheet";
 import { Button, ErrorText, Input, Label } from "./ui";
@@ -408,7 +409,7 @@ export function AddExpenseSheet({
           alignItems: "center",
           gap: 8,
           marginTop: 10,
-          background: `${catMeta.color}1f`,
+          background: `color-mix(in srgb, ${catMeta.color} 12%, transparent)`,
           border: `1px solid ${catMeta.color}`,
           borderRadius: 999,
           padding: "7px 12px",
@@ -418,7 +419,7 @@ export function AddExpenseSheet({
           fontSize: 13,
         }}
       >
-        <span>{catMeta.icon}</span>
+        <Glyph codepoint={catMeta.codepoint} alt={catMeta.icon} size={17} />
         <span>
           {catMeta.parentLabel}
           <span style={{ opacity: 0.85 }}> · {catMeta.label}</span>

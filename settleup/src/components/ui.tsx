@@ -98,7 +98,13 @@ export function Button({
     },
   };
   return (
-    <button type={type} onClick={onClick} disabled={disabled} style={{ ...base, ...variants[variant], ...style }}>
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className="press"
+      style={{ ...base, ...variants[variant], ...style }}
+    >
       {children}
     </button>
   );

@@ -13,6 +13,7 @@ import {
   type Category,
 } from "@/lib/domain";
 import { Sheet } from "./sheet";
+import { Glyph } from "./category-icon";
 
 export function CategoryPickerSheet({
   open,
@@ -41,7 +42,7 @@ export function CategoryPickerSheet({
                 marginBottom: 8,
               }}
             >
-              {meta.icon} {meta.label}
+              <Glyph codepoint={meta.codepoint} alt={meta.icon} size={18} /> {meta.label}
             </p>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {CATEGORY_TREE[parent].map((sub) => {
@@ -56,7 +57,7 @@ export function CategoryPickerSheet({
                       fontSize: 13.5,
                       fontWeight: 700,
                       cursor: "pointer",
-                      background: active ? `${meta.color}29` : "var(--s2)",
+                      background: active ? `color-mix(in srgb, ${meta.color} 16%, transparent)` : "var(--s2)",
                       color: active ? meta.color : "var(--muted)",
                       border: `1px solid ${active ? meta.color : "var(--line)"}`,
                     }}

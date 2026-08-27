@@ -158,6 +158,7 @@ export function ListTab({
   const row = (item: ShoppingItem, done: boolean) => (
     <div
       key={item.id}
+      className="row-in"
       style={{
         display: "flex",
         alignItems: "center",
@@ -169,6 +170,7 @@ export function ListTab({
       <button
         onClick={() => toggle(item)}
         aria-label={done ? `Put ${item.name} back on the list` : `Cross off ${item.name}`}
+        className="press"
         style={{
           width: 22,
           height: 22,
@@ -179,11 +181,20 @@ export function ListTab({
           background: done ? "var(--greenbg)" : "transparent",
           color: "var(--green)",
           fontSize: 13,
-          fontWeight: 800,
+          fontWeight: "var(--w-heavy)" as unknown as number,
           lineHeight: 1,
+          // The two most-tapped controls in the app had no transition at all.
+          transition: "background var(--d-fast), border-color var(--d-fast)",
         }}
       >
-        {done ? "✓" : ""}
+        {/* Keyed so the tick replays its pop each time it's ticked. */}
+        {done ? (
+          <span key="tick" className="value-pop" style={{ display: "block" }}>
+            ✓
+          </span>
+        ) : (
+          ""
+        )}
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p

@@ -8,6 +8,7 @@
 
 import { categoryMeta, fmt, type Expense, type GroupMember } from "@/lib/domain";
 import { memberDisplayName } from "./avatar";
+import { Glyph } from "./category-icon";
 import { CollapsingHeader } from "./collapsing-header";
 
 export function dayLabel(iso: string): string {
@@ -28,15 +29,16 @@ export function CategoryTile({ category, size = 40 }: { category: Expense["categ
         width: size,
         height: size,
         borderRadius: size * 0.3,
-        background: `${meta.color}29`, // ~16% alpha tint of the accent
+        // color-mix, not a hex suffix: meta.color is a token now, so
+        // `${color}29` would produce garbage like "var(--cat-x)29".
+        background: `color-mix(in srgb, ${meta.color} 16%, transparent)`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: size * 0.45,
         flexShrink: 0,
       }}
     >
-      {meta.icon}
+      <Glyph codepoint={meta.codepoint} alt={meta.icon} size={Math.round(size * 0.58)} />
     </div>
   );
 }
@@ -79,7 +81,7 @@ export function ExpensesTab({
         </p>
       )}
 
-      {groups.map((g) => (
+      {groups.map((g, gi) => (
         <section key={g.label} style={{ marginBottom: 18 }}>
           <p
             style={{
@@ -118,7 +120,13 @@ export function ExpensesTab({
                   role="button"
                   aria-label={`Open ${e.description}`}
                   onClick={() => onOpen(e)}
+                  className="row-in press"
                   style={{
+                    // Capped so a long list finishes arriving quickly rather
+                    // than trickling in for seconds.
+                    // Counted across groups: `i` alone restarts each
+                    // day, so with one expense per day nothing staggered.
+                    animationDelay: `${Math.min(gi * 2 + i, 8) * 32}ms`,
                     display: "flex",
                     alignItems: "center",
                     gap: 12,

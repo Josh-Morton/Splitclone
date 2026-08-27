@@ -176,6 +176,7 @@ export function Pill({
   return (
     <button
       onClick={onClick}
+      className="press"
       style={{
         padding: "9px 14px",
         borderRadius: "var(--r-pill)",

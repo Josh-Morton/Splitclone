@@ -47,7 +47,7 @@ function WaveLines({ opacity = 0.5 }: { opacity?: number }) {
           }}
         >
           <path
-            d="M0,60 C150,10 300,110 450,60 C600,10 750,110 900,60 C1050,10 1200,110 1200,60"
+            d="M0,60 C100,20 200,100 300,60 C400,20 500,100 600,60 C700,20 800,100 900,60 C1000,20 1100,100 1200,60"
             fill="none"
             stroke="var(--on-accent)"
             strokeWidth={2}
