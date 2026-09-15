@@ -14,6 +14,13 @@ are in [ROADMAP.md → Estimating scale](ROADMAP.md#estimating-scale). Sizes are
 inferred from work volume, not measured spend.
 
 ## Other open items
+- **Formal a11y pass (WCAG)** — Phase 6's closing audit found the basics in
+  place (32 aria-labels, no unlabelled click targets) but no formal pass:
+  programmatic `<label for>` association, focus-visible states, and a
+  colour-contrast audit. **Do this after
+  [Phase 11](phases/phase-11-visual-reskin.md) merges** — the light theme
+  changes every contrast ratio, so auditing first would be wasted.
+  **Effort:** M · **Credits:** ~10–20
 - ~~**Performance — cut the reload chain**~~ → **shipped** as
   [Phase 16](phases/phase-16-performance.md) (2026-07-31). Kept as the record
   of where it came from: the cause turned out to be a network auth call before
@@ -49,6 +56,11 @@ inferred from work volume, not measured spend.
   Phase 10 goes live publicly.
   **Effort:** S · **Credits:** ~4–9 *(one static route plus footer links — the
   cost is deciding the wording, not building it.)*
+  ⚠️ **[Phase 18](phases/phase-18-learning-categorisation.md) raises this from
+  "should" to "must".** That phase introduces the project's first
+  cross-tenant table — category corrections shared between unrelated
+  households — and the policy has to name it. Ship the policy with or before
+  Phase 18, not after.
 - **CAPTCHA / bot-signup prevention** — Supabase's `security_captcha_enabled`
   is off; signup is fully open. Only worth doing if bot signups become an
   observed problem post-launch (Phase 10), not preemptively — would need an

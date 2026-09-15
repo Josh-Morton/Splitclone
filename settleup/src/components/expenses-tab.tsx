@@ -8,6 +8,8 @@
 
 import { categoryMeta, fmt, type Expense, type GroupMember } from "@/lib/domain";
 import { memberDisplayName } from "./avatar";
+import { Glyph } from "./category-icon";
+import { CollapsingHeader } from "./collapsing-header";
 
 export function dayLabel(iso: string): string {
   const d = new Date(iso);
@@ -27,15 +29,16 @@ export function CategoryTile({ category, size = 40 }: { category: Expense["categ
         width: size,
         height: size,
         borderRadius: size * 0.3,
-        background: `${meta.color}29`, // ~16% alpha tint of the accent
+        // color-mix, not a hex suffix: meta.color is a token now, so
+        // `${color}29` would produce garbage like "var(--cat-x)29".
+        background: `color-mix(in srgb, ${meta.color} 16%, transparent)`,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        fontSize: size * 0.45,
         flexShrink: 0,
       }}
     >
-      {meta.icon}
+      <Glyph codepoint={meta.codepoint} alt={meta.icon} size={Math.round(size * 0.58)} />
     </div>
   );
 }
@@ -66,12 +69,11 @@ export function ExpensesTab({
 
   return (
     <>
-      <header style={{ marginBottom: 16 }}>
-        <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Expenses</h1>
-        <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-          {expenses.length} expense{expenses.length === 1 ? "" : "s"} · {fmt(total)} · {groupName}
-        </p>
-      </header>
+      <CollapsingHeader
+        title="Expenses"
+        subtitle={`${expenses.length} expense${expenses.length === 1 ? "" : "s"} · ${fmt(total)} · ${groupName}`}
+      />
+      <div style={{ height: 12 }} />
 
       {expenses.length === 0 && (
         <p style={{ fontSize: 13.5, color: "var(--muted)" }}>
@@ -79,7 +81,7 @@ export function ExpensesTab({
         </p>
       )}
 
-      {groups.map((g) => (
+      {groups.map((g, gi) => (
         <section key={g.label} style={{ marginBottom: 18 }}>
           <p
             style={{
@@ -118,7 +120,13 @@ export function ExpensesTab({
                   role="button"
                   aria-label={`Open ${e.description}`}
                   onClick={() => onOpen(e)}
+                  className="row-in press"
                   style={{
+                    // Capped so a long list finishes arriving quickly rather
+                    // than trickling in for seconds.
+                    // Counted across groups: `i` alone restarts each
+                    // day, so with one expense per day nothing staggered.
+                    animationDelay: `${Math.min(gi * 2 + i, 8) * 32}ms`,
                     display: "flex",
                     alignItems: "center",
                     gap: 12,

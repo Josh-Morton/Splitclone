@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Repo } from "@/lib/data";
 import type { Group, ShoppingItem } from "@/lib/domain";
 import { Card, Input } from "./ui";
+import { CollapsingHeader } from "./collapsing-header";
 
 /** Compact date like "12 Jul" — same day/month shape the app uses elsewhere. */
 const shortDate = (iso: string) =>
@@ -157,6 +158,7 @@ export function ListTab({
   const row = (item: ShoppingItem, done: boolean) => (
     <div
       key={item.id}
+      className="row-in"
       style={{
         display: "flex",
         alignItems: "center",
@@ -168,6 +170,7 @@ export function ListTab({
       <button
         onClick={() => toggle(item)}
         aria-label={done ? `Put ${item.name} back on the list` : `Cross off ${item.name}`}
+        className="press"
         style={{
           width: 22,
           height: 22,
@@ -178,11 +181,20 @@ export function ListTab({
           background: done ? "var(--greenbg)" : "transparent",
           color: "var(--green)",
           fontSize: 13,
-          fontWeight: 800,
+          fontWeight: "var(--w-heavy)" as unknown as number,
           lineHeight: 1,
+          // The two most-tapped controls in the app had no transition at all.
+          transition: "background var(--d-fast), border-color var(--d-fast)",
         }}
       >
-        {done ? "✓" : ""}
+        {/* Keyed so the tick replays its pop each time it's ticked. */}
+        {done ? (
+          <span key="tick" className="value-pop" style={{ display: "block" }}>
+            ✓
+          </span>
+        ) : (
+          ""
+        )}
       </button>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p
@@ -222,14 +234,15 @@ export function ListTab({
 
   return (
     <>
-      <header style={{ marginBottom: 12 }}>
-        <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>Shopping list</h1>
-        <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
-          {groups.length > 1
+      <CollapsingHeader
+        title="Shopping list"
+        subtitle={
+          groups.length > 1
             ? `Adding to ${groupName} — everyone in it sees the same list${live ? ", live" : ""}.`
-            : `${groupName} — you both see the same list${live ? ", live" : ""}.`}
-        </p>
-      </header>
+            : `${groupName} — you both see the same list${live ? ", live" : ""}.`
+        }
+      />
+      <div style={{ height: 12 }} />
 
       {/* One control, doing both jobs: it picks the list you're looking at AND
           where a new item goes. Two separate pickers could disagree silently.
@@ -255,7 +268,7 @@ export function ListTab({
                   fontSize: 13,
                   fontWeight: 700,
                   cursor: "pointer",
-                  background: on ? "var(--bluebg)" : "var(--s2)",
+                  background: on ? "var(--accentbg)" : "var(--s2)",
                   color: on ? "var(--primary)" : "var(--muted)",
                   border: `1px solid ${on ? "var(--primary)" : "var(--line)"}`,
                 }}
@@ -284,7 +297,7 @@ export function ListTab({
             borderRadius: "var(--r-input)",
             border: "none",
             background: "var(--primary)",
-            color: "#fff",
+            color: "var(--on-accent)",
             fontSize: 22,
             fontWeight: 700,
             cursor: "pointer",

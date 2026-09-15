@@ -141,7 +141,7 @@ export function ExpenseDetail({
             <button
               onClick={onEdit}
               style={{
-                background: "var(--bluebg)",
+                background: "var(--accentbg)",
                 border: "1px solid var(--primary)",
                 borderRadius: 999,
                 color: "var(--primary)",

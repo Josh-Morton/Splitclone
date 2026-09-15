@@ -23,6 +23,7 @@ import { SettleSheet } from "@/components/settle-sheet";
 import { SplittyTab } from "@/components/splitty-tab";
 import { TabBar, type Tab } from "@/components/tab-bar";
 import { Button, Card, Screen, Spinner } from "@/components/ui";
+import { WaveCard } from "@/components/wave";
 import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
 import {
   categoryMeta,
@@ -39,7 +40,7 @@ import {
   type User,
 } from "@/lib/domain";
 import { postAuthDestination } from "@/lib/routing";
-import { signOut, useSessionState } from "@/lib/session";
+import { ensureFreshSession, isAuthError, signOut, useSessionState } from "@/lib/session";
 
 interface HomeData {
   mode: "demo" | "supabase";
@@ -161,6 +162,14 @@ export default function HomePage() {
         const gid = groups.find((g) => g.id === me?.profile?.defaultGroupId)?.id ?? groupId;
         next = await loadHome(repo, "demo", gid, me!.user, groups, me?.profile?.recentCurrencies ?? []);
       } else if (session.status === "supabase") {
+        // Before any request goes out: make sure the token is actually alive.
+        // A backgrounded PWA has its refresh timer throttled, so on resume it
+        // usually isn't (BUG-005).
+        if (!(await ensureFreshSession())) {
+          await signOut().catch(() => {});
+          router.replace("/welcome");
+          return;
+        }
         const repo = getSupabaseRepo();
         const [me, groups] = await Promise.all([repo.getMe(), repo.listGroups()]);
         if (!me?.user.displayName) {
@@ -180,9 +189,42 @@ export default function HomePage() {
         setViewing((v) => (v ? (next.expenses.find((e) => e.id === v.id) ?? null) : null));
       }
     } catch (e) {
+      // An expired token must never reach the user as a raw "JWT expired"
+      // card (BUG-005). Try once to refresh and reload; if the session is
+      // genuinely gone, send them to sign in rather than showing jargon.
+      // The token was ensured fresh above, so an auth error here means the
+      // session is genuinely gone. Send them to sign in rather than showing
+      // raw "JWT expired" jargon (BUG-005).
+      if (isAuthError(e)) {
+        await signOut().catch(() => {});
+        router.replace("/welcome");
+        return;
+      }
       setError(e instanceof Error ? e.message : String(e));
     }
   }, [session.status, router]);
+
+  // A backgrounded PWA gets its refresh timer throttled, so the token is
+  // usually already stale by the time the user looks at it again. Refresh on
+  // resume, before any data request goes out (BUG-005).
+  useEffect(() => {
+    if (session.status !== "supabase") return;
+    const onResume = () => {
+      if (document.visibilityState !== "visible") return;
+      void ensureFreshSession()
+        .then((ok) => {
+          if (ok) return load();
+          return signOut().then(() => router.replace("/welcome"));
+        })
+        .catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onResume);
+    window.addEventListener("focus", onResume);
+    return () => {
+      document.removeEventListener("visibilitychange", onResume);
+      window.removeEventListener("focus", onResume);
+    };
+  }, [session.status, load, router]);
 
   useEffect(() => {
     if (session.status === "signedout") {
@@ -301,13 +343,12 @@ export default function HomePage() {
         : multiParty
           ? "You owe"
           : `You owe ${d.counterpartyName}`;
-  const heroColor = d.yourNet === 0 ? "var(--muted)" : d.yourNet > 0 ? "var(--green)" : "var(--red)";
   const recent = d.expenses.slice(0, 5);
 
   return (
     <Screen>
       {tab === "home" && (
-        <>
+        <div key="home" className="tab-in">
           <header
             style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}
           >
@@ -366,8 +407,8 @@ export default function HomePage() {
               style={{
                 fontSize: 12.5,
                 color: "var(--amber)",
-                background: "rgba(227,165,60,.12)",
-                border: "1px solid rgba(227,165,60,.3)",
+                background: "var(--amberbg)",
+                border: "1px solid var(--amber)",
                 borderRadius: 10,
                 padding: "8px 12px",
                 marginBottom: 14,
@@ -377,19 +418,33 @@ export default function HomePage() {
             </p>
           )}
 
-          <Card style={{ marginBottom: 16, textAlign: "center" }}>
+          <WaveCard style={{ marginBottom: 16, textAlign: "center" }}>
             <p
               style={{
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: "var(--w-bold)" as unknown as number,
                 textTransform: "uppercase",
                 letterSpacing: "0.05em",
-                color: "var(--faint)",
+                opacity: 0.85,
               }}
             >
               {heroText}
             </p>
-            <p style={{ fontSize: 42, fontWeight: 800, letterSpacing: "-1.2px", color: heroColor, marginBottom: 14 }}>
+            {/* On the accent panel the figure is always white — owed/owing is
+                already carried by the label above and the breakdown below, so
+                red/green here would fail contrast for no extra meaning. */}
+            {/* Keyed on the value so a change remounts and replays the pop —
+                money moving is the most important thing on this screen. */}
+            <p
+              key={d.yourNet}
+              className="value-pop"
+              style={{
+                fontSize: "var(--t-hero)",
+                fontWeight: "var(--w-black)" as unknown as number,
+                letterSpacing: "-1.4px",
+                marginBottom: 14,
+              }}
+            >
               {fmt(Math.abs(d.yourNet))}
             </p>
             {/* 3+ members: break the net down per person */}
@@ -397,9 +452,11 @@ export default function HomePage() {
               <div
                 style={{
                   textAlign: "left",
-                  borderTop: "1px solid var(--line)",
+                  // No rule here: a hard straight line cuts across the wave
+                  // motif and reads as a rendering artifact. Spacing separates
+                  // these rows well enough on a flat accent panel.
                   margin: "0 0 14px",
-                  paddingTop: 12,
+                  paddingTop: 4,
                 }}
               >
                 {owedToMe.map((t) => (
@@ -407,8 +464,8 @@ export default function HomePage() {
                     key={t.fromMemberId + t.toMemberId}
                     style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}
                   >
-                    <span style={{ fontSize: 13, color: "var(--muted)" }}>{memberName(t.fromMemberId)} owes you</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>{fmt(t.amountCents)}</span>
+                    <span style={{ fontSize: 13, opacity: 0.85 }}>{memberName(t.fromMemberId)} owes you</span>
+                    <span style={{ fontSize: 13, fontWeight: "var(--w-bold)" as unknown as number }}>{fmt(t.amountCents)}</span>
                   </div>
                 ))}
                 {iOwe.map((t) => (
@@ -416,27 +473,39 @@ export default function HomePage() {
                     key={t.fromMemberId + t.toMemberId}
                     style={{ display: "flex", justifyContent: "space-between", padding: "3px 0" }}
                   >
-                    <span style={{ fontSize: 13, color: "var(--muted)" }}>You owe {memberName(t.toMemberId)}</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "var(--red)" }}>{fmt(t.amountCents)}</span>
+                    <span style={{ fontSize: 13, opacity: 0.85 }}>You owe {memberName(t.toMemberId)}</span>
+                    <span style={{ fontSize: 13, fontWeight: "var(--w-bold)" as unknown as number }}>{fmt(t.amountCents)}</span>
                   </div>
                 ))}
               </div>
             )}
             <div style={{ display: "flex", gap: 10 }}>
-              <Button onClick={() => setSheet("settle")} variant="secondary" style={{ flex: 1 }}>
+              <Button
+                onClick={() => setSheet("settle")}
+                variant="secondary"
+                style={{
+                  flex: 1,
+                  background: "transparent",
+                  color: "var(--on-accent)",
+                  border: "2px solid color-mix(in srgb, var(--on-accent) 55%, transparent)",
+                }}
+              >
                 Clear the tally
               </Button>
-              <Button onClick={() => setSheet("add")} style={{ flex: 1 }}>
+              <Button
+                onClick={() => setSheet("add")}
+                style={{ flex: 1, background: "var(--on-accent)", color: "var(--primary)" }}
+              >
                 Add expense
               </Button>
             </div>
             {d.members.length === 1 && (
-              <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 12 }}>
+              <p style={{ fontSize: 12.5, opacity: 0.85, marginTop: 12 }}>
                 It&apos;s just you so far — tap the Tally name above, then ⋯, to invite your partner
                 (or add a placeholder member).
               </p>
             )}
-          </Card>
+          </WaveCard>
 
           <Card style={{ padding: 14, marginBottom: 90 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
@@ -490,11 +559,11 @@ export default function HomePage() {
               </div>
             ))}
           </Card>
-        </>
+        </div>
       )}
 
       {tab === "expenses" && (
-        <div style={{ marginBottom: 90 }}>
+        <div key="expenses" className="tab-in" style={{ marginBottom: 90 }}>
           <ExpensesTab
             expenses={d.expenses}
             members={d.members}
@@ -506,7 +575,7 @@ export default function HomePage() {
       )}
 
       {tab === "list" && (
-        <div style={{ marginBottom: 90 }}>
+        <div key="list" className="tab-in" style={{ marginBottom: 90 }}>
           <ListTab
             repo={d.repo}
             groups={d.groups}
@@ -517,7 +586,7 @@ export default function HomePage() {
       )}
 
       {tab === "reports" && (
-        <div style={{ marginBottom: 90 }}>
+        <div key="reports" className="tab-in" style={{ marginBottom: 90 }}>
           <ReportsTab
             groupName={d.groupName}
             expenses={d.expenses}
@@ -528,7 +597,11 @@ export default function HomePage() {
         </div>
       )}
 
-      {tab === "splitty" && <SplittyTab repo={d.repo} demo={d.mode === "demo"} />}
+      {tab === "splitty" && (
+        <div key="splitty" className="tab-in">
+          <SplittyTab repo={d.repo} demo={d.mode === "demo"} />
+        </div>
+      )}
 
       {tab !== "splitty" && (
         <button
@@ -543,7 +616,7 @@ export default function HomePage() {
             borderRadius: "50%",
             border: "none",
             background: "var(--primary)",
-            color: "#fff",
+            color: "var(--on-accent)",
             fontSize: 28,
             fontWeight: 700,
             cursor: "pointer",

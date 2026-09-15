@@ -35,7 +35,7 @@
 >   Shipped work doesn't need one — the estimate exists to price the decision
 >   *before* committing to it. Scale + calibration: [Estimating scale](#estimating-scale).
 
-**Last updated:** 2026-08-04 (Phase 17 shipped — one List tab covering every Tally; price estimate removed)
+**Last updated:** 2026-08-28 (Phase 6 closed — its security re-audit found and fixed a critical profile_public data leak, BUG-004)
 
 ## Where we are
 
@@ -43,7 +43,7 @@
 ledger (add/edit/delete, multi-payer, settle-up), spaces, recurring bills,
 shopping list, reports, receipt scanning, Splitty, and push notifications all
 work against the live Supabase backend. Phases 0, 1, 3, 4, 5, 7, 8, and 9 are
-shipped; Phase 6 (polish & hardening) is ongoing; Phase 2 (offline-first) is
+shipped; Phase 6 (polish & hardening) closed 2026-08-28; Phase 2 (offline-first) is
 deliberately deferred to last (ADR-0009). Remaining for M1 is the Phase 1
 E6 trial — a week of real use by Josh + partner. **Phase 10** (custom domain,
 real auth email, public-launch prep) is specced but not built — see the table
@@ -64,7 +64,7 @@ features people actually asked for before offline-first).
 | [3 — Fair-share & richer splits](phases/phase-03-fair-share-splits.md) | ✅ Done | — | — | Salary-proportional splits via a privacy-preserving server RPC (ADR-0010) |
 | [4 — Recurring & shopping list](phases/phase-04-recurring-shopping-list.md) | ✅ Done (2026-07-13) | — | M3 "Fair & automatic" | Recurring bills (pg_cron), shared shopping list, cart→expense |
 | [5 — Insight & export](phases/phase-05-insight-export.md) | ✅ Done (2026-07-16) | — | M4 "Complete v1" | Reports tab, Excel export, activity feed, receipt photos |
-| [6 — Polish & hardening](phases/phase-06-polish-hardening.md) | 🟡 Ongoing | rolling | — | Spaces switcher, invite rework, categories, auth rebuild, membership management, empty/error states, a11y, security/perf passes |
+| [6 — Polish & hardening](phases/phase-06-polish-hardening.md) | ✅ Complete (2026-08-28) | — | — | Spaces switcher, invite rework, categories, auth rebuild, membership management, empty/error states, a11y, security/perf passes |
 | [7 — Receipt line-item scanning](phases/phase-07-receipt-scanning.md) | ✅ Shipped (2026-07-22) | — | M5 "Scan the slip" | Photo a till slip → Gemini extracts line items → tick what's yours |
 | [8 — Splitty](phases/phase-08-splitty.md) | ✅ Shipped (2026-07-23) | — | M6 "Split with anyone" | Standalone bill-splitting via a shared link — no guest account needed (ADR-0013) |
 | [9 — Push notifications](phases/phase-09-push-notifications.md) | ✅ Shipped (2026-07-26) | — | M7 "Tally-ho!" | Web Push via VAPID — 5 triggers, "Tally-ho!" copy, Android-first (ADR-0014) |
@@ -76,6 +76,7 @@ features people actually asked for before offline-first).
 | [15 — Fix Tally navigation](phases/phase-15-tally-navigation-fix.md) | ✅ Shipped (2026-07-30) | — | — | Bug fix: header should switch Tallies, Settings should manage them — Phase 12 built it backwards ([BUG-001](BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage)) |
 | [16 — Performance: cut the reload chain](phases/phase-16-performance.md) | ✅ Shipped (2026-07-31) | — | — | ~1000ms delays switching Tallies/saving/logging in — every action reloads the whole home screen sequentially, with several calls duplicated |
 | [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | ✅ Shipped (2026-08-04) | — | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
+| [18 — Learning categorisation engine](phases/phase-18-learning-categorisation.md) | 📝 Spec only — not built (2026-08-28) | **XL** · ~55–100 | — | Scoring+fuzzy matcher, corrections learned globally on consensus, ambiguity picker, subcategory report filters, backfill (ADR-0019) |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, [`docs/BACKLOG.md`](BACKLOG.md) for

@@ -13,7 +13,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, ErrorText, Input, Logo, Screen } from "@/components/ui";
+import { Button, ErrorText, Input, Screen } from "@/components/ui";
+import { WaveHero } from "@/components/wave";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { postAuthDestination } from "@/lib/routing";
 import { enterDemoMode } from "@/lib/session";
@@ -102,19 +103,42 @@ export default function WelcomePage() {
   }
 
   return (
-    <Screen padding={26} center>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 28 }}>
-        <Logo />
-        <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px", marginTop: 18 }}>Tally</h1>
-        <p style={{ fontSize: 14, color: "var(--muted)", textAlign: "center", marginTop: 8, lineHeight: 1.5 }}>
+    <Screen padding={26}>
+      {/* App icon deliberately dropped — the wordmark stands alone until a
+          new logo exists (ADR-0016). Staggered rise-in via .rise-in. */}
+      <WaveHero height={280}>
+        <h1
+          className="rise-in"
+          style={{
+            fontSize: 42,
+            fontWeight: "var(--w-black)" as unknown as number,
+            letterSpacing: "-1.2px",
+            animationDelay: "60ms",
+          }}
+        >
+          Tally
+        </h1>
+        <p
+          className="rise-in"
+          style={{
+            fontSize: 14.5,
+            marginTop: 10,
+            lineHeight: 1.5,
+            opacity: 0.92,
+            animationDelay: "130ms",
+          }}
+        >
           Shared expenses for your home —<br />
           always know who owes whom.
         </p>
-      </div>
+      </WaveHero>
+      <div className="rise-in" style={{ height: 26, animationDelay: "200ms" }} />
 
       {/* Log in / Sign up toggle */}
       <div
+        className="rise-in"
         style={{
+          animationDelay: "200ms",
           display: "flex",
           background: "var(--s2)",
           border: "1px solid var(--line)",

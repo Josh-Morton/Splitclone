@@ -214,7 +214,7 @@ export function SettingsSheet({
                   width: 20,
                   height: 20,
                   borderRadius: "50%",
-                  background: "#fff",
+                  background: "var(--surface)",
                   transition: "left .16s",
                 }}
               />
@@ -273,7 +273,7 @@ export function SettingsSheet({
                   width: 20,
                   height: 20,
                   borderRadius: "50%",
-                  background: "#fff",
+                  background: "var(--surface)",
                   transition: "left .16s",
                 }}
               />

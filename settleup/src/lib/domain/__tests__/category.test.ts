@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   autoCategory,
   categoryMeta,
+  CATEGORY_META,
   parentOf,
   CATEGORY_TREE,
   PARENT_CATEGORIES,
@@ -76,7 +77,19 @@ describe("categoryMeta", () => {
     const m = categoryMeta("groceries_liquor");
     expect(m.label).toBe("Liquor");
     expect(m.parentLabel).toBe("Groceries");
-    expect(m.color).toBe("#7FB6F5");
+    // A token reference, not a literal (Phase 11) — these used to be the dark
+    // theme's hex baked into the domain layer, which is exactly why they
+    // survived the reskin unchanged.
+    expect(m.color).toBe("var(--cat-groceries)");
+    expect(m.codepoint).toBe("1f6d2");
+  });
+
+  it("never hard-codes a colour, so a reskin can retune every category", () => {
+    for (const parent of PARENT_CATEGORIES) {
+      expect(CATEGORY_META[parent].color).toMatch(/^var\(--cat-[a-z]+\)$/);
+      // Every glyph must be vendored, or the icon silently renders nothing.
+      expect(CATEGORY_META[parent].codepoint).toMatch(/^[0-9a-f]{4,5}$/);
+    }
   });
   it("shows electricity under Bills & rent", () => {
     const m = categoryMeta("utilities_electricity");

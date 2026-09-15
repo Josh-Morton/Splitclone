@@ -1,7 +1,54 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 6 — Polish & hardening
-- [ ] Empty/error/loading states · a11y · security re-audit · performance pass
+# Phase 6 — Polish & hardening ✅ COMPLETE (2026-08-28)
+
+- [x] Empty/error/loading states · a11y · security re-audit · performance pass
+      ✅ (2026-08-28) — audited item by item against the code rather than
+      ticked off. Detail below.
+
+## Closing audit, 2026-08-28
+
+This line bundled four things. Each was checked against the actual codebase
+and the live database, not assumed:
+
+**Empty / error / loading states — already done, incrementally.** 12 empty
+states across Home, Expenses, List, Reports, Recurring, Activity, Settle and
+the currency picker; 16 of ~26 components carry explicit error handling via
+`setError`/`ErrorText`; 79 loading/`busy` guards. These landed screen by
+screen as each feature shipped, which is why the checkbox never moved. No
+work needed.
+
+**Performance pass — done, as [Phase 16](phase-16-performance.md)** (shipped
+2026-07-31). Serial round trips on the home screen went ~7 → ~2, an auth
+round trip was removed from every single write, and the shopping list became
+optimistic. That superseded this line item entirely.
+
+**a11y — good enough to close, with the remainder moved to the backlog.**
+32 `aria-label`s across 17 components, **zero** click handlers on unlabelled
+`div`s (the 5 that exist carry `role="button"` plus a label), and inputs are
+paired with visible `<Label>`s. What is *not* done is a formal WCAG pass —
+programmatic label association and a colour-contrast audit. Contrast is
+already tracked as outstanding in
+[Phase 11](phase-11-visual-reskin.md); the light theme changes every ratio,
+so auditing it before that phase merges would be wasted work.
+
+**Security re-audit — done, and it found a critical live vulnerability.**
+All 18 public tables have RLS enabled; the two with zero policies
+(`push_throttle`, `split_guest_secret`) are server-internal, so deny-all is
+correct hardening rather than a gap. No service-role key appears anywhere in
+client code — only the anon key, the Supabase URL and the VAPID *public* key.
+
+But `profile_public` was a `security_invoker = false` view owned by
+`postgres`, so **RLS never applied to it**, and default grants gave `anon`
+and `authenticated` write access. Proven against production: an authenticated
+stranger read all 9 profiles (base table correctly returned 0), an
+*unauthenticated* caller read all 9, and a stranger successfully renamed
+another user. Fixed the same day — full write-up and before/after evidence in
+[BUG-004](../BUGS.md). This is exactly what the line item existed for, and it
+would not have been found by reading code alone.
+
+**Verdict: close the phase.** Everything in it is either shipped, superseded,
+or deliberately moved on with a home elsewhere.
 
 ## Added by Josh, 2026-07-16 (recorded for the backlog — flesh-outs below)
 
