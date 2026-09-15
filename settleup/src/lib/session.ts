@@ -90,6 +90,49 @@ export function useSessionState(): SessionState {
   return state;
 }
 
+/**
+ * Make sure the access token is usable before we fire requests with it
+ * (BUG-005).
+ *
+ * supabase-js auto-refreshes on a timer, which is fine while a tab is awake —
+ * but this is an installed PWA. Browsers throttle background timers hard, so
+ * after the phone has been locked for a while the refresh never fires, the
+ * token expires, and the FIRST requests on resume go out already dead. That
+ * surfaced two ways: a raw "JWT expired" error card on the home screen, and
+ * receipt scanning failing with "Not signed in" (the Edge Function validates
+ * the caller's token with auth.getUser()).
+ *
+ * Returns false when the session is genuinely gone and the caller should send
+ * the user to sign in again.
+ */
+export async function ensureFreshSession(): Promise<boolean> {
+  if (!isSupabaseConfigured() || isDemoMode()) return true;
+  const sb = getSupabase();
+  const { data } = await sb.auth.getSession();
+  const session = data.session;
+  if (!session) return false;
+
+  // Refresh a minute early rather than waiting for expiry — a request that
+  // leaves now might still arrive after the token dies.
+  const expiresAt = (session.expires_at ?? 0) * 1000;
+  if (expiresAt - Date.now() > 60_000) return true;
+
+  const { data: refreshed, error } = await sb.auth.refreshSession();
+  return !error && Boolean(refreshed.session);
+}
+
+/** True when an error from PostgREST / an Edge Function is an auth failure. */
+export function isAuthError(e: unknown): boolean {
+  const msg = (e instanceof Error ? e.message : String(e ?? "")).toLowerCase();
+  return (
+    msg.includes("jwt") ||
+    msg.includes("token") ||
+    msg.includes("not signed in") ||
+    msg.includes("unauthorized") ||
+    msg.includes("401")
+  );
+}
+
 export async function signOut(): Promise<void> {
   exitDemoMode();
   if (isSupabaseConfigured()) {

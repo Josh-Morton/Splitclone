@@ -29,9 +29,92 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- All logged bugs are currently fixed.
+- All logged bugs are currently fixed, but see BUG-006 — its cause is inferred, not confirmed from a real error message.
 
 ## Fixed
+
+### ~~BUG-005~~: raw "JWT expired" errors when opening the app
+**Reported:** 2026-08-28 (Josh — "JWT errors a lot of the time when opening the
+app") · **Status:** ✅ Fixed same day · **Severity:** High — the app showed a
+jargon error card instead of working, on a normal open.
+
+**Root cause.** A PWA-specific timing problem, not a logic error.
+`supabase-js` keeps the access token alive on a background timer
+(`autoRefreshToken`). That works while a tab is awake — but Tally is an
+installed PWA, and browsers throttle background timers aggressively. After the
+phone has been locked for a while the refresh never fires, the token (1 hour,
+`jwt_exp = 3600`) expires, and the **first requests on resume go out already
+dead.**
+
+`load()` in `page.tsx` then caught the failure and rendered it verbatim:
+```
+catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+```
+so the backend's "JWT expired" was painted straight onto an error card.
+
+**Ruled out along the way**, each checked rather than assumed:
+- *The Phase 16 `getUser()` → `getSession()` swap.* The obvious suspect, and
+  wrong — both `getUser()` and `getSession()` `await this.initializePromise`
+  in the installed auth-js, so neither races cold start.
+- *The service worker.* Its fetch handler only touches GETs for navigations,
+  brand assets and `/_next/static/`; there is no catch-all, so Supabase calls
+  pass through untouched.
+- *Auth logs.* Empty — free-tier retention — so the actual error string was
+  not recoverable. The mechanism above is established from the code and the
+  project's auth config rather than from a log line.
+
+**Fixed** by making token freshness explicit instead of hoping the timer ran:
+- `ensureFreshSession()` in `src/lib/session.ts` refreshes when the token is
+  within 60s of expiry (early, because a request leaving now can still arrive
+  after expiry), and reports honestly when the session is truly gone.
+- `load()` calls it **before** any request goes out, so the first load after
+  resume already carries a good token. Chosen over retry-after-failure: it
+  avoids a recursive `load()` (which the lint rules correctly rejected) and
+  fixes the cold-open case rather than papering over it.
+- A `visibilitychange` / `focus` listener refreshes on resume — exactly the
+  moment the throttled timer has left the token stale.
+- An auth error now signs out and routes to `/welcome`. **A user should never
+  see the word "JWT".**
+
+**Worth noting for later:** the project has
+`refresh_token_rotation_enabled = true` with
+`security_refresh_token_reuse_interval = 10` (seconds). That is a tight grace
+window — on a flaky mobile connection a retried refresh can reuse a rotated
+token and kill the session. Raising it to ~30s would make this more forgiving.
+**Not changed here**, because it is a production auth-security setting and
+Josh's call to make.
+
+### ~~BUG-006~~: receipt scanning failing
+**Reported:** 2026-08-28 (Josh — no error text given) · **Status:** ✅ A
+concrete cause found and fixed — **but the cause is inferred, not confirmed**
+· **Severity:** Feature unusable.
+
+**What was checked.** The Edge Function is healthy: `scan-receipt` is ACTIVE,
+`GEMINI_API_KEY` and all other secrets are present, and its auth gate behaves
+correctly (no JWT → 401; anon key → `{"error":"Not signed in"}`).
+
+**The cause found.** `scan-receipt` runs with `verify_jwt: true` **and**
+re-validates the caller itself with `auth.getUser()`, returning
+`"Not signed in"` on a bad token. So it is the single most token-sensitive
+thing in the app — and the scan button is often the first thing tapped after
+opening, which by BUG-005 is precisely when the token is stale. The two
+reports are very likely the same underlying fault seen from two angles.
+
+**Fixed** by calling `ensureFreshSession()` before invoking the function, with
+a plain-language message ("Your session expired — please sign in again.")
+instead of a misleading "Couldn't read the receipt" when the real problem is
+authentication.
+
+**Honest caveat.** Without the actual error text this may not be the fault
+Josh hit. If scanning still fails after this, the next suspects, in order:
+1. **`GEMINI_MODEL = "gemini-flash-latest"`** — an alias Google can retire
+   with no code change on our side. Could not be tested from here: the key is
+   a server-side secret and the code path needs a real user JWT.
+2. Image size / base64 payload limits on large photos.
+3. Gemini quota (the function already maps 429 separately).
+**Please report the on-screen message** — the client deliberately surfaces the
+function's own error, so it will name which of these it is.
+
 
 ### ~~BUG-004~~: `profile_public` leaked every profile in the system, to anyone
 **Found:** 2026-08-28, by the Phase 6 security re-audit (not user-reported) ·

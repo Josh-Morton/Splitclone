@@ -40,7 +40,7 @@ import {
   type User,
 } from "@/lib/domain";
 import { postAuthDestination } from "@/lib/routing";
-import { signOut, useSessionState } from "@/lib/session";
+import { ensureFreshSession, isAuthError, signOut, useSessionState } from "@/lib/session";
 
 interface HomeData {
   mode: "demo" | "supabase";
@@ -162,6 +162,14 @@ export default function HomePage() {
         const gid = groups.find((g) => g.id === me?.profile?.defaultGroupId)?.id ?? groupId;
         next = await loadHome(repo, "demo", gid, me!.user, groups, me?.profile?.recentCurrencies ?? []);
       } else if (session.status === "supabase") {
+        // Before any request goes out: make sure the token is actually alive.
+        // A backgrounded PWA has its refresh timer throttled, so on resume it
+        // usually isn't (BUG-005).
+        if (!(await ensureFreshSession())) {
+          await signOut().catch(() => {});
+          router.replace("/welcome");
+          return;
+        }
         const repo = getSupabaseRepo();
         const [me, groups] = await Promise.all([repo.getMe(), repo.listGroups()]);
         if (!me?.user.displayName) {
@@ -181,9 +189,42 @@ export default function HomePage() {
         setViewing((v) => (v ? (next.expenses.find((e) => e.id === v.id) ?? null) : null));
       }
     } catch (e) {
+      // An expired token must never reach the user as a raw "JWT expired"
+      // card (BUG-005). Try once to refresh and reload; if the session is
+      // genuinely gone, send them to sign in rather than showing jargon.
+      // The token was ensured fresh above, so an auth error here means the
+      // session is genuinely gone. Send them to sign in rather than showing
+      // raw "JWT expired" jargon (BUG-005).
+      if (isAuthError(e)) {
+        await signOut().catch(() => {});
+        router.replace("/welcome");
+        return;
+      }
       setError(e instanceof Error ? e.message : String(e));
     }
   }, [session.status, router]);
+
+  // A backgrounded PWA gets its refresh timer throttled, so the token is
+  // usually already stale by the time the user looks at it again. Refresh on
+  // resume, before any data request goes out (BUG-005).
+  useEffect(() => {
+    if (session.status !== "supabase") return;
+    const onResume = () => {
+      if (document.visibilityState !== "visible") return;
+      void ensureFreshSession()
+        .then((ok) => {
+          if (ok) return load();
+          return signOut().then(() => router.replace("/welcome"));
+        })
+        .catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onResume);
+    window.addEventListener("focus", onResume);
+    return () => {
+      document.removeEventListener("visibilitychange", onResume);
+      window.removeEventListener("focus", onResume);
+    };
+  }, [session.status, load, router]);
 
   useEffect(() => {
     if (session.status === "signedout") {

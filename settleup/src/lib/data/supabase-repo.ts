@@ -869,6 +869,15 @@ export class SupabaseRepo implements Repo {
   }
 
   async scanReceipt(imageBase64: string, mimeType: string): Promise<ScanResult> {
+    // The Edge Function validates the caller's token with its own
+    // auth.getUser(), so a stale token comes back as "Not signed in" rather
+    // than anything about the receipt. Refresh first (BUG-005/BUG-006) — the
+    // scan button is often the first thing tapped after opening the app, which
+    // is exactly when a backgrounded PWA's token is expired.
+    const { ensureFreshSession } = await import("../session");
+    if (!(await ensureFreshSession())) {
+      throw new ValidationError("Your session expired — please sign in again.");
+    }
     const { data, error } = await this.sb.functions.invoke("scan-receipt", {
       body: { image_base64: imageBase64, mime_type: mimeType },
     });
