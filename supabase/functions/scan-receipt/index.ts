@@ -11,7 +11,9 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-const GEMINI_MODEL = "gemini-flash-latest";
+// Overridable without a redeploy: if Google retires or renames the alias, set
+// the GEMINI_MODEL secret instead of shipping a new function (BUG-009).
+const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -130,8 +132,17 @@ Deno.serve(async (req: Request) => {
       const body = await geminiRes.text();
       // 429 = daily/rate limit reached
       const status = geminiRes.status === 429 ? 429 : 502;
+      // The upstream reason is echoed in `detail` because the generic message
+      // made every distinct failure (bad model name, expired key, quota)
+      // look identical from the app (BUG-009).
       return json(
-        { error: status === 429 ? "Scan limit reached, try again later" : "Could not read the receipt" , detail: body.slice(0, 300) },
+        {
+          error:
+            status === 429
+              ? "Scan limit reached, try again later"
+              : `Could not read the receipt (scanner error ${geminiRes.status})`,
+          detail: body.slice(0, 300),
+        },
         status
       );
     }

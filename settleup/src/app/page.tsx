@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActivityOverlay } from "@/components/activity-overlay";
 import { AddExpenseSheet } from "@/components/add-expense-sheet";
+import { CollapsingHeader } from "@/components/collapsing-header";
 import { ExpenseDetail } from "@/components/expense-detail";
 import { ExpensesTab } from "@/components/expenses-tab";
 import { ListTab } from "@/components/list-tab";
@@ -37,6 +38,7 @@ import {
   type GroupMember,
   type RecurringExpense,
   type SettleTransaction,
+  type ShoppingItem,
   type User,
 } from "@/lib/domain";
 import { postAuthDestination } from "@/lib/routing";
@@ -59,6 +61,8 @@ interface HomeData {
   /** Phase 14: cached FX rates + this user's recent picks (sticky currency). */
   rates: ExchangeRate[];
   recentCurrencies: string[];
+  /** Active Tally's shopping list, preloaded so the List tab opens instantly. */
+  shoppingItems: ShoppingItem[];
 }
 
 /**
@@ -82,7 +86,7 @@ async function loadHome(
   // recurring snapshots taken in parallel predate the new rows, so those two
   // are re-read below. Same end state, without a blocking round trip on every
   // single load.
-  const [generated, members, expenses0, settlements, recurring0, rates] = await Promise.all([
+  const [generated, members, expenses0, settlements, recurring0, rates, shoppingItems] = await Promise.all([
     repo.processDueRecurring(groupId).catch(() => 0),
     repo.listMembers(groupId),
     repo.listExpenses(groupId),
@@ -91,6 +95,10 @@ async function loadHome(
     // Rides along in the existing batch, and an empty list just means the
     // picker offers Rand only — never a blocked load.
     repo.listExchangeRates().catch(() => []),
+    // Preloaded here so the List tab paints instantly like every other tab
+    // instead of fetching on mount (BUG-008). It keeps its own subscription
+    // and refetches per segment; this only removes the first-open blank.
+    repo.listShoppingItems(groupId).catch(() => []),
   ]);
   const [expenses, recurring] =
     generated > 0
@@ -123,6 +131,7 @@ async function loadHome(
     counterpartyName: other?.profileName || other?.placeholderName || "your partner",
     rates,
     recentCurrencies,
+    shoppingItems,
   };
 }
 
@@ -349,58 +358,55 @@ export default function HomePage() {
     <Screen>
       {tab === "home" && (
         <div key="home" className="tab-in">
-          <header
-            style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}
-          >
-            <button
-              onClick={() => setSheet("spaces")}
-              aria-label="Switch Tally"
-              style={{ background: "none", border: "none", padding: 0, textAlign: "left", cursor: "pointer", color: "var(--ink)" }}
-            >
-              <h1 style={{ fontSize: 25, fontWeight: 800, letterSpacing: "-0.5px" }}>
-                {d.groupName} <span style={{ color: "var(--faint)", fontSize: 16 }}>▾</span>
-              </h1>
-              <p style={{ fontSize: 12.5, color: "var(--muted)" }}>
+          <CollapsingHeader
+            title={d.groupName}
+            onTitleClick={() => setSheet("spaces")}
+            titleLabel="Switch Tally"
+            subtitle={
+              <>
                 {d.members.length} member{d.members.length === 1 ? "" : "s"}
-                {d.groups.length > 1 ? ` · ${d.groups.length} Tallies` : ""}
-                {d.mode === "demo" ? " · demo Tally" : ""}
-              </p>
-            </button>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                onClick={() => setActivityOpen(true)}
-                aria-label="Activity"
-                style={{
-                  background: "var(--s2)",
-                  border: "1px solid var(--line2)",
-                  borderRadius: 999,
-                  color: "var(--muted)",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  padding: "8px 12px",
-                  cursor: "pointer",
-                }}
-              >
-                🔔
-              </button>
-              <button
-                onClick={() => setSheet("settings")}
-                aria-label="Settings"
-                style={{
-                  background: "var(--s2)",
-                  border: "1px solid var(--line2)",
-                  borderRadius: 999,
-                  color: "var(--muted)",
-                  fontSize: 12,
-                  fontWeight: 700,
-                  padding: "8px 14px",
-                  cursor: "pointer",
-                }}
-              >
-                Settings
-              </button>
-            </div>
-          </header>
+                {d.groups.length > 1 ? ` \u00b7 ${d.groups.length} Tallies` : ""}
+                {d.mode === "demo" ? " \u00b7 demo Tally" : ""}
+              </>
+            }
+            right={
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setActivityOpen(true)}
+                  aria-label="Activity"
+                  style={{
+                    background: "var(--s2)",
+                    border: "1px solid var(--line2)",
+                    borderRadius: 999,
+                    color: "var(--muted)",
+                    fontSize: 13,
+                    fontWeight: 700,
+                    padding: "8px 12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  🔔
+                </button>
+                <button
+                  onClick={() => setSheet("settings")}
+                  aria-label="Settings"
+                  style={{
+                    background: "var(--s2)",
+                    border: "1px solid var(--line2)",
+                    borderRadius: 999,
+                    color: "var(--muted)",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: "8px 14px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Settings
+                </button>
+              </div>
+            }
+          />
+          <div style={{ height: 20 }} />
 
           {d.mode === "demo" && (
             <p
@@ -580,6 +586,7 @@ export default function HomePage() {
             repo={d.repo}
             groups={d.groups}
             activeGroupId={d.groupId}
+            initialItems={d.shoppingItems}
             live={d.mode === "supabase"}
           />
         </div>

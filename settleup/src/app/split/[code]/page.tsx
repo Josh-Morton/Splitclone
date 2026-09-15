@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Repo, SplitBill, SplitBillGuest } from "@/lib/data";
 import { fmt } from "@/lib/domain";
@@ -23,7 +24,7 @@ import {
   type GuestIdentity,
 } from "@/lib/splitty";
 import { getDemoRepo, getSupabaseRepo, isSupabaseConfigured } from "@/lib/data";
-import { isDemoMode } from "@/lib/session";
+import { isDemoMode, useSessionState } from "@/lib/session";
 import { Button, Card, ErrorText, Input, Label, Logo, Screen, Spinner } from "@/components/ui";
 
 const TIP_PRESETS = [0, 10, 15, 20];
@@ -31,6 +32,12 @@ const TIP_PRESETS = [0, 10, 15, 20];
 export default function SplitPage() {
   const params = useParams<{ code: string }>();
   const shareCode = decodeURIComponent(params.code ?? "");
+  // This route is intentionally open to guests, but someone who arrived from
+  // their own Tally had no way back out of it (BUG-010). Show an exit only to
+  // people who actually have somewhere to go back TO — a real guest must not
+  // see a link into an app they have no account for.
+  const session = useSessionState();
+  const canGoBack = session.status === "supabase" || session.status === "demo";
 
   const [repo, setRepo] = useState<Repo | null>(null);
   const [bill, setBill] = useState<SplitBill | null | "missing">(null);
@@ -143,6 +150,27 @@ export default function SplitPage() {
 
   return (
     <Screen>
+      {canGoBack && (
+        <Link
+          href="/"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            marginBottom: 12,
+            background: "var(--s2)",
+            border: "1px solid var(--line2)",
+            borderRadius: 999,
+            color: "var(--ink)",
+            fontSize: 13,
+            fontWeight: 700,
+            padding: "7px 14px",
+            textDecoration: "none",
+          }}
+        >
+          ‹ Back to Tally
+        </Link>
+      )}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <Logo size={34} />
         <div>

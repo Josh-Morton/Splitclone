@@ -26,10 +26,21 @@ export function CollapsingHeader({
   title,
   subtitle,
   right,
+  onTitleClick,
+  titleLabel,
 }: {
   title: string;
   subtitle?: ReactNode;
   right?: ReactNode;
+  /**
+   * Makes the title itself a control — Home uses this for the Tally switcher,
+   * which is why Home couldn't use this component before (BUG-011). The ▾ is
+   * added automatically so every collapsing title that acts as a menu looks
+   * the same.
+   */
+  onTitleClick?: () => void;
+  /** Accessible name for the title button; required when onTitleClick is set. */
+  titleLabel?: string;
 }) {
   const [k, setK] = useState(0);
   const ref = useRef<HTMLElement>(null);
@@ -76,7 +87,26 @@ export function CollapsingHeader({
             minWidth: 0,
           }}
         >
-          {title}
+          {onTitleClick ? (
+            <button
+              onClick={onTitleClick}
+              aria-label={titleLabel}
+              style={{
+                background: "none",
+                border: "none",
+                padding: 0,
+                font: "inherit",
+                color: "inherit",
+                letterSpacing: "inherit",
+                textAlign: "left",
+                cursor: "pointer",
+              }}
+            >
+              {title} <span style={{ color: "var(--faint)", fontSize: "0.62em" }}>▾</span>
+            </button>
+          ) : (
+            title
+          )}
         </h1>
         {right}
       </div>

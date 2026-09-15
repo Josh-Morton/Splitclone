@@ -34,6 +34,7 @@ export function ListTab({
   repo,
   groups,
   activeGroupId,
+  initialItems,
   live,
 }: {
   repo: Repo;
@@ -41,10 +42,22 @@ export function ListTab({
   groups: Group[];
   /** The app's active Tally; the segment defaults to (and follows) this. */
   activeGroupId: string;
+  /**
+   * The active Tally's items, already fetched by the home load. Without this
+   * the tab opened blank and fetched on mount, which is why it felt slower
+   * than every other tab (BUG-008).
+   */
+  initialItems: ShoppingItem[];
   /** True when backed by Supabase — enables the realtime subscription. */
   live: boolean;
 }) {
-  const [items, setItems] = useState<ShoppingItem[] | null>(null);
+  // Cached with the Tally the items belong to. The preloaded items are the
+  // ACTIVE Tally's, so if the segment is pointed elsewhere this correctly
+  // reads as "not loaded yet" rather than briefly showing the wrong list.
+  const [cache, setCache] = useState<{ groupId: string; items: ShoppingItem[] }>({
+    groupId: activeGroupId,
+    items: initialItems,
+  });
   const [name, setName] = useState("");
   const [error, setError] = useState("");
   // Which Tally's list is on screen. Local to this tab.
@@ -70,7 +83,8 @@ export function ListTab({
 
   const load = useCallback(async () => {
     try {
-      setItems(await repo.listShoppingItems(groupId));
+      const fetched = await repo.listShoppingItems(groupId);
+      setCache({ groupId, items: fetched });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -96,7 +110,7 @@ export function ListTab({
     apply: (prev: ShoppingItem[]) => ShoppingItem[],
     write: () => Promise<unknown>
   ) {
-    setItems((prev) => (prev ? apply(prev) : prev));
+    setCache((prev) => (prev.groupId === groupIdRef.current ? { ...prev, items: apply(prev.items) } : prev));
     setError("");
     try {
       await write();
@@ -119,7 +133,9 @@ export function ListTab({
     setError("");
     try {
       const created = await repo.addShoppingItem({ groupId: target, name: itemName });
-      setItems((prev) => (prev && created.groupId === groupIdRef.current ? [...prev, created] : prev));
+      setCache((prev) =>
+        created.groupId === prev.groupId ? { ...prev, items: [...prev.items, created] } : prev
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       await load();
@@ -151,6 +167,7 @@ export function ListTab({
     );
   }
 
+  const items = cache.groupId === groupId ? cache.items : null;
   if (!items) return null;
   const toBuy = items.filter((i) => !i.checked);
   const sorted = items.filter((i) => i.checked);

@@ -105,6 +105,8 @@ export function useSessionState(): SessionState {
  * Returns false when the session is genuinely gone and the caller should send
  * the user to sign in again.
  */
+let refreshInFlight: Promise<boolean> | null = null;
+
 export async function ensureFreshSession(): Promise<boolean> {
   if (!isSupabaseConfigured() || isDemoMode()) return true;
   const sb = getSupabase();
@@ -112,13 +114,36 @@ export async function ensureFreshSession(): Promise<boolean> {
   const session = data.session;
   if (!session) return false;
 
-  // Refresh a minute early rather than waiting for expiry — a request that
-  // leaves now might still arrive after the token dies.
-  const expiresAt = (session.expires_at ?? 0) * 1000;
-  if (expiresAt - Date.now() > 60_000) return true;
+  // No expiry on the session means we can't reason about staleness — trust it
+  // rather than force a refresh on every single call (BUG-007). Refreshing
+  // needlessly is what triggers the rotation conflicts below.
+  if (session.expires_at == null) return true;
 
-  const { data: refreshed, error } = await sb.auth.refreshSession();
-  return !error && Boolean(refreshed.session);
+  // Refresh a minute early: a request leaving now can still arrive after the
+  // token dies.
+  const msLeft = session.expires_at * 1000 - Date.now();
+  if (msLeft > 60_000) return true;
+
+  // Single-flight. load(), the resume listener and scanReceipt() can all ask
+  // at once; without this each fires its own refresh, and with refresh-token
+  // rotation (10s reuse window) the later ones present an already-rotated
+  // token and fail — which previously signed the user out mid-action
+  // (BUG-007).
+  if (!refreshInFlight) {
+    refreshInFlight = sb.auth
+      .refreshSession()
+      .then(({ data: r, error }) => !error && Boolean(r.session))
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  const refreshed = await refreshInFlight;
+
+  // A failed refresh is only fatal if the token is ALSO already unusable.
+  // While it still has life left, keep going — a transient refresh failure
+  // must never log someone out mid-switch.
+  return refreshed || msLeft > 0;
 }
 
 /** True when an error from PostgREST / an Edge Function is an auth failure. */

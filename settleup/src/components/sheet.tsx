@@ -23,6 +23,8 @@ import { useRef, useState, type ReactNode } from "react";
 
 const DISMISS_FRACTION = 0.25;
 const FLICK_VELOCITY = 0.5; // px per ms
+/** A flick must actually travel — otherwise a quick tap reads as one. */
+const MIN_FLICK_TRAVEL = 40;
 
 export function Sheet({
   open,
@@ -44,6 +46,10 @@ export function Sheet({
   // mid-drag anyway.
   const start = useRef<{ y: number; t: number; h: number } | null>(null);
   const [dragY, setDragY] = useState(0);
+  // `end()` must not read dragY from its render closure — React may not have
+  // flushed the last touchmove yet, so the distance reads short and
+  // drag-to-dismiss misfires. The ref always holds the live value.
+  const dragYRef = useRef(0);
   const [dragging, setDragging] = useState(false);
 
   if (!open) return null;
@@ -58,15 +64,23 @@ export function Sheet({
   function move(y: number) {
     if (!start.current) return;
     // Downward only — dragging up shouldn't lift the sheet off its anchor.
-    setDragY(Math.max(0, y - start.current.y));
+    const d = Math.max(0, y - start.current.y);
+    dragYRef.current = d;
+    setDragY(d);
   }
 
   function end() {
     const s = start.current;
     if (!s) return;
+    const travelled = dragYRef.current;
     const dt = Math.max(1, Date.now() - s.t);
-    const dismiss = dragY > s.h * DISMISS_FRACTION || dragY / dt > FLICK_VELOCITY;
+    // A flick needs real distance as well as speed, so a brisk tap (a few px
+    // of finger drift in a few ms) can never be mistaken for one.
+    const dismiss =
+      travelled > s.h * DISMISS_FRACTION ||
+      (travelled > MIN_FLICK_TRAVEL && travelled / dt > FLICK_VELOCITY);
     start.current = null;
+    dragYRef.current = 0;
     setDragging(false);
     setDragY(0); // springs back via the transition below when not dismissing
     if (dismiss) onClose();

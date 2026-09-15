@@ -29,7 +29,123 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- All logged bugs are currently fixed, but see BUG-006 — its cause is inferred, not confirmed from a real error message.
+- BUG-007…011 are **scoped and in progress** (2026-08-28).
+
+## Fixed — 2026-08-28 (BUG-007 … BUG-011)
+
+Five issues reported by Josh after Phase 11 reached production. Scoped first,
+then fixed off that scope. Each entry below says plainly what was **confirmed**
+versus **suspected**, and how the fix was verified.
+
+**Outcome summary**
+
+| Bug | Fix | Verified |
+|---|---|---|
+| BUG-007 can't switch Tallies | Single-flight refresh; a failed refresh is no longer fatal while the token still has life; a session with no `expires_at` is trusted instead of refreshed every call | 3 consecutive switches in the browser, all correct |
+| BUG-008 List tab slow | Its items now ride along in `loadHome()`'s existing parallel batch; the tab starts with them instead of fetching on mount | Segment switching proven not to show the wrong Tally's list |
+| BUG-009 Splitty photo | Same `ensureFreshSession()` regression as BUG-007 — `scanReceipt()` calls it, so a concurrent refresh surfaced as "Your session expired". Edge function now reports the real upstream failure and takes a `GEMINI_MODEL` override | Function confirmed deployed and its auth gate working; the Gemini leg still needs one real attempt to close out |
+| BUG-010 can't leave Splitty | "‹ Back to Tally" on `/split/<code>`, shown only to signed-in/demo users | Link present, returns to Home; guests unaffected |
+| BUG-011 Home header doesn't collapse | Home now uses the same `CollapsingHeader` as every other tab; the component gained an optional title-button so it could carry the Tally switcher | Home header confirmed sticky + blurred and the title still opens the switcher |
+
+Also fixed in passing: `Sheet.end()` read the drag distance from a stale render
+closure, so drag-to-dismiss misfired; it now reads a ref, and a flick needs
+real travel (40px) so a brisk tap can't be mistaken for one.
+
+### A note on what could not be measured here
+
+The collapse animation and the List tab's paint latency could not be timed in
+the dev browser: while the preview pane is hidden the page isn't rendered, so
+scroll events never fire and `setTimeout` is throttled to ~1s. A control test
+on the **Expenses** header — the one Josh confirms works in production —
+measured exactly as flat as Home's, which is what established the reading as an
+artifact rather than a regression. Home's fix is therefore verified
+structurally (it renders the same component, with the same props, as the tabs
+that work) rather than by observing the animation.
+
+### BUG-007: can't switch between Tallies — *a regression I introduced*
+**Severity:** High — core navigation. **Effort:** S · **Credits:** ~4–9
+
+**Not reproducible in the demo**, because `MemoryRepo` short-circuits the
+session check. The cause is in this session's own BUG-005 fix,
+`ensureFreshSession()`, which has three faults:
+
+1. **No single-flight guard.** `load()`, the resume listener and
+   `scanReceipt()` can each call it concurrently. Every caller fires its own
+   `refreshSession()`. With `refresh_token_rotation_enabled` and a **10-second**
+   reuse window, the second concurrent refresh presents an already-rotated
+   token, fails, and returns `false`.
+2. **A failed refresh is treated as fatal.** `load()` responds to `false` by
+   signing the user out and redirecting to `/welcome` — even when the current
+   token is still valid for another 55 seconds.
+3. **A missing `expires_at` forces a refresh on every call** —
+   `(undefined ?? 0) * 1000 = 0`, so the "is it still fresh?" test is always
+   false.
+
+Switching a Tally calls `load()`. Doing that shortly after opening the app —
+when the resume listener has also fired — is exactly the concurrent case.
+
+**Fix:** single-flight the refresh behind a shared promise; only report failure
+when the session is genuinely unusable (treat "still valid for >60s" as
+success regardless of refresh outcome); handle a missing `expires_at` by
+trusting the session rather than force-refreshing.
+
+### BUG-008: the List tab is noticeably slower than every other tab
+**Severity:** Medium — UX. **Effort:** S · **Credits:** ~4–8 · **Confirmed by code.**
+
+Every other tab renders from data `page.tsx` already loaded. **List is the only
+tab that fetches its own data on mount** (`repo.listShoppingItems`), so opening
+it costs a fresh round trip while the others are instant.
+
+**Fix:** load the active Tally's shopping items in the existing parallel batch
+in `loadHome()` (same trick as the FX rates in Phase 14 — it rides along, so no
+extra round trip) and seed `ListTab` from it. Other segments still fetch on
+demand, which is correct: they're the uncommon case.
+
+### BUG-009: Splitty photo / receipt capture broken
+**Severity:** High — feature unusable. **Effort:** S–M · **Credits:** ~5–15
+(uncertain — see below)
+
+Splitty's capture goes through the same `ReceiptScanSheet` → `repo.scanReceipt`
+→ Edge Function path as BUG-006, which was fixed hours ago. **If it is still
+broken, the token was not the cause** and the next suspect is
+`GEMINI_MODEL = "gemini-flash-latest"` — an alias Google can retire with no
+change on our side.
+
+**Cannot be tested from here**: the key is a server-side secret and the code
+path needs a real user JWT. **Needs the on-screen error text**, which the
+client deliberately surfaces from the function. Estimate is wide because the
+cause is unconfirmed.
+
+### BUG-010: no way out of Splitty once a bill is open
+**Severity:** Medium — users get stranded. **Effort:** XS · **Credits:** ~2–5
+· **Confirmed by code.**
+
+Opening a bill does `router.push('/split/<code>')` — a **separate route** from
+the tab shell, with no tab bar. That page was built for guests (people with no
+account), so it never needed a way "back". A signed-in user who opens their own
+bill has no exit.
+
+**Fix:** a "Back to Tally" control top-left on `/split/[code]`, shown **only to
+signed-in users** — a guest has no Tally to go back to, and showing it to them
+would be a dead end.
+
+### BUG-011: the collapsing header doesn't work on Home
+**Severity:** Low — cosmetic inconsistency. **Effort:** XS · **Credits:** ~2–5
+· **Confirmed by code.**
+
+Phase 11 wired `CollapsingHeader` into Expenses, List and Reports but **not
+Home**, which still renders its own plain `<header>`. Exactly as reported.
+
+**Fix:** use the shared component on Home too. Home's header carries more than
+the others (Tally name + chevron, notification bell, Settings), so those move
+into its `right` slot rather than being dropped.
+
+### Also found while investigating — not reported
+`Sheet`'s `end()` reads `dragY` from its render closure, which React's batching
+may not have flushed by the time `touchend` fires. Measured: an 18px drag in
+~25ms was still evaluated against a stale, smaller value. Drag-to-dismiss
+therefore under-reads distance and is unreliable. Folded into BUG-007's fix
+since it is the same component family and the same kind of mistake.
 
 ## Fixed
 
