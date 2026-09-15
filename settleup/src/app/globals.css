@@ -185,6 +185,17 @@ input::placeholder {
   }
 }
 
+/* The sheet's entry animation lives in a class, NOT in an inline style.
+   It used to be applied inline and toggled off/on by the drag state, which
+   meant every touchstart/touchend pair RE-APPLIED it — restarting the slide
+   from translateY(100%). The panel jumped off-screen on every tap, so the
+   click landed on the scrim and dismissed the sheet instead of pressing the
+   button under the finger (BUG-012). A class applied once at mount cannot
+   restart, because nothing ever toggles it. */
+.sheet-panel {
+  animation: sheetUp var(--d-med) var(--ease-sheet);
+}
+
 @keyframes sheetUp {
   from {
     transform: translateY(100%);

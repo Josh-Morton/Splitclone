@@ -51,20 +51,35 @@ export function Sheet({
   // drag-to-dismiss misfires. The ref always holds the live value.
   const dragYRef = useRef(0);
   const [dragging, setDragging] = useState(false);
+  const draggingRef = useRef(false);
 
   if (!open) return null;
 
-  function begin(y: number, fromBody: boolean) {
+  function begin(y: number, fromBody: boolean, target: EventTarget | null) {
     // A tall sheet scrolls; only take over the gesture at the very top.
     if (fromBody && (bodyRef.current?.scrollTop ?? 0) > 0) return;
+    // Never hijack a touch that landed on a control. A tap on a button must
+    // stay a tap — the gesture machinery re-rendering mid-press is what let
+    // the click slip off its target (BUG-012).
+    if (
+      target instanceof Element &&
+      target.closest('button, a, input, textarea, select, label, [role="button"]')
+    ) {
+      return;
+    }
     start.current = { y, t: Date.now(), h: panelRef.current?.offsetHeight ?? 1 };
-    setDragging(true);
+    // Deliberately NOT setting `dragging` here: a plain tap must cause no
+    // state change at all. It flips on the first actual movement instead.
   }
 
   function move(y: number) {
     if (!start.current) return;
     // Downward only — dragging up shouldn't lift the sheet off its anchor.
     const d = Math.max(0, y - start.current.y);
+    if (d > 0 && !draggingRef.current) {
+      draggingRef.current = true;
+      setDragging(true);
+    }
     dragYRef.current = d;
     setDragY(d);
   }
@@ -81,6 +96,7 @@ export function Sheet({
       (travelled > MIN_FLICK_TRAVEL && travelled / dt > FLICK_VELOCITY);
     start.current = null;
     dragYRef.current = 0;
+    draggingRef.current = false;
     setDragging(false);
     setDragY(0); // springs back via the transition below when not dismissing
     if (dismiss) onClose();
@@ -107,10 +123,12 @@ export function Sheet({
     >
       <div
         ref={panelRef}
+        className="sheet-panel"
         onClick={(e) => e.stopPropagation()}
-        onTouchStart={(e) => begin(e.touches[0].clientY, false)}
+        onTouchStart={(e) => begin(e.touches[0].clientY, false, e.target)}
         onTouchMove={(e) => move(e.touches[0].clientY)}
         onTouchEnd={end}
+        onTouchCancel={end}
         style={{
           width: "100%",
           maxWidth: 430,
@@ -124,8 +142,10 @@ export function Sheet({
           padding: "10px 18px calc(env(safe-area-inset-bottom) + 22px)",
           transform: `translateY(${dragY}px)`,
           transition: dragging ? "none" : "transform var(--d-med) var(--ease-sheet)",
-          animation: dragY === 0 && !dragging ? "sheetUp var(--d-med) var(--ease-sheet)" : undefined,
-          touchAction: "none",
+          // No `animation` here — it lives in .sheet-panel so that re-renders
+          // can't restart it (BUG-012). No `touchAction: none` either: as an
+          // ancestor it overrode the body's `pan-y`, which left tall sheets
+          // unscrollable on touch and put their lower controls out of reach.
         }}
       >
         <div
@@ -168,7 +188,7 @@ export function Sheet({
             the top, so the two gestures never fight. */}
         <div
           ref={bodyRef}
-          onTouchStart={(e) => begin(e.touches[0].clientY, true)}
+          onTouchStart={(e) => begin(e.touches[0].clientY, true, e.target)}
           style={{ overflowY: "auto", flex: 1, minHeight: 0, touchAction: "pan-y" }}
         >
           {children}

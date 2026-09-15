@@ -14,11 +14,17 @@
  *   padding    tightens
  *   hairline   fades in past k > 0.5
  *
- * Scroll is read from the nearest scrollable ancestor, falling back to the
- * window, so it works whether a tab scrolls the page or its own container.
+ * Scroll is read from the window.
+ *
+ * PERFORMANCE (BUG-013): `k` is deliberately NOT React state. This header is
+ * on every screen, and storing `k` in state re-rendered it — and the whole
+ * `right` subtree — on every scroll event, while a backdrop-filter blur
+ * repainted underneath. That was the app-wide scroll jank. Now the scroll
+ * listener is rAF-throttled and writes the handful of changed properties
+ * straight to the DOM, so scrolling costs no React work at all.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 const RANGE = 44;
 
@@ -42,23 +48,45 @@ export function CollapsingHeader({
   /** Accessible name for the title button; required when onTitleClick is set. */
   titleLabel?: string;
 }) {
-  const [k, setK] = useState(0);
   const ref = useRef<HTMLElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const subRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // The app scrolls the window (Screen is a plain <main>), but guard for a
-    // scrollable ancestor so this stays correct if that ever changes.
-    const scroller: HTMLElement | Window = window;
-    const read = () => {
-      const top = window.scrollY || document.documentElement.scrollTop || 0;
-      setK(Math.min(1, Math.max(0, top / RANGE)));
-    };
-    read();
-    scroller.addEventListener("scroll", read, { passive: true });
-    return () => scroller.removeEventListener("scroll", read);
-  }, []);
+    const header = ref.current;
+    if (!header) return;
+    let frame = 0;
+    let last = -1;
 
-  const lerp = (a: number, b: number) => a + (b - a) * k;
+    const paint = () => {
+      frame = 0;
+      const top = window.scrollY || document.documentElement.scrollTop || 0;
+      const k = Math.min(1, Math.max(0, top / RANGE));
+      // Sub-pixel changes aren't visible but still cost a style recalc.
+      if (Math.abs(k - last) < 0.01) return;
+      last = k;
+      const lerp = (a: number, b: number) => a + (b - a) * k;
+      header.style.padding = `${lerp(10, 5)}px 18px ${lerp(12, 6)}px`;
+      header.style.borderBottomColor = k > 0.5 ? "var(--line)" : "transparent";
+      if (titleRef.current) titleRef.current.style.fontSize = `${lerp(26, 18)}px`;
+      if (subRef.current) {
+        subRef.current.style.opacity = String(1 - k);
+        subRef.current.style.maxHeight = `${lerp(20, 0)}px`;
+      }
+    };
+
+    const onScroll = () => {
+      // Coalesce a burst of scroll events into one write per frame.
+      if (!frame) frame = requestAnimationFrame(paint);
+    };
+
+    paint();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
 
   return (
     <header
@@ -71,15 +99,17 @@ export function CollapsingHeader({
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         margin: "0 -18px",
-        padding: `${lerp(10, 5)}px 18px ${lerp(12, 6)}px`,
-        borderBottom: `1px solid ${k > 0.5 ? "var(--line)" : "transparent"}`,
+        // Resting (k = 0) values; the effect above owns these once scrolled.
+        padding: "10px 18px 12px",
+        borderBottom: "1px solid transparent",
         transition: "border-color var(--d-fast) linear",
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h1
+          ref={titleRef}
           style={{
-            fontSize: lerp(26, 18),
+            fontSize: 26,
             fontWeight: "var(--w-black)" as unknown as number,
             letterSpacing: "-0.8px",
             lineHeight: 1.15,
@@ -112,11 +142,12 @@ export function CollapsingHeader({
       </div>
       {subtitle && (
         <div
+          ref={subRef}
           style={{
             fontSize: "var(--t-meta)",
             color: "var(--muted)",
-            opacity: 1 - k,
-            maxHeight: lerp(20, 0),
+            opacity: 1,
+            maxHeight: 20,
             overflow: "hidden",
             transition: "opacity var(--d-fast) linear, max-height var(--d-fast) linear",
           }}

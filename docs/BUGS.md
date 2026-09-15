@@ -31,6 +31,88 @@ work as intended**.
   rather than quoting a number as if it were.
 - BUG-007…011 are **scoped and in progress** (2026-08-28).
 
+## Fixed — 2026-08-28 (BUG-012, BUG-013) — the actual cause of the "can't switch Tallies" report
+
+**These two supersede my diagnosis of [BUG-007]. That diagnosis was wrong.**
+I attributed the switching failure to `ensureFreshSession()`. A screen
+recording from Josh disproved it: had the session check failed, he would have
+been signed out to `/welcome`. Instead the sheet closed cleanly and he stayed
+on the same Tally, with **no toast** — which no session fault can produce.
+
+### BUG-012 — every tap inside a bottom sheet dismissed it instead of pressing
+
+**Confirmed, with the mechanism observed directly in the DOM.**
+
+`Sheet` applied its entry animation as an *inline style*, gated on drag state:
+
+```
+animation: dragY === 0 && !dragging ? "sheetUp ..." : undefined
+```
+
+`dragging` flipped to `true` on every `touchstart` and back to `false` on
+`touchend`, so the animation was **removed and then re-applied on every tap**.
+Re-applying a CSS animation restarts it from its `from` state —
+`translateY(100%)`, a full panel-height below the resting position. So on
+touchend the panel dropped off-screen and slid back up over ~240ms, and the
+click the browser synthesises straight after touchend landed on the **scrim**,
+whose handler is `onClose`.
+
+Result: tapping a Tally closed the switcher instead of switching. Tapping the
+camera button in Add-expense closed that sheet instead of opening the picker.
+Every sheet control in the app was affected — this is also the true cause of
+the "can't add photos" report, not the Gemini key and not the session.
+
+Observed before the fix, by dispatching real touch events:
+
+| point | inline `animation` |
+|---|---|
+| at rest | `sheetUp var(--d-med) var(--ease-sheet)` |
+| after `touchstart` | *(none)* |
+| after `touchend` | `sheetUp var(--d-med) var(--ease-sheet)` ← restarted |
+
+**Why the earlier verification missed it.** I tested sheets with
+`element.click()`, which dispatches straight at the element and bypasses
+hit-testing. It cannot observe a click landing on the wrong element. Sheet
+interactions must be exercised with real touch events, or the whole class of
+bug is invisible.
+
+**Fix.** The entry animation moved to a `.sheet-panel` CSS class applied once
+at mount, so no re-render can restart it. Additionally: a touch starting on a
+control no longer begins a drag at all, and `dragging` now flips on first
+actual movement rather than on touchstart — so a plain tap causes no state
+change whatsoever.
+
+**Also fixed here:** the panel carried `touch-action: none`, which as an
+ancestor overrode the body's `pan-y` and left tall sheets unscrollable by
+touch, putting their lower controls out of reach. Panel is now `auto`.
+
+### BUG-013 — scroll jank on every screen
+
+**Confirmed by inspection.** `CollapsingHeader` is on Home, Expenses, List and
+Reports, and it stored the scroll ratio in React state — so every scroll event
+re-rendered the header and its whole `right` subtree, while a
+`backdrop-filter: blur(12px)` repainted underneath. Scroll events fire far
+faster than frames.
+
+**Fix.** The ratio is no longer React state. The listener is rAF-throttled
+(coalescing a burst of events into one write per frame), skips sub-1% changes,
+and writes the four changed properties straight to the DOM. Scrolling now costs
+zero React work. The visual result is unchanged.
+
+**Still a candidate if jank persists:** two stacked `backdrop-filter` blurs
+(this header and the tab bar) are expensive on mid-range Android. That is the
+next lever, but it is a visible design change so it is not being made unasked.
+
+### Verification limits, stated plainly
+
+The dev preview pane is hidden in this environment, so the page does not
+render: scroll events never fire, rAF never ticks, animations never advance and
+timers throttle to ~1s. What was verified here: the animation is no longer
+toggled across a real touchstart/touchend pair; the sheet stays open across
+one; at click time the element under the finger is the correct button; and
+panel `touch-action` is now `auto` over a `pan-y` body. What could **not** be
+verified here is the end-to-end feel on a device — that needs Josh.
+
 ## Fixed — 2026-08-28 (BUG-007 … BUG-011)
 
 Five issues reported by Josh after Phase 11 reached production. Scoped first,
@@ -41,9 +123,9 @@ versus **suspected**, and how the fix was verified.
 
 | Bug | Fix | Verified |
 |---|---|---|
-| BUG-007 can't switch Tallies | Single-flight refresh; a failed refresh is no longer fatal while the token still has life; a session with no `expires_at` is trusted instead of refreshed every call | 3 consecutive switches in the browser, all correct |
+| BUG-007 can't switch Tallies | **Diagnosis superseded by BUG-012 — this was not the cause.** The change is still correct hardening: single-flight refresh; a failed refresh is no longer fatal while the token still has life; a session with no `expires_at` is trusted instead of refreshed every call | 3 consecutive switches in the browser, all correct |
 | BUG-008 List tab slow | Its items now ride along in `loadHome()`'s existing parallel batch; the tab starts with them instead of fetching on mount | Segment switching proven not to show the wrong Tally's list |
-| BUG-009 Splitty photo | Same `ensureFreshSession()` regression as BUG-007 — `scanReceipt()` calls it, so a concurrent refresh surfaced as "Your session expired". Edge function now reports the real upstream failure and takes a `GEMINI_MODEL` override | Function confirmed deployed and its auth gate working; the Gemini leg still needs one real attempt to close out |
+| BUG-009 Splitty photo | **Superseded by BUG-012** (sheet taps never reached the button). Retained anyway: the `ensureFreshSession()` hardening — `scanReceipt()` calls it, so a concurrent refresh surfaced as "Your session expired". Edge function now reports the real upstream failure and takes a `GEMINI_MODEL` override | Function confirmed deployed and its auth gate working; the Gemini leg still needs one real attempt to close out |
 | BUG-010 can't leave Splitty | "‹ Back to Tally" on `/split/<code>`, shown only to signed-in/demo users | Link present, returns to Home; guests unaffected |
 | BUG-011 Home header doesn't collapse | Home now uses the same `CollapsingHeader` as every other tab; the component gained an optional title-button so it could carry the Tally switcher | Home header confirmed sticky + blurred and the title still opens the switcher |
 
