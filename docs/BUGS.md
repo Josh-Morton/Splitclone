@@ -29,9 +29,15 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- BUG-014…017 are **open** (2026-10-20); BUG-001…013 are fixed.
+- All logged bugs (BUG-001…017) are fixed. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
 
-## Open — scoped 2026-10-20 (BUG-014 … BUG-017)
+## Fixed — 2026-10-20 (BUG-014 … BUG-017)
+
+**All four are live in production** — web fixes in `569dbb3` (Vercel reported
+the deployment complete; strings unique to the fix confirmed in the served
+bundles), and the `scan-receipt` edge function redeployed as **version 4**
+(it had still been version 3 from July — neither the 2026-08-28 nor this fix
+had ever reached production until now).
 
 Reported by Josh: users are signed out every time they reopen the app; the
 "Google integration" (Gemini) is failing in both receipt scanning and Splitty;
@@ -40,16 +46,16 @@ and Splitty has a UI problem. Audited below — each says plainly what was
 
 | Bug | Severity | Effort | Credits |
 |---|---|---|---|
-| BUG-014 signed out on reopen, session destroyed globally | **Critical** | S | ~5–12 |
-| BUG-015 sign-up after magic-link dead-ends | High | S | ~4–10 |
-| BUG-016 Gemini model pinned to a moving alias | High | S | ~4–10 |
-| BUG-017 Splitty UI inconsistent with every other tab | Medium | XS | ~2–6 |
+| ~~BUG-014 signed out on reopen, session destroyed globally~~ ✅ `569dbb3` | **Critical** | S | ~5–12 |
+| ~~BUG-015 sign-up after magic-link dead-ends~~ ✅ `569dbb3` | High | S | ~4–10 |
+| ~~BUG-016 Gemini model pinned to a moving alias~~ ✅ `569dbb3 + fn v4` | High | S | ~4–10 |
+| ~~BUG-017 Splitty UI inconsistent with every other tab~~ ✅ `569dbb3` | Medium | XS | ~2–6 |
 
 ---
 
-### BUG-014 — signed out on every reopen, and the session is revoked on *all* devices
+### BUG-014 — ~~signed out on every reopen, and the session is revoked on *all* devices~~ ✅ fixed
 
-**Status:** open · **Reported:** 2026-10-20 · **Severity: critical** ·
+**Status:** ✅ fixed & live 2026-10-20 · **Reported:** 2026-10-20 · **Severity: critical** ·
 **Effort:** S · **Credits:** ~5–12
 
 **Confirmed by code reading and by inspecting `@supabase/auth-js` 2.110.0.**
@@ -94,9 +100,9 @@ storage if the session is genuinely dead, so at most use `scope: 'local'`.
 
 ---
 
-### BUG-015 — signing up with an email that previously used a magic link dead-ends
+### BUG-015 — ~~signing up with an email that previously used a magic link dead-ends~~ ✅ fixed
 
-**Status:** open · **Reported:** 2026-10-20 · **Severity: high** ·
+**Status:** ✅ fixed & live 2026-10-20 · **Reported:** 2026-10-20 · **Severity: high** ·
 **Effort:** S · **Credits:** ~4–10
 
 **Confirmed.** The live project has `mailer_autoconfirm: true` (read from
@@ -125,9 +131,9 @@ of a raw backend string.
 
 ---
 
-### BUG-016 — Gemini is pinned to a floating alias Google has repointed
+### BUG-016 — ~~Gemini is pinned to a floating alias Google has repointed~~ ✅ fixed
 
-**Status:** open · **Reported:** 2026-10-20 · **Severity: high** ·
+**Status:** ✅ fixed & live 2026-10-20 · **Reported:** 2026-10-20 · **Severity: high** ·
 **Effort:** S · **Credits:** ~4–10
 
 `supabase/functions/scan-receipt/index.ts` requests
@@ -160,13 +166,22 @@ possible from the app.
 **Fix:** stop depending on a moving alias — pin a stable model, fall back to a
 second model on a 404/400 so a single retirement cannot take the feature down,
 keep the `GEMINI_MODEL` secret override for a no-redeploy change, and surface
-the real upstream status. **Requires Josh to deploy the function.**
+the real upstream status.
+
+**Deployed** 2026-10-20 as `scan-receipt` version 4 (`--use-api`, JWT
+verification unchanged). Confirmed: it boots, and still refuses a non-user
+with 401. **Not yet confirmed:** a real scan end-to-end. Doing that needs a
+signed-in user's token, and neither creating a test account on production nor
+a temporary diagnostic function was appropriate, so the first real scan is the
+test. If it still fails, the app now shows `scanner error <status>` and the
+response names the model that was tried, so the cause is readable from the
+phone rather than guessed.
 
 ---
 
-### BUG-017 — Splitty is the only tab with a different header, and the back link spans the screen
+### BUG-017 — ~~Splitty is the only tab with a different header, and the back link spans the screen~~ ✅ fixed
 
-**Status:** open · **Reported:** 2026-10-20 · **Severity: medium** ·
+**Status:** ✅ fixed & live 2026-10-20 · **Reported:** 2026-10-20 · **Severity: medium** ·
 **Effort:** XS · **Credits:** ~2–6
 
 **Confirmed by measuring all five tabs in the browser:**

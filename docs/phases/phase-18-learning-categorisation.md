@@ -1,6 +1,16 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 18 — Learning categorisation engine 🟡 §1 BUILT (2026-10-20) · §2–§5 SPEC ONLY
+# Phase 18 — Learning categorisation engine 🟡 §1 LIVE (2026-10-20) · §2–§5 SPEC ONLY
+
+> **§1 release check (2026-10-20, shipped in `9f366c2`).** Before release it
+> was verified against production: no subcategory slug removed (six added);
+> `expense.category` / `recurring_expense.category` are plain `text` with no
+> CHECK constraint and no function or trigger validates the value, so the new
+> slugs save; all 19 distinct category values across the 130 stored rows still
+> resolve to a labelled category; the public API is additive and
+> `autoCategory`'s signature is unchanged; all 62 categories have a vendored
+> icon. Existing expenses are untouched — §1 only changes how *new*
+> descriptions are auto-filed. Re-filing old ones is §5 (backfill), not built.
 
 > **Effort:** XL · **Credits:** ~55–100 — a new engine, a new cross-tenant
 > table with consensus logic, an ambiguity UI, report changes and a
