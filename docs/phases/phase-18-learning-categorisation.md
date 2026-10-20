@@ -1,6 +1,6 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 18 — Learning categorisation engine 📝 SPEC ONLY — NOT BUILT (2026-08-28)
+# Phase 18 — Learning categorisation engine 🟡 §1 BUILT (2026-10-20) · §2–§5 SPEC ONLY
 
 > **Effort:** XL · **Credits:** ~55–100 — a new engine, a new cross-tenant
 > table with consensus logic, an ambiguity UI, report changes and a
@@ -15,6 +15,54 @@
 > [`docs/reference/categoryMatrix-2026-08-27.ts`](../reference/categoryMatrix-2026-08-27.ts)
 > — Josh's rewritten engine, vendored so it can't be lost. Its public API is
 > identical to the current `category.ts`, so it drops in.
+
+## Status (2026-10-20)
+
+**§1 (engine swap) and build-order steps 1 and 10 are done.** `category.ts`
+now runs the scoring engine, the library grew from 439 to 2 339 entries, and
+[`CATEGORY-MATRIX.md`](../CATEGORY-MATRIX.md) has been regenerated with a
+full requirements audit. §2–§5 (learning, the ambiguity UI, report filters,
+backfill) are still spec only. Remaining estimate: **Effort:** L ·
+**Credits:** ~35–70.
+
+**Where the build deviates from the vendored reference**, each change driven
+by a failing case:
+
+- **Four vocabulary tiers per subcategory** (`brands` / `keywords` / `weak` /
+  `retailers`) replace the global `STRONG_BRANDS` / `RETAILER_BRANDS` sets, so
+  a brand can't be listed in one place and forgotten in the other. The new
+  `weak` tier (0.75) exists for ambiguous words: `dinner`, `bar`, `ticket`,
+  `prepaid`, `subscription`.
+- **Typo tolerance only for brands/retailers (≥6 letters) and keywords
+  (≥7)**, never for weak words. The reference fuzzed every word of 5+
+  letters, contradicting its own doc comment, and read "team" as "steam".
+- **Separator-free matching respects word boundaries.** The reference matched
+  the squashed text as a raw substring, so "laptop update" spelled *top up*
+  and "drinking games" spelled *in-game*.
+- **A word the library knows exactly is never re-read** as another keyword's
+  plural, prefix or typo ("bolts" is hardware, not Bolt; "electrician" is not
+  "electric").
+- **Phrases claim their words.** Each token is credited once per subcategory
+  at its strongest reading, so `car insurance` scores 3, not 3 + 1.
+- **`scoreCategory` also returns `candidates`** (top three), which §3 needs.
+- **Bare "coffee" stays Groceries.** The reference sent it to Café, which
+  would have broken the existing test.
+- **Taxonomy:** six subcategories were added under existing parents (clothing,
+  personal care, electronics, online shopping, tax/legal/admin, loans & credit),
+  despite this file's "no taxonomy change" non-goal. That spend was falling into
+  *Other*, which is exactly the problem this phase targets. Parents, colours and
+  glyphs are unchanged. Recorded in [ADR-0011](../decisions/0011-two-level-categories.md).
+- **The legacy `other_insurance` alias is hidden from the picker**, which
+  used to show two "Insurance" chips under Bills.
+
+Tests: `category.test.ts` (including the six §1 regressions below) and
+`category-corpus.test.ts` (a ~300-case golden corpus of real-world SA
+descriptions, plus library-integrity checks: no word listed twice, and every
+brand and keyword typed alone files under its own subcategory).
+
+User-added assignments (an explicit rule editor, which reverses this phase's
+"no user-facing rule editor" non-goal) are specced separately in
+[Phase 19](phase-19-category-assignments.md).
 
 ## Why this is worth doing
 
@@ -205,7 +253,7 @@ deliberate choice from a matcher guess (ADR-0019).
 
 ## Build order
 
-1. Swap the engine + tests (self-contained, shippable alone; §1).
+1. ✅ Swap the engine + tests (self-contained, shippable alone; §1). *Done 2026-10-20.*
 2. Migration: two tables, RLS, `category_source`, and the
    `record_category_correction` RPC.
 3. Term extraction + correction recording on every manual override.
@@ -215,7 +263,7 @@ deliberate choice from a matcher guess (ADR-0019).
 7. Report subcategory filtering.
 8. Backfill script — dry run, diff, then apply.
 9. Update the privacy-policy backlog item to name the global rule table.
-10. **Regenerate [`docs/CATEGORY-MATRIX.md`](../CATEGORY-MATRIX.md).** That
+10. ✅ **Regenerate [`docs/CATEGORY-MATRIX.md`](../CATEGORY-MATRIX.md).** *Done 2026-10-20.* That
     readable snapshot currently documents the OLD engine — it states that
     `autoCategory` "walks the subcategory registry **in the order below** and
     returns the first subcategory with a keyword hit", and that order is

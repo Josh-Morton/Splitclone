@@ -46,6 +46,22 @@ taxonomy trimmed 600+ categories down to a practical two levels.
   (phrases/punctuated keywords still substring-match; plain words match whole
   tokens, or a ≥4-char prefix for plurals like "apple"→"apples").
 
+## Revision (2026-10-20, Phase 18 §1)
+- **Matcher replaced by a scorer** (ADR-0019): order-sensitivity above is
+  superseded. Registry order is now only a tie-breaker.
+- **Six subcategories added under existing parents**, because the audit found
+  common spend with nowhere to go but *Other*: `bills_debt` (Loans & credit),
+  `other_clothing` (Clothing & shoes), `other_personal` (Hair & personal care),
+  `other_tech` (Electronics & tech), `other_shopping` (Online & general
+  shopping), `other_admin` (Tax, legal & admin). Two labels widened:
+  `transport_parking` → *Parking, tolls & fines*, `household_furniture` →
+  *Furniture, décor & appliances*. Parents, colours, glyphs and every
+  existing slug's meaning are unchanged, so still no migration.
+- **Legacy aliases flagged** (`legacy: true`) and hidden from the picker;
+  `other_insurance` had been showing a second "Insurance" chip under Bills.
+- The library now has four tiers (brands / keywords / weak / retailers). See
+  [`docs/CATEGORY-MATRIX.md`](../CATEGORY-MATRIX.md).
+
 ## Consequences
 - Faster, more accurate everyday categorisation with a two-tap correction path.
 - Adding/renaming a subcategory is a one-line change in the registry; parent

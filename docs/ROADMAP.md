@@ -35,7 +35,7 @@
 >   Shipped work doesn't need one — the estimate exists to price the decision
 >   *before* committing to it. Scale + calibration: [Estimating scale](#estimating-scale).
 
-**Last updated:** 2026-08-28 (Phase 6 closed — its security re-audit found and fixed a critical profile_public data leak, BUG-004)
+**Last updated:** 2026-10-20 (Phase 18 §1 built: scoring category engine + 2 339-entry library; Phase 19 user category assignments specced)
 
 ## Where we are
 
@@ -76,7 +76,8 @@ features people actually asked for before offline-first).
 | [15 — Fix Tally navigation](phases/phase-15-tally-navigation-fix.md) | ✅ Shipped (2026-07-30) | — | — | Bug fix: header should switch Tallies, Settings should manage them — Phase 12 built it backwards ([BUG-001](BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage)) |
 | [16 — Performance: cut the reload chain](phases/phase-16-performance.md) | ✅ Shipped (2026-07-31) | — | — | ~1000ms delays switching Tallies/saving/logging in — every action reloads the whole home screen sequentially, with several calls duplicated |
 | [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | ✅ Shipped (2026-08-04) | — | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
-| [18 — Learning categorisation engine](phases/phase-18-learning-categorisation.md) | 📝 Spec only — not built (2026-08-28) | **XL** · ~55–100 | — | Scoring+fuzzy matcher, corrections learned globally on consensus, ambiguity picker, subcategory report filters, backfill (ADR-0019) |
+| [18 — Learning categorisation engine](phases/phase-18-learning-categorisation.md) | 🟡 §1 built (2026-10-20) · rest spec only | **L** · ~35–70 remaining | — | Scoring matcher + 2 339-entry library shipped; still to build: corrections learned globally on consensus, ambiguity picker, subcategory report filters, backfill (ADR-0019) |
+| [19 — User category assignments](phases/phase-19-category-assignments.md) | 📝 Spec only — not built (2026-10-20) | **L** · ~20–35 (M · ~10–20 after 18 §2) | — | "Always file *Vida* as Coffee": per-Tally rules from an override prompt, the expense detail, or Manage this Tally → Category rules |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, [`docs/BACKLOG.md`](BACKLOG.md) for

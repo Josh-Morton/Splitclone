@@ -1,6 +1,6 @@
 # ADR-0019: Scoring categorisation engine + a globally-learned rule set
 
-**Status:** Accepted, not yet built (2026-08-28) · **Source:** Josh · ROADMAP Phase 18
+**Status:** Accepted (2026-08-28) · engine (Phase 18 §1) built 2026-10-20; learning not yet built · **Source:** Josh · ROADMAP Phase 18
 
 **Extends** [ADR-0011](0011-two-level-categories.md) (two-level taxonomy). The
 taxonomy itself is unchanged — seven parents, subcategories underneath. What

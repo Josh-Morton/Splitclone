@@ -43,7 +43,7 @@ describe("autoCategory — the seven-parent taxonomy", () => {
     expect(parentOf(autoCategory("Virgin Active gym"))).toBe("leisure");
     expect(parentOf(autoCategory("flight to Cape Town"))).toBe("leisure");
   });
-  it("order-sensitive: 'uber eats' → takeaway before 'uber' → rideshare", () => {
+  it("scored, not order-sensitive: 'uber eats' → takeaway, bare 'uber' → rideshare", () => {
     expect(autoCategory("uber eats")).toBe("eatingout_takeaway");
     expect(parentOf(autoCategory("Bolt home"))).toBe("transport");
   });
@@ -51,6 +51,28 @@ describe("autoCategory — the seven-parent taxonomy", () => {
     expect(autoCategory("mystery purchase")).toBe("other");
     expect(autoCategory("")).toBe("other");
     expect(autoCategory(null)).toBe("other");
+  });
+});
+
+// The six cases Phase 18 §1 requires — each is a bug the old first-match
+// engine actually had or could have had.
+describe("Phase 18 §1 engine guarantees", () => {
+  it("separator-insensitive: 'ster kinekor' (space) → Movies", () => {
+    expect(autoCategory("ster kinekor")).toBe("entertainment_movies");
+  });
+  it("'uber eats' → Takeaway regardless of registry order", () => {
+    expect(autoCategory("uber eats")).toBe("eatingout_takeaway");
+    expect(autoCategory("eats via uber eats app")).toBe("eatingout_takeaway");
+  });
+  it("what beats where: 'wine at checkers' → Liquor", () => {
+    expect(autoCategory("wine at checkers")).toBe("groceries_liquor");
+  });
+  it("typo-tolerant brands: 'netflx' → Streaming", () => {
+    expect(autoCategory("netflx")).toBe("entertainment_streaming");
+  });
+  it("word-aware: car ✗ cardigan, tea ✗ steam", () => {
+    expect(parentOf(autoCategory("cardigan"))).not.toBe("transport");
+    expect(autoCategory("steam")).toBe("entertainment_gaming");
   });
 });
 
@@ -110,7 +132,8 @@ describe("taxonomy shape", () => {
   it("every subcategory belongs to a known parent and is in the tree", () => {
     for (const sub of SUBCATEGORIES) {
       expect(PARENT_CATEGORIES).toContain(sub.parent);
-      expect(CATEGORY_TREE[sub.parent].some((s) => s.slug === sub.slug)).toBe(true);
+      // Legacy aliases still resolve but stay out of the picker.
+      expect(CATEGORY_TREE[sub.parent].some((s) => s.slug === sub.slug)).toBe(!sub.legacy);
     }
     for (const p of PARENT_CATEGORIES) {
       expect(CATEGORY_TREE[p].length).toBeGreaterThanOrEqual(1);
