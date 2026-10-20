@@ -29,7 +29,165 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- BUG-007…011 are **scoped and in progress** (2026-08-28).
+- BUG-014…017 are **open** (2026-10-20); BUG-001…013 are fixed.
+
+## Open — scoped 2026-10-20 (BUG-014 … BUG-017)
+
+Reported by Josh: users are signed out every time they reopen the app; the
+"Google integration" (Gemini) is failing in both receipt scanning and Splitty;
+and Splitty has a UI problem. Audited below — each says plainly what was
+**confirmed** and what is **inferred**.
+
+| Bug | Severity | Effort | Credits |
+|---|---|---|---|
+| BUG-014 signed out on reopen, session destroyed globally | **Critical** | S | ~5–12 |
+| BUG-015 sign-up after magic-link dead-ends | High | S | ~4–10 |
+| BUG-016 Gemini model pinned to a moving alias | High | S | ~4–10 |
+| BUG-017 Splitty UI inconsistent with every other tab | Medium | XS | ~2–6 |
+
+---
+
+### BUG-014 — signed out on every reopen, and the session is revoked on *all* devices
+
+**Status:** open · **Reported:** 2026-10-20 · **Severity: critical** ·
+**Effort:** S · **Credits:** ~5–12
+
+**Confirmed by code reading and by inspecting `@supabase/auth-js` 2.110.0.**
+This is a regression from my own BUG-005 work.
+
+`load()` in `src/app/page.tsx` does:
+
+```ts
+if (!(await ensureFreshSession())) { await signOut(); router.replace("/welcome"); }
+```
+
+and `ensureFreshSession()` returns `false` whenever a refresh fails and the
+access token has already expired — **regardless of why it failed**. Three
+things then compound:
+
+1. **A network blip is treated as a dead session.** On a cold PWA open the
+   service worker paints the shell before the radio is ready, so the first
+   refresh very often fails with a transient fetch error. `auth-js` is
+   careful here — `_callRefreshToken` throws but deliberately **leaves the
+   session in storage**, so it is recoverable. Our code then throws it away.
+2. **`signOut()` defaults to `scope: 'global'`** (verified in
+   `GoTrueClient.js:3319`). That revokes the refresh token *server-side for
+   every device the user is signed in on* — so one flaky open on a phone also
+   signs them out on their laptop. We are actively destroying a valid session,
+   not just failing to use it.
+3. **`useSessionState` has the same flaw independently.** `getSession()`
+   auto-refreshes when the token is expired, and returns `{session: null}` if
+   that refresh fails — which the hook maps straight to `"signedout"`.
+
+So the user is not "losing" their session; **the app is deleting it**, and a
+refresh token that is valid for weeks is discarded because one request failed.
+
+**Expected:** a transient failure leaves the user signed in and is retried.
+Only an explicit rejection of the refresh token by the server ends the session,
+and when it does it must not revoke other devices.
+
+**Fix:** classify the refresh failure. `isAuthRetryableFetchError` (network,
+5xx) and `AuthRefreshDiscardedError` (a concurrent refresh won the race) must
+never end a session. Only `AuthApiError` 400/401 counts. Never call global
+`signOut()` as a reaction to a failed refresh — `auth-js` has already cleared
+storage if the session is genuinely dead, so at most use `scope: 'local'`.
+
+---
+
+### BUG-015 — signing up with an email that previously used a magic link dead-ends
+
+**Status:** open · **Reported:** 2026-10-20 · **Severity: high** ·
+**Effort:** S · **Credits:** ~4–10
+
+**Confirmed.** The live project has `mailer_autoconfirm: true` (read from
+`/auth/v1/settings`), so a magic-link user is created already confirmed and
+**has no password**.
+
+If that person later taps **Sign up** with the same address, `signUp()` fails
+with the raw Supabase error *"User already registered"*, which is shown
+verbatim. The existing `if (!data.session)` branch in
+`src/app/welcome/page.tsx` — written for the email-confirmation case, where
+Supabase hides the collision — never runs, because with autoconfirm it is a
+hard error instead. They then try to log in with the password they just chose,
+which fails too, because sign-up never set one. Nothing on screen points at
+the two routes that actually work (magic link, or password reset).
+
+**The data question Josh asked, answered:** their access is safe. Supabase keys
+`auth.users` on the email address, so the magic-link user and any later
+password on the same address are **the same `auth.users.id`**. Everything hangs
+off that id — `profile.user_id`, `group_member.user_id` — so the Tallies,
+expenses and balances they had are all still theirs. The *data* is correct;
+only the *route back in* is broken.
+
+**Fix:** treat "already registered" as an expected state, not an error. Offer
+the two working routes inline (send a sign-in link / set a password), instead
+of a raw backend string.
+
+---
+
+### BUG-016 — Gemini is pinned to a floating alias Google has repointed
+
+**Status:** open · **Reported:** 2026-10-20 · **Severity: high** ·
+**Effort:** S · **Credits:** ~4–10
+
+`supabase/functions/scan-receipt/index.ts` requests
+`models/gemini-flash-latest`. This is the single Google dependency in the app,
+and it backs **both** reported failures: Splitty and expense receipt scanning
+both call `repo.scanReceipt()` → this one function. (Google OAuth is *not*
+enabled on the project — `/auth/v1/settings` reports `"google": false` — so
+"the Google integration" can only mean Gemini.)
+
+**Confirmed:** the function is deployed and its auth gate works (an anon call
+returns `401 {"error":"Not signed in"}`).
+
+**Confirmed from Google's changelog:** `gemini-flash-latest` is an *alias*, and
+Google commits to only two weeks' notice before moving it. Its target
+`gemini-3.5-flash` was **deprecated on 8 October 2026** — twelve days before
+this report. When an alias's underlying model is retired the documented
+symptom is a `404 NOT_FOUND` naming the resolved model, not the alias.
+
+**Inferred, not proven:** that this is the actual failure. I cannot call Gemini
+from here — the API key is a Supabase function secret and there is no
+management token in the repo — so I cannot read the live error. The timing is
+strongly suggestive but it is a correlation.
+
+**Compounding:** the error-reporting improvements written on 2026-08-28 were
+**never deployed** (Vercel deploys the Next app; edge functions need a separate
+`supabase functions deploy`). So the live function still collapses every
+distinct failure into one generic message, which is why no diagnosis has been
+possible from the app.
+
+**Fix:** stop depending on a moving alias — pin a stable model, fall back to a
+second model on a 404/400 so a single retirement cannot take the feature down,
+keep the `GEMINI_MODEL` secret override for a no-redeploy change, and surface
+the real upstream status. **Requires Josh to deploy the function.**
+
+---
+
+### BUG-017 — Splitty is the only tab with a different header, and the back link spans the screen
+
+**Status:** open · **Reported:** 2026-10-20 · **Severity: medium** ·
+**Effort:** XS · **Credits:** ~2–6
+
+**Confirmed by measuring all five tabs in the browser:**
+
+| Tab | `<header>` | position | title size | weight |
+|---|---|---|---|---|
+| Home | yes | sticky | 26px | 900 |
+| Expenses | yes | sticky | 26px | 900 |
+| List | yes | sticky | 26px | 900 |
+| Reports | yes | sticky | 26px | 900 |
+| **Splitty** | **none** | — | **22px** | **800** |
+
+Splitty never adopted `CollapsingHeader`, so its title is visibly smaller and
+lighter than every other tab and it neither sticks nor collapses on scroll —
+the one screen where the behaviour Josh asked for in Phase 11 is missing.
+
+Second defect, **mine**, introduced with the BUG-010 back link: the
+"‹ Back to Tally" pill on `/split/<code>` renders **339px wide instead of about
+120px**. It is set `display: inline-flex`, but as a flex item in the column
+layout that is blockified to `flex` and then stretched by the default
+`align-items: stretch`. It needs `align-self: flex-start`.
 
 ## Fixed — 2026-08-28 (BUG-012, BUG-013) — the actual cause of the "can't switch Tallies" report
 

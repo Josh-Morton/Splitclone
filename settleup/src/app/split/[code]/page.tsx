@@ -157,6 +157,10 @@ export default function SplitPage() {
             display: "inline-flex",
             alignItems: "center",
             gap: 6,
+            // As a flex item in the column layout, `inline-flex` is blockified
+            // and then stretched by the default `align-items: stretch` — so
+            // this pill spanned the whole screen (BUG-017).
+            alignSelf: "flex-start",
             marginBottom: 12,
             background: "var(--s2)",
             border: "1px solid var(--line2)",

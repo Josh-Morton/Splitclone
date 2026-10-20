@@ -12,6 +12,7 @@
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { isSessionReallyOver } from "./auth-errors";
 import { getSupabase, isSupabaseConfigured } from "./supabase/client";
 
 const DEMO_KEY = "settleup:demo";
@@ -54,6 +55,44 @@ export function useSessionState(): SessionState {
   useEffect(() => {
     let cancelled = false;
     let unsubscribe: (() => void) | undefined;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
+
+    /**
+     * Recover a stored-but-unrefreshable session, rather than treating it as
+     * a sign-out (BUG-014). Retries with backoff, and immediately when the
+     * device comes back online.
+     *
+     * If it never succeeds we do fall through to the signed-in-again screen
+     * — an indefinite spinner would be its own bug — but crucially we never
+     * call signOut() along the way, so the stored refresh token survives and
+     * the next launch with a working connection picks it straight back up.
+     */
+    const retry = () => {
+      if (cancelled) return;
+      void getSupabase()
+        .auth.refreshSession()
+        .then(({ data: r, error }) => {
+          if (cancelled) return;
+          if (r.session) {
+            setState({ status: "supabase", session: r.session });
+            return;
+          }
+          if (isSessionReallyOver(error) || ++attempts >= 4) {
+            setState({ status: "signedout" });
+            return;
+          }
+          retryTimer = setTimeout(retry, attempts * 2000);
+        })
+        .catch(() => {
+          if (!cancelled) setState({ status: "signedout" });
+        });
+    };
+    const onOnline = () => {
+      attempts = 0;
+      retry();
+    };
+    window.addEventListener("online", onOnline);
 
     void (async () => {
       // Yield a tick so no state is set synchronously inside the effect.
@@ -72,7 +111,17 @@ export function useSessionState(): SessionState {
       const sb = getSupabase();
       const { data } = await sb.auth.getSession();
       if (cancelled) return;
-      setState(data.session ? { status: "supabase", session: data.session } : { status: "signedout" });
+      if (data.session) {
+        setState({ status: "supabase", session: data.session });
+      } else if (hasStoredSession()) {
+        // getSession() tried to refresh an expired token and the request
+        // failed — on a cold PWA open that usually just means the radio
+        // wasn't up yet. The session is still on the device, so retry
+        // instead of bouncing to /welcome (BUG-014).
+        retry();
+      } else {
+        setState({ status: "signedout" });
+      }
 
       const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
         if (cancelled || isDemoMode()) return;
@@ -84,6 +133,8 @@ export function useSessionState(): SessionState {
     return () => {
       cancelled = true;
       unsubscribe?.();
+      window.removeEventListener("online", onOnline);
+      if (retryTimer) clearTimeout(retryTimer);
     };
   }, []);
 
@@ -107,12 +158,55 @@ export function useSessionState(): SessionState {
  */
 let refreshInFlight: Promise<boolean> | null = null;
 
+/**
+ * Is a session still physically stored in this browser? (BUG-014)
+ *
+ * `getSession()` returns `{session: null}` for two very different situations:
+ * nobody is signed in, and "the stored token had expired, I tried to refresh
+ * it, and the refresh request failed". Only the first means the user is
+ * signed out. supabase-js deliberately LEAVES the session in storage when a
+ * refresh fails, precisely so the next attempt can recover it — so the
+ * storage entry is the honest answer to "is there an account on this device".
+ *
+ * Reaching for the storage key is reaching into supabase-js's private shape,
+ * so this is written to fail safe: if anything about it is unrecognisable we
+ * return false and fall back to the old behaviour.
+ */
+function hasStoredSession(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      // `sb-${hostname.split(".")[0]}-auth-token`, optionally chunked across
+      // `.0`/`.1` when the session is large. Deliberately excludes the
+      // `-code-verifier` companion key, which is not a session.
+      if (!key || !/^sb-.+-auth-token(\.\d+)?$/.test(key)) continue;
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      // A chunk on its own isn't valid JSON, but its presence is still proof
+      // that a session is stored here — which is all this asks.
+      try {
+        const parsed = JSON.parse(raw) as { refresh_token?: unknown };
+        if (typeof parsed?.refresh_token === "string" && parsed.refresh_token) return true;
+      } catch {
+        if (raw.length > 0) return true;
+      }
+    }
+  } catch {
+    // Private mode, blocked storage, or a shape we don't recognise.
+  }
+  return false;
+}
+
 export async function ensureFreshSession(): Promise<boolean> {
   if (!isSupabaseConfigured() || isDemoMode()) return true;
   const sb = getSupabase();
   const { data } = await sb.auth.getSession();
   const session = data.session;
-  if (!session) return false;
+  // No session in hand: only give up if there's genuinely nothing stored.
+  // Otherwise getSession() just failed to refresh and the caller should carry
+  // on with the session it has rather than signing the user out (BUG-014).
+  if (!session) return hasStoredSession();
 
   // No expiry on the session means we can't reason about staleness — trust it
   // rather than force a refresh on every single call (BUG-007). Refreshing
@@ -132,18 +226,23 @@ export async function ensureFreshSession(): Promise<boolean> {
   if (!refreshInFlight) {
     refreshInFlight = sb.auth
       .refreshSession()
-      .then(({ data: r, error }) => !error && Boolean(r.session))
-      .catch(() => false)
+      .then(({ data: r, error }) => {
+        if (r.session) return true;
+        // The decisive question is WHY it failed, not THAT it failed
+        // (BUG-014). A flaky mobile radio on app open must not cost someone
+        // their login.
+        return !isSessionReallyOver(error);
+      })
+      .catch(() => true) // a thrown error never reached the auth server's verdict
       .finally(() => {
         refreshInFlight = null;
       });
   }
-  const refreshed = await refreshInFlight;
+  const stillValid = await refreshInFlight;
 
-  // A failed refresh is only fatal if the token is ALSO already unusable.
-  // While it still has life left, keep going — a transient refresh failure
-  // must never log someone out mid-switch.
-  return refreshed || msLeft > 0;
+  // Either the refresh worked, or it failed for a reason that doesn't end the
+  // session, or the current token simply hasn't expired yet.
+  return stillValid || msLeft > 0;
 }
 
 /** True when an error from PostgREST / an Edge Function is an auth failure. */
@@ -158,9 +257,20 @@ export function isAuthError(e: unknown): boolean {
   );
 }
 
+/**
+ * Sign out on THIS device only.
+ *
+ * supabase-js defaults `signOut()` to `scope: "global"`, which revokes the
+ * refresh token on the auth server for every device the account is signed in
+ * on. For a shared-household app that is actively wrong — Josh signing out on
+ * his phone would sign his partner's phone out too — and it was catastrophic
+ * when the app called it automatically after a failed refresh, because it
+ * turned a recoverable network blip into a permanent logout everywhere
+ * (BUG-014). Nothing in this app wants the global behaviour.
+ */
 export async function signOut(): Promise<void> {
   exitDemoMode();
   if (isSupabaseConfigured()) {
-    await getSupabase().auth.signOut();
+    await getSupabase().auth.signOut({ scope: "local" });
   }
 }

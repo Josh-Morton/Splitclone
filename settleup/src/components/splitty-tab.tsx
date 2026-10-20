@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import type { Repo, SplitBill, SplitBillSummary } from "@/lib/data";
 import { fmt } from "@/lib/domain";
 import { coveredCents, saveGuestIdentity } from "@/lib/splitty";
+import { CollapsingHeader } from "./collapsing-header";
 import { ReceiptScanSheet } from "./receipt-scan-sheet";
 import { Button, Card, Spinner } from "./ui";
 
@@ -54,10 +55,10 @@ export function SplittyTab({ repo, demo }: { repo: Repo; demo: boolean }) {
 
   return (
     <div style={{ marginBottom: 90 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px" }}>Splitty</h1>
-      </div>
-      <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 16, lineHeight: 1.5 }}>
+      {/* Splitty was the last tab still rendering its own <h1> — 22px/800 and
+          non-sticky, against 26px/900 sticky everywhere else (BUG-017). */}
+      <CollapsingHeader title="Splitty" />
+      <p style={{ fontSize: 12.5, color: "var(--muted)", margin: "12px 0 16px", lineHeight: 1.5 }}>
         Scan a restaurant or bar bill, share the link, and everyone picks what they had — no account
         needed for them. It stays separate from your Tallies and balances.
       </p>

@@ -21,6 +21,18 @@ import { enterDemoMode } from "@/lib/session";
 
 type Mode = "login" | "signup";
 
+/**
+ * Supabase signals "this email already has an account" differently depending
+ * on whether email confirmation is on. This project runs with
+ * `mailer_autoconfirm: true`, so it comes back as a hard error rather than
+ * the silent null-session case (BUG-015). Match on the stable code first and
+ * fall back to the message.
+ */
+function isAlreadyRegistered(error: { code?: string; status?: number; message: string }): boolean {
+  if (error.code === "user_already_exists" || error.code === "email_exists") return true;
+  return /already\s*(registered|exists)/i.test(error.message);
+}
+
 export default function WelcomePage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("login");
@@ -46,14 +58,32 @@ export default function WelcomePage() {
       if (mode === "signup") {
         const { data, error } = await sb.auth.signUp({ email: addr, password });
         if (error) {
+          // "Already registered" is an expected situation, not a failure, and
+          // it has a specific trap behind it: someone who has only ever used
+          // an emailed sign-in link HAS an account but no password, so
+          // signing up fails AND logging in with the password they just typed
+          // will fail too. Point at the two routes that actually work rather
+          // than showing a raw backend string (BUG-015). Their data is safe
+          // either way — the account is keyed on the email address.
+          if (isAlreadyRegistered(error)) {
+            setMode("login");
+            setNotice(
+              "You already have an account with this email — your Tallies are still there. " +
+                "If you've only ever signed in with an emailed link, you won't have a password yet: " +
+                "use “Email me a sign-in link” below, or reset your password."
+            );
+            return;
+          }
           setError(error.message);
           return;
         }
         if (!data.session) {
-          // Email already registered (Supabase hides this to prevent
-          // enumeration) — nudge them to log in.
+          // Reachable if email confirmation is ever switched on: Supabase then
+          // hides the collision instead of erroring.
           setMode("login");
-          setNotice("That email may already have an account — try logging in.");
+          setNotice(
+            "That email may already have an account — log in, or use “Email me a sign-in link” below."
+          );
           return;
         }
         router.replace(await postAuthDestination());
@@ -62,7 +92,8 @@ export default function WelcomePage() {
         if (error) {
           setError(
             error.message.toLowerCase().includes("invalid")
-              ? "Wrong email or password. New here? Create an account."
+              ? "Wrong email or password. If you've only ever signed in with an emailed link, " +
+                  "you won't have a password — use “Email me a sign-in link” below."
               : error.message
           );
           return;

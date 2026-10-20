@@ -11,9 +11,27 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-// Overridable without a redeploy: if Google retires or renames the alias, set
-// the GEMINI_MODEL secret instead of shipping a new function (BUG-009).
-const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
+// MODEL SELECTION (BUG-016)
+//
+// This used to request `gemini-flash-latest`. That is an *alias*, and Google
+// only commits to two weeks' notice before repointing it — its target
+// (gemini-3.5-flash) was deprecated on 2026-10-08. When an alias's underlying
+// model is retired the request fails with 404 NOT_FOUND, which takes receipt
+// scanning down in both the expense flow and Splitty with no warning.
+//
+// So: pin a known model, and keep a fallback chain behind it so a single
+// retirement degrades instead of breaking. GEMINI_MODEL still overrides the
+// first choice, so the model can be changed by setting a secret rather than
+// redeploying this function.
+const MODEL_CHAIN = [
+  Deno.env.get("GEMINI_MODEL"),
+  "gemini-3.8-flash", // GA 2026-09-02; Google's recommendation for new projects
+  "gemini-3.6-flash", // GA 2026-07-21; what the deprecated 3.5-flash now routes to
+  "gemini-flash-latest", // last resort: the moving alias, wherever it points today
+].filter((m): m is string => Boolean(m));
+
+/** A model that doesn't exist / isn't available to this key — try the next. */
+const isModelUnavailable = (status: number) => status === 404 || status === 400;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -105,9 +123,8 @@ Deno.serve(async (req: Request) => {
       return json({ error: "Image too large — retake at a lower quality" }, 413);
     }
 
-    const geminiRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`,
-      {
+    const callGemini = (model: string) =>
+      fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
         method: "POST",
         headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -125,8 +142,18 @@ Deno.serve(async (req: Request) => {
             temperature: 0,
           },
         }),
-      }
-    );
+      });
+
+    // Walk the chain until one model answers. Only a "model isn't there"
+    // status moves on — a quota or auth failure is the same for every model,
+    // so retrying would just burn the rate limit.
+    let geminiRes = await callGemini(MODEL_CHAIN[0]);
+    let usedModel = MODEL_CHAIN[0];
+    for (let i = 1; i < MODEL_CHAIN.length && isModelUnavailable(geminiRes.status); i++) {
+      console.warn(`scan-receipt: model ${usedModel} returned ${geminiRes.status}, trying ${MODEL_CHAIN[i]}`);
+      geminiRes = await callGemini(MODEL_CHAIN[i]);
+      usedModel = MODEL_CHAIN[i];
+    }
 
     if (!geminiRes.ok) {
       const body = await geminiRes.text();
@@ -141,6 +168,9 @@ Deno.serve(async (req: Request) => {
             status === 429
               ? "Scan limit reached, try again later"
               : `Could not read the receipt (scanner error ${geminiRes.status})`,
+          // Named so a failure is diagnosable from the app instead of every
+          // cause looking identical (BUG-009/BUG-016).
+          model: usedModel,
           detail: body.slice(0, 300),
         },
         status

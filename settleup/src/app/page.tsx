@@ -174,8 +174,10 @@ export default function HomePage() {
         // Before any request goes out: make sure the token is actually alive.
         // A backgrounded PWA has its refresh timer throttled, so on resume it
         // usually isn't (BUG-005).
+        // Only a genuinely dead session sends anyone to sign in, and we do
+        // NOT signOut() first — that used to revoke the token on every
+        // device over a single flaky request (BUG-014).
         if (!(await ensureFreshSession())) {
-          await signOut().catch(() => {});
           router.replace("/welcome");
           return;
         }
@@ -199,13 +201,16 @@ export default function HomePage() {
       }
     } catch (e) {
       // An expired token must never reach the user as a raw "JWT expired"
-      // card (BUG-005). Try once to refresh and reload; if the session is
-      // genuinely gone, send them to sign in rather than showing jargon.
-      // The token was ensured fresh above, so an auth error here means the
-      // session is genuinely gone. Send them to sign in rather than showing
-      // raw "JWT expired" jargon (BUG-005).
+      // card (BUG-005). But an auth-shaped error here is not proof the
+      // session is over — ask, and only give up if it really is (BUG-014).
+      // Note we never signOut() on this path: if the session IS dead,
+      // supabase-js has already cleared it, and if it isn't, destroying it
+      // is exactly the bug.
       if (isAuthError(e)) {
-        await signOut().catch(() => {});
+        if (await ensureFreshSession()) {
+          setError("Couldn't reach the server — pull down to try again.");
+          return;
+        }
         router.replace("/welcome");
         return;
       }
@@ -223,7 +228,7 @@ export default function HomePage() {
       void ensureFreshSession()
         .then((ok) => {
           if (ok) return load();
-          return signOut().then(() => router.replace("/welcome"));
+          router.replace("/welcome");
         })
         .catch(() => {});
     };
