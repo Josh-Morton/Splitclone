@@ -7,6 +7,7 @@
  * members/preferences arrives with the fidelity pass (see ROADMAP backlog).
  */
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { Repo } from "@/lib/data";
 import { fmt, parseCents, type User } from "@/lib/domain";
@@ -314,6 +315,11 @@ export function SettingsSheet({
           <Button variant="ghost" onClick={onSignOut}>
             Sign out
           </Button>
+          <p style={{ textAlign: "center", marginTop: 6, fontSize: 12.5 }}>
+            <Link href="/privacy" className="hit" style={{ color: "var(--muted)", fontWeight: 600 }}>
+              Privacy &amp; terms
+            </Link>
+          </p>
           <ErrorText>{error}</ErrorText>
         </>
       )}

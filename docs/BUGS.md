@@ -29,9 +29,9 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- All logged bugs (BUG-001…019) are fixed. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
+- All logged bugs (BUG-001…020) are fixed. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
 
-## Fixed — 2026-10-21 (BUG-018, BUG-019)
+## Fixed — 2026-10-21 (BUG-018 … BUG-020)
 
 ### BUG-018 — ~~sheets opened inside a tab were pinned to the tab, not the screen~~ ✅ fixed
 
@@ -106,6 +106,25 @@ The denominator is the sum of the items rather than the stored receipt total,
 so claimed + unclaimed always adds up; all 11 production bills had the two
 equal, but the demo seed didn't (R620 vs R570 of items), and that seed is
 corrected too. Unit-tested in `src/lib/__tests__/splitty.test.ts`.
+
+### BUG-020 — ~~"Each personclears this on their side": spaces lost before apostrophes~~ ✅ fixed
+
+**Status:** ✅ fixed 2026-10-21 · **Found:** 2026-10-21 while building the
+privacy page · **Severity: low** (copy only) · **Effort:** XS · **Credits:** ~1–3
+
+**Confirmed in the running app.** The settle-up sheet read *"Each personclears
+this on their side — it'll record…"*.
+
+**Cause.** This project's JSX compiler drops the leading space of a text run
+that contains an HTML entity (`&apos;`) when the run begins right after a
+closing tag or a `{expression}` on the same line. Proven by measuring every
+bullet on the new privacy page: each run with an entity lost its space, each
+run without one kept it. Trailing spaces are unaffected (scanned — none).
+
+**Fix.** A real typographic apostrophe (’) instead of the entity in the one
+production occurrence and on the privacy page. A guard test
+(`src/lib/__tests__/jsx-entity-whitespace.test.ts`) scans `src/` and fails if
+the risky shape reappears — mutation-checked against the original line.
 
 ## Fixed — 2026-10-20 (BUG-014 … BUG-017)
 

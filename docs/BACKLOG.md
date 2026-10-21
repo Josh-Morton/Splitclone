@@ -74,19 +74,23 @@ inferred from work volume, not measured spend.
   currency constraint, the SQL `_push_fmt()` mirror, settlements, reports and
   export — plus a per-Tally currency choice and its migration. The largest
   unbuilt item on file.)*
-- **Privacy policy / terms page** — deferred by Josh while scoping Phase 10,
-  despite real strangers' financial data (salaries, expenses) being stored
-  once that phase ships. Not a law-firm document needed, just a short,
-  plain-language page (what's stored, salary private-by-default, no data
-  sold, a contact for deletion requests). Revisit before or shortly after
-  Phase 10 goes live publicly.
-  **Effort:** S · **Credits:** ~4–9 *(one static route plus footer links — the
-  cost is deciding the wording, not building it.)*
-  ⚠️ **[Phase 18](phases/phase-18-learning-categorisation.md) raises this from
-  "should" to "must".** That phase introduces the project's first
-  cross-tenant table — category corrections shared between unrelated
-  households — and the policy has to name it. Ship the policy with or before
-  Phase 18, not after.
+- ~~**Privacy policy / terms page**~~ → **done** 2026-10-21 at `/privacy`,
+  linked from the welcome screen and Settings, readable signed out. Plain
+  language; every statement was checked against the code and the live project
+  before writing it (no analytics or trackers; receipts bucket private and
+  member-only by storage policy; scanned photos not kept; `leave_group` keeps
+  expense history; Supabase region Ireland; Resend wired but inactive, so not
+  claimed). Deletes are soft, so it promises undo rather than instant erasure.
+  ⚠️ **One open decision for Josh:** the address for account-deletion requests.
+  There's no self-serve account deletion, and publishing a personal email on a
+  public page isn't a default to guess — so `PRIVACY_CONTACT_EMAIL` in
+  `src/app/privacy/page.tsx` is `null` and the page gives an honest fallback
+  ("the app's owner does it on request — ask whoever invited you").
+  **Effort to finish:** XS · **Credits:** ~1 (one constant).
+  ⚠️ Still true from the original note: **[Phase 18](phases/phase-18-learning-categorisation.md)
+  §2** introduces the first table shared between unrelated households — the
+  page must name it in the same commit that ships it. (§1, now live, is a
+  static on-device library and shares nothing.)
 - **CAPTCHA / bot-signup prevention** — Supabase's `security_captcha_enabled`
   is off; signup is fully open. Only worth doing if bot signups become an
   observed problem post-launch (Phase 10), not preemptively — would need an

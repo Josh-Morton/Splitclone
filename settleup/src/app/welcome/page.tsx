@@ -12,6 +12,7 @@
  */
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button, ErrorText, Input, Screen } from "@/components/ui";
 import { WaveHero } from "@/components/wave";
@@ -250,6 +251,11 @@ export default function WelcomePage() {
       >
         Skip — explore the demo Tally
       </Button>
+      <p style={{ textAlign: "center", marginTop: 18, fontSize: 12.5 }}>
+        <Link href="/privacy" className="hit" style={{ color: "var(--muted)", fontWeight: 600 }}>
+          Privacy &amp; terms
+        </Link>
+      </p>
     </Screen>
   );
 }

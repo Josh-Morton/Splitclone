@@ -158,7 +158,7 @@ export function SettleSheet({
             ))}
           </div>
           <p style={{ fontSize: 12, color: "var(--faint)" }}>
-            {owedToMe.length === 1 ? "They" : "Each person"} clears this on their side — it&apos;ll
+            {owedToMe.length === 1 ? "They" : "Each person"} clears this on their side — it’ll
             record once they mark it paid.
           </p>
         </>
