@@ -13,6 +13,19 @@ things that reliably blow an estimate (debugging, and manual/external steps)
 are in [ROADMAP.md → Estimating scale](ROADMAP.md#estimating-scale). Sizes are
 inferred from work volume, not measured spend.
 
+> **Status 2026-10-21 — backlog sweep.** Everything buildable is built and
+> live: the whole animation-polish section, the formal WCAG pass, the privacy
+> page, avatar photos, the note input and the "Tally-ho" copy. **What's left,
+> and why it isn't done:**
+> - **Needs a decision from Josh:** the privacy page's account-deletion contact
+>   (one constant); app-wide multi-currency (XL — it would supersede ADR-0017's
+>   ZAR ledger, and was parked "until a real need appears"); a Tally-ho icon /
+>   wordmark (needs design assets).
+> - **Needs an account that doesn't exist yet:** custom SMTP (Resend + the
+>   Phase 10 domain) and CAPTCHA (hCaptcha — and only if bot sign-ups appear).
+> - **Needs another phase first:** the sync-state pill (Phase 2's offline outbox).
+> - **Decided not to build:** percentage/shares split methods (design has three).
+
 ## Other open items
 - ~~**Formal a11y pass (WCAG)**~~ → **done** 2026-10-21, against WCAG 2.2 AA.
   Measured first, then fixed at the source so it holds for future screens:
