@@ -474,9 +474,13 @@ export default function HomePage() {
   const meMemberId = d.members.find((m) => m.userId === d.user.id)?.id;
   const owedToMe = d.transactions.filter((t) => t.toMemberId === meMemberId);
   const iOwe = d.transactions.filter((t) => t.fromMemberId === meMemberId);
+  // "Tally-ho" (backlog: deeper brand treatment) is reserved for a few genuine
+  // moments of arrival or success — all square, a payment recorded, a new
+  // Tally — plus push notifications. Used everywhere it would stop meaning
+  // anything.
   const heroText =
     d.yourNet === 0
-      ? "You're all settled"
+      ? "All square — tally-ho!"
       : d.yourNet > 0
         ? multiParty
           ? "You're owed"
@@ -664,8 +668,8 @@ export default function HomePage() {
             </div>
             {recent.length === 0 && (
               <p style={{ fontSize: 13.5, color: "var(--muted)", padding: "6px 0 10px" }}>
-                No expenses yet — tap <span style={{ color: "var(--ink)", fontWeight: 700 }}>Add expense</span> to
-                record the first one.
+                Tally-ho — your Tally’s ready. Tap{" "}
+                <span style={{ color: "var(--ink)", fontWeight: 700 }}>Add expense</span> to log the first one.
               </p>
             )}
             {recent.map((e) => (
@@ -914,7 +918,7 @@ export default function HomePage() {
         onRecorded={async () => {
           setSheet("none");
           await load();
-          showToast("Payment recorded");
+          showToast("Tally-ho! Payment recorded");
         }}
         repo={d.repo}
         groupId={d.groupId}

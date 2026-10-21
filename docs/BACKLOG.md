@@ -97,14 +97,16 @@ inferred from work volume, not measured spend.
   hCaptcha account if/when revisited.
   **Effort:** S · **Credits:** ~3–8 *(a Supabase setting plus a client widget —
   but only worth spending anything on if bot signups actually appear.)*
-- **Deeper "Tally-ho" brand treatment** — Josh confirmed while scoping
-  Phase 10 that "Tally-ho" should be incorporated more fully into the brand
-  at some point (beyond its current role as the push-notification
-  catchphrase) — explicitly a **later, separate redesign phase**, not bundled
-  into the Phase 10 domain migration.
-  **Effort:** M · **Credits:** ~10–25 *(copy, icon and empty-state work across
-  the app; rises to L if it lands alongside
-  [Phase 11](phases/phase-11-visual-reskin.md)'s reskin — do them together.)*
+- ~~**Deeper "Tally-ho" brand treatment**~~ → **copy and empty states done**
+  2026-10-21; **app icon not done** (needs real design assets — not something
+  to invent). Kept deliberately scarce, so it still means something: it marks
+  genuine moments of arrival or success — **all square** on Home ("All square
+  — tally-ho!", the state the app exists to reach), **a payment recorded**, a
+  **brand-new Tally** ("Tally-ho — your Tally's ready…"), and **a Splitty bill
+  fully claimed** — alongside push notifications, where it already was.
+  **Remaining:** an icon / wordmark treatment, if wanted.
+  **Effort:** S · **Credits:** ~4–10 *(design-led; needs Josh's direction or a
+  designer's assets first.)*
 
 ## Animation & interaction polish (survey 2026-07-28)
 Josh asked for a sweep of animation opportunities beyond those in the Phase 11

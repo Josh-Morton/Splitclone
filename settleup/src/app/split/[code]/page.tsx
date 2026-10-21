@@ -648,10 +648,16 @@ function OverviewCard({ bill }: { bill: SplitBill }) {
           </div>
         </>
       )}
-      {unclaimed > 0 && (
+      {unclaimed > 0 ? (
         <p style={{ fontSize: 12, color: "var(--amber)", marginTop: 8, fontWeight: 600 }}>
           {fmt(unclaimed)} of items still unclaimed
         </p>
+      ) : (
+        claimed > 0 && (
+          <p style={{ fontSize: 12, color: "var(--green)", marginTop: 8, fontWeight: 700 }}>
+            Every item’s claimed — tally-ho!
+          </p>
+        )
       )}
     </Card>
   );
