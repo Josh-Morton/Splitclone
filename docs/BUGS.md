@@ -29,7 +29,61 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- All logged bugs (BUG-001…017) are fixed. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
+- All logged bugs (BUG-001…018) are fixed. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
+
+## Fixed — 2026-10-21 (BUG-018)
+
+### BUG-018 — ~~sheets opened inside a tab were pinned to the tab, not the screen~~ ✅ fixed
+
+**Status:** ✅ fixed 2026-10-21 · **Reported:** 2026-10-20 (as "a UI issue with
+Splitty"), re-reported 2026-10-21 with screenshots · **Severity: high** ·
+**Effort:** S · **Credits:** ~4–10
+
+**This is the Splitty UI problem Josh originally reported.** On 2026-10-20 I
+fixed two real but different Splitty defects (BUG-017: header, back link) and
+missed this one. The screenshots made it unambiguous.
+
+**Symptom (from Josh's phone).** Tap **+ New split**: the Splitty content greys
+out but no sheet appears. Scroll to the very bottom of the bill list and the
+"Scan the bill" sheet is there — confined to the content column, with the tab
+bar drawn over its "Take / choose a photo" button.
+
+**Root cause — confirmed by measurement.** A `position: fixed` element is only
+fixed to the viewport if no ancestor has a `transform` (or `filter`,
+`backdrop-filter`, `perspective`, `contain`…). If one does, that ancestor
+becomes the containing block *and* traps the element's z-index.
+
+Every tab is wrapped in `<div className="tab-in">`, whose entry animation used
+`animation-fill-mode: both`, so it held `transform: translateY(0)` forever.
+Splitty renders its scan sheet *inside* that wrapper. The sheet's
+`inset: 0` therefore meant "the tab's content box" — as tall as the whole bill
+list — so the panel (bottom-aligned) landed at the end of the list, and its
+`z-index: 50` was trapped beneath the tab bar (`z-index: 30` at root level).
+
+Measured in the browser, all three affected sheets:
+
+| Sheet | Should cover | Actually covered |
+|---|---|---|
+| Splitty → Scan the bill | 375×812 (screen) | 339×461 — the tab box |
+| Reports → Filter | 375×812 | 339×**1015** — panel entirely off-screen |
+| Add expense → category / currency picker | 375×812 | 373×714 — trapped by the parent sheet's own drag transform |
+
+Reports' filter was the same bug, unreported; the nested pickers were a third
+variant.
+
+**Fix.** `Sheet` now renders through a portal into `<body>`, so no sheet can be
+captured by whatever it is declared inside, now or later. React state, context
+and synthetic events still flow through the React tree, so the open/close
+contract (BUG-003) is unchanged. Each sheet's scrim stops touch propagation so a
+nested sheet's gestures can't drag its parent. Separately, `.tab-in` now uses
+`backwards` fill instead of `both`: its end frame equals the natural style, so
+nothing changes visually, but the wrapper no longer holds a transform at all.
+
+**Verified:** all three sheets now measure exactly 0,0,375,812 as direct children
+of `<body>`; the nested picker paints above its parent and picking a category
+still updates the Add sheet; `.tab-in`'s transform clears to `none` after its
+animation; and under real hit-testing the finger lands on "Take / choose a
+photo", not the tab bar.
 
 ## Fixed — 2026-10-20 (BUG-014 … BUG-017)
 

@@ -17,9 +17,23 @@
  *     Anything less springs back.
  *   • Only `transform` moves, so the compositor handles it with no layout.
  *   • The scrim fades with the drag, so the sheet feels attached to it.
+ *
+ * PORTALLED TO <body> (BUG-018). A `position: fixed` element is only fixed to
+ * the screen if no ancestor has a `transform`, `filter`, `backdrop-filter`,
+ * `perspective`, `will-change: transform` or `contain`. If one does, that
+ * ancestor becomes the sheet's containing block AND traps its z-index. Three
+ * real cases did exactly that: the `.tab-in` wrapper (its entry animation
+ * holds a transform) caught Splitty's scan sheet and the Reports filter sheet
+ * — the scrim covered only the tab's content box and the panel landed at the
+ * bottom of the whole list, off-screen, under the tab bar — and the sheet
+ * panel's own drag transform caught pickers opened from inside Add expense.
+ * Rendering into <body> makes every sheet immune to wherever it's declared.
+ * React state, context and synthetic events still flow through the React
+ * tree exactly as before, so nothing about the open/close contract changes.
  */
 
 import { useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 const DISMISS_FRACTION = 0.25;
 const FLICK_VELOCITY = 0.5; // px per ms
@@ -53,7 +67,8 @@ export function Sheet({
   const [dragging, setDragging] = useState(false);
   const draggingRef = useRef(false);
 
-  if (!open) return null;
+  // Closed means null (BUG-003 contract), and there's no <body> during SSR.
+  if (!open || typeof document === "undefined") return null;
 
   function begin(y: number, fromBody: boolean, target: EventTarget | null) {
     // A tall sheet scrolls; only take over the gesture at the very top.
@@ -105,9 +120,17 @@ export function Sheet({
   // Derived from state only, so render never touches a ref.
   const progress = dragging && dragY > 0 ? Math.min(1, dragY / 420) : 0;
 
-  return (
+  return createPortal(
     <div
       onClick={onClose}
+      // Each sheet's gestures stay its own. A sheet opened from inside another
+      // is a child in the React tree, so without this its touches would bubble
+      // up to the parent sheet's drag handlers and drag both at once. The
+      // panel's own handlers run before this (they're deeper), so stopping
+      // here never blocks the sheet's own drag.
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchMove={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
       style={{
         position: "fixed",
         inset: 0,
@@ -194,7 +217,8 @@ export function Sheet({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

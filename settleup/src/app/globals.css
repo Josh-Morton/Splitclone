@@ -255,8 +255,15 @@ input::placeholder {
   }
 }
 
+/* `backwards`, not `both` (BUG-018). The end frame (opacity 1, no offset)
+   is identical to the element's natural style, so holding it changed nothing
+   visually — but it kept a `transform` on the wrapper forever, and any
+   transform makes an element the containing block for `position: fixed`
+   descendants. That's what pinned Splitty's and Reports' sheets to the tab's
+   content box instead of the screen. Sheets now portal to <body> regardless;
+   this just stops the wrapper being a trap for anything else. */
 .tab-in {
-  animation: tabIn 220ms var(--ease-rise) both;
+  animation: tabIn 220ms var(--ease-rise) backwards;
 }
 
 /* List rows arrive staggered instead of all at once. The delay is set
