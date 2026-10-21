@@ -204,9 +204,9 @@ export default function WelcomePage() {
         ))}
       </div>
 
-      <Input value={email} onChange={setEmail} placeholder="you@email.com" type="email" inputMode="email" />
+      <Input label="Email" value={email} onChange={setEmail} placeholder="you@email.com" type="email" inputMode="email" />
       <div style={{ height: 10 }} />
-      <Input
+      <Input label="Password"
         value={password}
         onChange={setPassword}
         placeholder={mode === "signup" ? "Choose a password (min 6)" : "Password"}

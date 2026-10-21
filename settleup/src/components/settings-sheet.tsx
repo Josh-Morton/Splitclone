@@ -162,11 +162,11 @@ export function SettingsSheet({
       {!loaded ? null : (
         <>
           <Label>Display name</Label>
-          <Input value={name} onChange={setName} placeholder="Your name" />
+          <Input label="Display name" value={name} onChange={setName} placeholder="Your name" />
 
           <div style={{ height: 16 }} />
           <Label>Monthly net salary (private)</Label>
-          <Input value={salary} onChange={setSalary} placeholder="0,00" inputMode="decimal" prefix="R" />
+          <Input label="Monthly net salary" value={salary} onChange={setSalary} placeholder="0,00" inputMode="decimal" prefix="R" />
           {parseCents(salary) > 0 && (
             <p style={{ fontSize: 12, color: "var(--faint)", marginTop: 6 }}>
               = {fmt(parseCents(salary))} — powers proportional splits. Your partner only ever

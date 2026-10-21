@@ -187,7 +187,7 @@ export function ListTab({
       <button
         onClick={() => toggle(item)}
         aria-label={done ? `Put ${item.name} back on the list` : `Cross off ${item.name}`}
-        className="press"
+        className="press hit"
         style={{
           width: 22,
           height: 22,
@@ -235,6 +235,8 @@ export function ListTab({
       <button
         onClick={() => remove(item)}
         aria-label={`Remove ${item.name}`}
+        // Was a 15×23px target — the smallest on screen, and it deletes.
+        className="hit"
         style={{
           background: "none",
           border: "none",
@@ -299,7 +301,7 @@ export function ListTab({
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
         <div style={{ flex: 1 }}>
-          <Input
+          <Input label="Add an item to the list"
             value={name}
             onChange={setName}
             placeholder={groups.length > 1 ? `Add to ${groupName}…` : "Add an item…"}
@@ -352,6 +354,7 @@ export function ListTab({
             </p>
             <button
               onClick={clearSorted}
+              className="hit"
               style={{
                 background: "none",
                 border: "none",

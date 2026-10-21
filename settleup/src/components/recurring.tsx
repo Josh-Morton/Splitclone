@@ -267,9 +267,9 @@ function NewRecurringSheet({
 
   return (
     <Sheet open={open} onClose={onClose} title="New recurring bill">
-      <Input value={amount} onChange={setAmount} placeholder="0,00" inputMode="decimal" prefix="R" autoFocus />
+      <Input label="Amount" value={amount} onChange={setAmount} placeholder="0,00" inputMode="decimal" prefix="R" autoFocus />
       <div style={{ height: 10 }} />
-      <Input value={desc} onChange={setDesc} placeholder="e.g. Rent" />
+      <Input label="What the bill is for" value={desc} onChange={setDesc} placeholder="e.g. Rent" />
 
       <div style={{ height: 16 }} />
       <Label>Paid by</Label>
@@ -314,7 +314,7 @@ function NewRecurringSheet({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 13.5, color: "var(--muted)", fontWeight: 600 }}>on day</span>
           <div style={{ width: 84 }}>
-            <Input value={day} onChange={(v) => setDay(v.replace(/\D/g, ""))} inputMode="numeric" placeholder="1" center />
+            <Input label="Day of the month" value={day} onChange={(v) => setDay(v.replace(/\D/g, ""))} inputMode="numeric" placeholder="1" center />
           </div>
           <span style={{ fontSize: 12, color: "var(--faint)" }}>of each month (1–28)</span>
         </div>

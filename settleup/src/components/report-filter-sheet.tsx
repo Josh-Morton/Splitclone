@@ -72,7 +72,7 @@ export function ReportFilterSheet({
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: 11.5, color: "var(--faint)" }}>From</span>
-            <Input
+            <Input label="From date"
               value={draft.customFrom}
               onChange={(v) => setDraft((d) => ({ ...d, customFrom: v }))}
               type="date"
@@ -80,7 +80,7 @@ export function ReportFilterSheet({
           </div>
           <div style={{ flex: 1 }}>
             <span style={{ fontSize: 11.5, color: "var(--faint)" }}>To</span>
-            <Input
+            <Input label="To date"
               value={draft.customTo}
               onChange={(v) => setDraft((d) => ({ ...d, customTo: v }))}
               type="date"

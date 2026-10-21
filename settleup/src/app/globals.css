@@ -22,6 +22,14 @@
  */
 
 /* ══ LAYER 1 ══ Theme palette. Add a sibling block to add a theme. ══════ */
+/* CONTRAST (formal WCAG pass, 2026-10-21). Every text-bearing colour below was
+   darkened by the MINIMUM needed — hue and saturation kept — to reach AA
+   (4.5:1) on every background it actually sits on: page, cards, --s2, and its
+   own 12–14% tint (active pills, category chips); --primary also carries white
+   button text, --avatar-* white initials. Before, only body text passed: white
+   on teal buttons was 2.57:1, teal links 2.43:1, meta grey 2.85:1. --muted is
+   held at ~6:1 so it stays visibly stronger than --faint (~4.6:1). Re-run the
+   audit if any value here changes. */
 [data-theme="wave"] {
   /* Surfaces */
   --bg: #fff7ef;
@@ -34,19 +42,19 @@
 
   /* Text */
   --ink: #173f4a;
-  --muted: #6c838b;
-  --faint: #8298a0;
+  --muted: #4e5e64;
+  --faint: #5c7179;
 
   /* Accent — the single value that re-themes buttons, links, active tabs
      and the balance hero; LAYER 2 derives the rest.
      Curated alternatives (ADR-0016): coral #f2635c, amber #f2a03d,
      blue #5b8def, violet #7a5cf0, green #12a87a. */
-  --primary: #2fb3ac;
+  --primary: #1d6e6a;
 
   /* Semantic */
-  --green: #0f8f68;
-  --red: #d94a43;
-  --amber: #b96f14;
+  --green: #0c7152;
+  --red: #b82c25;
+  --amber: #905610;
   --sun: #ffc24b;
 
   /* Ink that sits ON the accent (wave card, primary buttons). */
@@ -54,24 +62,24 @@
 
   /* Member avatar hues — stable per-member, retuned for a light background.
      Read via var(--avatar-N) so a theme can restyle avatars too. */
-  --avatar-0: #2f9e8f;
-  --avatar-1: #c98a2b;
-  --avatar-2: #7a6cc4;
-  --avatar-3: #c4608a;
-  --avatar-4: #2f8fa8;
-  --avatar-5: #6b7fd6;
+  --avatar-0: #278275;
+  --avatar-1: #9c6b21;
+  --avatar-2: #7768c3;
+  --avatar-3: #bd4d7c;
+  --avatar-4: #2a7f95;
+  --avatar-5: #576ed0;
   /* Ink that sits on an avatar hue. */
   --on-avatar: #ffffff;
 
   /* Category accents — retuned for a light background. */
-  --cat-groceries: #2f7f9e;
-  --cat-rent: #6a5cc4;
-  --cat-utilities: #b8801f;
-  --cat-eatingout: #0f8f68;
-  --cat-transport: #2b8ea1;
-  --cat-household: #8a5cc4;
-  --cat-entertainment: #c1517d;
-  --cat-other: #6c838b;
+  --cat-groceries: #286d87;
+  --cat-rent: #6455c2;
+  --cat-utilities: #875e17;
+  --cat-eatingout: #0c7354;
+  --cat-transport: #226f7e;
+  --cat-household: #7e4bbe;
+  --cat-entertainment: #ab3d68;
+  --cat-other: #576970;
 }
 
 :root {
@@ -270,6 +278,56 @@ input::placeholder {
   );
   background-size: 200% 100%;
   animation: skeletonShimmer 1.3s ease-in-out infinite;
+}
+
+/* FOCUS (WCAG 2.4.7, formal a11y pass). There was no focus style anywhere:
+   the Input set outline:none and nothing replaced it, so a keyboard user
+   couldn't see where they were. :focus-visible shows the ring for keyboard
+   navigation without flashing it on every mouse or touch press. */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* Text fields signal focus with their border instead (they already have
+   one), so the ring doesn't double up. */
+.tally-input {
+  outline: none;
+  transition: border-color var(--d-fast);
+}
+.tally-input:focus {
+  border-color: var(--primary) !important;
+}
+/* A prefixed input (R …) draws its border on the wrapper. */
+.tally-input--bare:focus {
+  border-color: transparent !important;
+}
+.tally-input-wrap:focus-within {
+  border-color: var(--primary) !important;
+}
+
+/* Borderless edit-in-place fields (the big amount, scanned receipt rows): an
+   underline appears on focus, which reads as "editing" without boxing them. */
+.inline-input {
+  outline: none;
+  transition: border-color var(--d-fast);
+}
+.inline-input:focus {
+  border-bottom-color: var(--primary) !important;
+}
+
+/* TARGET SIZE (WCAG 2.5.8). Grows a small control's tappable area to at least
+   ~32px without changing how it looks: the invisible ::after extends the hit
+   box, and a tap on a pseudo-element counts as a tap on its element. Only use
+   it where the extra area can't overlap a neighbouring control. */
+.hit {
+  position: relative;
+}
+.hit::after {
+  content: "";
+  position: absolute;
+  /* 10px, not 8: `inset` is measured from inside the border, so a 2px-
+     bordered control (the list checkbox) only grew 6px past its edge at 8. */
+  inset: -10px;
 }
 
 /* The undo window, drawn as a bar draining left-to-right. */

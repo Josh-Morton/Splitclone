@@ -349,6 +349,7 @@ export function AddExpenseSheet({
             <span style={{ fontSize: 13, lineHeight: "60px" }}>▾</span>
           </button>
           <input
+            className="inline-input"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0"
@@ -359,7 +360,8 @@ export function AddExpenseSheet({
             style={{
               background: "transparent",
               border: "none",
-              outline: "none",
+              // Underline on focus comes from .inline-input (WCAG 2.4.7).
+              borderBottom: "2px solid transparent",
               color: "var(--ink)",
               fontSize: 56,
               fontWeight: 800,
@@ -390,7 +392,7 @@ export function AddExpenseSheet({
         )}
       </div>
       <div style={{ height: 6 }} />
-      <Input value={desc} onChange={setDesc} placeholder="What was it for?" center />
+      <Input label="What was it for?" value={desc} onChange={setDesc} placeholder="What was it for?" center />
       {!editing && (
         <button
           onClick={() => setScanOpen(true)}
@@ -452,7 +454,7 @@ export function AddExpenseSheet({
               border: "1px solid var(--line2)",
               borderRadius: "var(--r-input)",
               color: "var(--ink)",
-              fontSize: 14,
+              fontSize: 16, // ≥16px or iOS zooms in on focus now that pinch-zoom is allowed
               lineHeight: 1.45,
               padding: "10px 14px",
               fontFamily: "inherit",
@@ -497,7 +499,7 @@ export function AddExpenseSheet({
               // Was "dark" — a leftover from before the Phase 11 light reskin,
               // so the native date picker opened in dark mode.
               colorScheme: "light",
-              fontSize: 15,
+              fontSize: 16, // ≥16px or iOS zooms in on focus now that pinch-zoom is allowed
               fontWeight: 600,
               padding: "12px 16px",
               fontFamily: "inherit",
@@ -592,7 +594,7 @@ export function AddExpenseSheet({
               <p style={{ fontSize: 14.5, fontWeight: 600, flex: 1 }}>{memberName(m)}</p>
               {method === "exact" ? (
                 <div style={{ width: 130 }}>
-                  <Input
+                  <Input label={`${memberName(m)}'s amount`}
                     value={exact[m.id] ?? ""}
                     onChange={(v) => setExact((e) => ({ ...e, [m.id]: v }))}
                     placeholder="0,00"
@@ -715,7 +717,7 @@ export function AddExpenseSheet({
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span style={{ fontSize: 13.5, color: "var(--muted)", fontWeight: 600 }}>on day</span>
                   <div style={{ width: 84 }}>
-                    <Input
+                    <Input label="Day of the month"
                       value={repeatDom}
                       onChange={(v) => setRepeatDom(v.replace(/\D/g, ""))}
                       inputMode="numeric"

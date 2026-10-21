@@ -225,6 +225,7 @@ export function ReceiptScanSheet({
                 )}
                 {splitty ? (
                   <input
+                    className="inline-input"
                     value={r.nameInput}
                     onChange={(e) =>
                       setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, nameInput: e.target.value } : x)))
@@ -235,9 +236,10 @@ export function ReceiptScanSheet({
                       minWidth: 0,
                       background: "transparent",
                       border: "none",
-                      outline: "none",
+                      // Underline on focus comes from .inline-input (WCAG 2.4.7).
+                      borderBottom: "2px solid transparent",
                       color: "var(--ink)",
-                      fontSize: 14,
+                      fontSize: 16, // ≥16px or iOS zooms in on focus now that pinch-zoom is allowed
                       fontWeight: 600,
                     }}
                   />
@@ -271,7 +273,7 @@ export function ReceiptScanSheet({
                       border: "1px solid var(--line2)",
                       borderRadius: 8,
                       color: "var(--ink)",
-                      fontSize: 13.5,
+                      fontSize: 16, // ≥16px or iOS zooms in on focus now that pinch-zoom is allowed
                       fontWeight: 700,
                       padding: "6px 8px",
                       textAlign: "right",

@@ -14,13 +14,39 @@ are in [ROADMAP.md → Estimating scale](ROADMAP.md#estimating-scale). Sizes are
 inferred from work volume, not measured spend.
 
 ## Other open items
-- **Formal a11y pass (WCAG)** — Phase 6's closing audit found the basics in
-  place (32 aria-labels, no unlabelled click targets) but no formal pass:
-  programmatic `<label for>` association, focus-visible states, and a
-  colour-contrast audit. **Do this after
-  [Phase 11](phases/phase-11-visual-reskin.md) merges** — the light theme
-  changes every contrast ratio, so auditing first would be wasted.
-  **Effort:** M · **Credits:** ~10–20
+- ~~**Formal a11y pass (WCAG)**~~ → **done** 2026-10-21, against WCAG 2.2 AA.
+  Measured first, then fixed at the source so it holds for future screens:
+  - **Contrast (1.4.3).** Only body text passed. White on the teal buttons and
+    balance card was **2.57:1**, teal links 2.43:1, meta grey 2.85:1, the
+    money colours ~4.1:1. All 20 text-bearing palette tokens were darkened by
+    the *minimum* needed (hue and saturation kept) to reach 4.5:1 on every
+    background each one actually sits on — page, cards, `--s2`, its own pale
+    tint — so every pairing now measures ≥4.59:1. **The visible result is a
+    deeper teal** (`#2fb3ac` → `#1d6e6a`): white button text is what forces
+    it, since it needs the teal at least 12 lightness points darker whatever
+    else changes. The values and the reasoning are in the LAYER 1 comment in
+    `globals.css`; reverting is one block.
+  - **Names (1.3.1 / 4.1.2).** A live audit of every form control found 25
+    `Input`s named only by placeholder (`Label` is visual, not a `<label>`).
+    `Input` now takes a `label` (falling back to the placeholder, so nothing
+    can ship unnamed) and every call site passes the words on screen. Audit
+    re-run: zero unnamed controls.
+  - **Keyboard (2.1.1).** Activity rows, Splitty cards and claim rows were
+    `<div role="button">` with no focus or key handling; `pressable()` adds
+    both.
+  - **Focus visible (2.4.7).** There was no focus style anywhere — the shared
+    `Input` set `outline: none`. Now a global `:focus-visible` ring, a border
+    colour on focused fields, and an underline on the borderless ones.
+  - **Zoom (1.4.4).** `maximum-scale=1` blocked pinch-zoom on Android; removed.
+    Every text field is now ≥16px, which is what actually stops iOS zooming in
+    on focus.
+  - **Target size (2.5.8).** The list's ✕ Remove was 15×23px (and it deletes),
+    the list checkbox 22×22, "See all"/"Clear" 17px tall. A `.hit` utility
+    grows the tappable area to ≥34px without changing the look; checked that
+    no target steals a neighbour's taps.
+  - **Not verifiable from this environment:** the focus styles themselves —
+    the dev browser pane has no window focus, so `:focus` never matches there.
+    The rules are present and correct by inspection.
 - ~~**Performance — cut the reload chain**~~ → **shipped** as
   [Phase 16](phases/phase-16-performance.md) (2026-07-31). Kept as the record
   of where it came from: the cause turned out to be a network auth call before

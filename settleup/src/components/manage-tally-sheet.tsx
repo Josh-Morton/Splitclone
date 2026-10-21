@@ -208,7 +208,7 @@ export function ManageTallySheet({
           <Label>Tally name</Label>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <Input value={renameValue} onChange={setRenameValue} onEnter={rename} />
+              <Input label="Tally name" value={renameValue} onChange={setRenameValue} onEnter={rename} />
             </div>
             <Button variant="secondary" style={{ width: 84 }} disabled={busy} onClick={rename}>
               Save
@@ -319,7 +319,7 @@ export function ManageTallySheet({
       <Label>Add a member (no app needed)</Label>
       <div style={{ display: "flex", gap: 8 }}>
         <div style={{ flex: 1 }}>
-          <Input value={newName} onChange={setNewName} placeholder="e.g. Sam" onEnter={addPlaceholder} />
+          <Input label="New member's name" value={newName} onChange={setNewName} placeholder="e.g. Sam" onEnter={addPlaceholder} />
         </div>
         <Button variant="secondary" onClick={addPlaceholder} disabled={busy || !newName.trim()} style={{ width: 84 }}>
           Add

@@ -37,7 +37,10 @@ export const viewport: Viewport = {
   themeColor: "#FFF7EF",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // No maximumScale: capping it at 1 blocked pinch-zoom on Android, which
+  // fails WCAG 1.4.4 for anyone who needs to enlarge text. It was there to
+  // stop iOS zooming into small inputs on focus — every text field is now
+  // ≥16px, which is what actually prevents that.
   viewportFit: "cover",
 };
 

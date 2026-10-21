@@ -146,6 +146,7 @@ export function Input({
   center = false,
   letterSpacing,
   onEnter,
+  label,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -158,9 +159,18 @@ export function Input({
   center?: boolean;
   letterSpacing?: number;
   onEnter?: () => void;
+  /**
+   * Accessible name (WCAG pass). Pass the same words as the visible <Label>
+   * above it, if there is one, so voice-control users can say what they see.
+   * Falls back to the placeholder so no Input can ship with no name at all —
+   * every unnamed control the audit found came through here.
+   */
+  label?: string;
 }) {
   const input = (
     <input
+      aria-label={label ?? placeholder}
+      className={prefix ? "tally-input tally-input--bare" : "tally-input"}
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
@@ -176,7 +186,6 @@ export function Input({
         background: prefix ? "transparent" : "var(--surface)",
         border: prefix ? "none" : "2px solid var(--line)",
         borderRadius: "var(--r-input)",
-        outline: "none",
         color: "var(--ink)",
         fontSize: 16,
         fontWeight: "var(--w-medium)" as unknown as number,
@@ -189,6 +198,7 @@ export function Input({
   if (!prefix) return input;
   return (
     <div
+      className="tally-input-wrap"
       style={{
         display: "flex",
         alignItems: "center",

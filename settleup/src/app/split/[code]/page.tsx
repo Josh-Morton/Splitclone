@@ -263,7 +263,7 @@ function JoinForm({
         <p style={{ fontSize: 13.5, color: "var(--muted)", marginBottom: 18, lineHeight: 1.5 }}>
           Pick the items you had and add your tip — no account needed. What&apos;s your name?
         </p>
-        <Input value={name} onChange={setName} placeholder="e.g. Thabo" autoFocus onEnter={join} center />
+        <Input label="Your name" value={name} onChange={setName} placeholder="e.g. Thabo" autoFocus onEnter={join} center />
         <div style={{ height: 12 }} />
         <Button onClick={join} disabled={busy || !name.trim()}>
           {busy ? "Joining…" : "Join the split"}
@@ -515,7 +515,7 @@ function TipSelector({
       {customOpen && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <div style={{ flex: 1 }}>
-            <Input
+            <Input label="Custom tip percentage"
               value={custom}
               onChange={setCustom}
               inputMode="decimal"

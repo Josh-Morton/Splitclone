@@ -110,7 +110,7 @@ function VerifyForm() {
         </Button>
       ) : (
         <div style={{ marginTop: 18 }}>
-          <Input
+          <Input label="6-digit sign-in code"
             value={code}
             onChange={(v) => setCode(v.replace(/\D/g, ""))}
             placeholder="••••••"

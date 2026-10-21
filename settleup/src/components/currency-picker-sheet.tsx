@@ -49,7 +49,7 @@ export function CurrencyPickerSheet({
         Enter the amount in any of these. It&apos;s converted to Rand and recorded in Rand —
         splits and balances never change.
       </p>
-      <Input value={query} onChange={setQuery} placeholder="Search currency or code…" />
+      <Input label="Search currencies" value={query} onChange={setQuery} placeholder="Search currency or code…" />
       <div style={{ height: 10 }} />
 
       <div style={{ maxHeight: "50vh", overflowY: "auto", margin: "0 -4px", padding: "0 4px" }}>

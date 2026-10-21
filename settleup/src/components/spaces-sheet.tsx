@@ -180,7 +180,7 @@ export function SpacesSheet({
       {mode === "create" && (
         <>
           <Label>New Tally name</Label>
-          <Input value={name} onChange={setName} placeholder="e.g. December trip" autoFocus onEnter={createSpace} />
+          <Input label="New Tally name" value={name} onChange={setName} placeholder="e.g. December trip" autoFocus onEnter={createSpace} />
           <div style={{ height: 10 }} />
           <Button onClick={createSpace} disabled={busy}>
             {busy ? "Creating…" : "Create & switch"}
@@ -194,7 +194,7 @@ export function SpacesSheet({
       {mode === "join" && (
         <>
           <Label>Invite code</Label>
-          <Input
+          <Input label="Invite code"
             value={code}
             onChange={(v) => setCode(v.toUpperCase())}
             placeholder="e.g. SAM-4K2Q"

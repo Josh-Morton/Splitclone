@@ -157,7 +157,7 @@ function OnboardingFlow() {
             This is how you&apos;ll appear to the people you share expenses with.
           </p>
           <Label>Display name</Label>
-          <Input value={name} onChange={setName} placeholder="e.g. Josh" autoFocus onEnter={saveName} />
+          <Input label="Display name" value={name} onChange={setName} placeholder="e.g. Josh" autoFocus onEnter={saveName} />
           <div style={{ height: 16 }} />
           <Button onClick={saveName} disabled={busy}>
             Continue
@@ -177,7 +177,7 @@ function OnboardingFlow() {
             <span style={{ color: "var(--ink)", fontWeight: 600 }}>never your income</span>.
           </p>
           <Label>Net monthly salary</Label>
-          <Input
+          <Input label="Net monthly salary"
             value={salary}
             onChange={setSalary}
             placeholder="0,00"
@@ -210,7 +210,7 @@ function OnboardingFlow() {
             name at the top to invite them.
           </p>
           <Label>Tally name</Label>
-          <Input value={space} onChange={setSpace} placeholder="e.g. Our apartment" onEnter={createSpace} />
+          <Input label="Tally name" value={space} onChange={setSpace} placeholder="e.g. Our apartment" onEnter={createSpace} />
           <div style={{ height: 16 }} />
           <Button onClick={createSpace} disabled={busy}>
             {busy ? "Creating…" : "Create Tally"}
@@ -225,7 +225,7 @@ function OnboardingFlow() {
           <Label>Join with an invite code</Label>
           <div style={{ display: "flex", gap: 8 }}>
             <div style={{ flex: 1 }}>
-              <Input
+              <Input label="Invite code"
                 value={joinCode}
                 onChange={(v) => setJoinCode(v.toUpperCase())}
                 placeholder="e.g. KWM-4T2Q"

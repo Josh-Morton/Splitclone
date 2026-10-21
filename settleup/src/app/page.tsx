@@ -639,6 +639,7 @@ export default function HomePage() {
               {d.expenses.length > 0 && (
                 <button
                   onClick={() => setTab("expenses")}
+                  className="hit"
                   style={{
                     background: "none",
                     border: "none",
