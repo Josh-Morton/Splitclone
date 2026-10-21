@@ -238,7 +238,22 @@ export class MemoryRepo implements Repo {
   }
 
   async listMembers(groupId: string): Promise<GroupMember[]> {
-    return this.members.filter((m) => m.groupId === groupId && !m.deletedAt && m.status !== "left");
+    return this.members
+      .filter((m) => m.groupId === groupId && !m.deletedAt && m.status !== "left")
+      .map((m) => (m.userId === this.user.id ? { ...m, profileAvatarUrl: this.user.avatarUrl } : m));
+  }
+
+  // Demo: the photo lives only in this tab, as an object URL — same session-
+  // only caveat as everything else in the demo.
+  async setAvatar(image: Blob): Promise<string> {
+    if (this.user.avatarUrl?.startsWith("blob:")) URL.revokeObjectURL(this.user.avatarUrl);
+    this.user.avatarUrl = URL.createObjectURL(image);
+    return this.user.avatarUrl;
+  }
+
+  async removeAvatar(): Promise<void> {
+    if (this.user.avatarUrl?.startsWith("blob:")) URL.revokeObjectURL(this.user.avatarUrl);
+    this.user.avatarUrl = null;
   }
 
   async addPlaceholderMember(groupId: string, name: string): Promise<GroupMember> {

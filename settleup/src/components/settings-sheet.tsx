@@ -8,6 +8,7 @@
  */
 
 import Link from "next/link";
+import { AvatarPicker } from "./avatar-picker";
 import { useEffect, useState } from "react";
 import type { Repo } from "@/lib/data";
 import { fmt, parseCents, type User } from "@/lib/domain";
@@ -62,12 +63,15 @@ export function SettingsSheet({
   onSignOut,
   onManageSpaces,
   onManageRecurring,
+  onPhotoChanged,
   repo,
   user,
 }: {
   open: boolean;
   onClose: () => void;
   onSaved: () => void;
+  /** The photo saves immediately (not on Save), so the app refreshes behind the sheet. */
+  onPhotoChanged: () => void;
   onSignOut: () => void;
   onManageSpaces: () => void;
   onManageRecurring: () => void;
@@ -75,6 +79,7 @@ export function SettingsSheet({
   user: User;
 }) {
   const [name, setName] = useState(user.displayName);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(user.avatarUrl);
   const [salary, setSalary] = useState("");
   const [salaryVisible, setSalaryVisible] = useState(false);
   const [loaded, setLoaded] = useState(false);
@@ -162,6 +167,18 @@ export function SettingsSheet({
     <Sheet open={open} onClose={onClose} title="Settings">
       {!loaded ? null : (
         <>
+          <Label>Profile photo</Label>
+          <AvatarPicker
+            repo={repo}
+            userId={user.id}
+            displayName={name || user.displayName}
+            photoUrl={photoUrl}
+            onChanged={(url) => {
+              setPhotoUrl(url);
+              onPhotoChanged();
+            }}
+          />
+          <div style={{ height: 18 }} />
           <Label>Display name</Label>
           <Input label="Display name" value={name} onChange={setName} placeholder="Your name" />
 

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ActivityOverlay } from "@/components/activity-overlay";
+import { Avatar } from "@/components/avatar";
 import { AddExpenseSheet } from "@/components/add-expense-sheet";
 import { CollapsingHeader } from "@/components/collapsing-header";
 import { ExpenseDetail } from "@/components/expense-detail";
@@ -520,21 +521,29 @@ export default function HomePage() {
                 >
                   🔔
                 </button>
+                {/* Your avatar opens Settings, per the design (backlog: the
+                    header avatar was still a "Settings" text pill). Same
+                    accessible name, so it still announces as "Settings". */}
                 <button
                   onClick={() => setSheet("settings")}
                   aria-label="Settings"
+                  className="press"
                   style={{
-                    background: "var(--s2)",
-                    border: "1px solid var(--line2)",
-                    borderRadius: 999,
-                    color: "var(--muted)",
-                    fontSize: 12,
-                    fontWeight: 700,
-                    padding: "8px 14px",
+                    background: "none",
+                    border: "none",
+                    borderRadius: "50%",
+                    padding: 0,
                     cursor: "pointer",
+                    boxShadow: "0 0 0 2px var(--surface), 0 0 0 3px var(--line2)",
                   }}
                 >
-                  Settings
+                  <Avatar
+                    member={undefined}
+                    meUserId={d.user.id}
+                    size={34}
+                    photoUrl={d.user.avatarUrl}
+                    initialsFrom={d.user.displayName}
+                  />
                 </button>
               </div>
             }
@@ -895,6 +904,7 @@ export default function HomePage() {
           setSheet("none");
           setRecurringOpen(true);
         }}
+        onPhotoChanged={() => void load()}
         repo={d.repo}
         user={d.user}
       />

@@ -65,6 +65,11 @@ export default function PrivacyPage() {
             hashed by our sign-in provider — nobody can read it.
           </li>
           <li>
+            <b>Profile photo:</b> only if you add one. It’s shown to the people in your Tallies, cropped to a
+            square in your browser before it’s uploaded. It’s stored at an unguessable web address — anyone who’s
+            given that link could open it — so treat it like a profile picture, not like your salary.
+          </li>
+          <li>
             <b>Your Tallies:</b> the Tallies you belong to and their members (including people added by name who
             don’t use the app), expenses (what, how much, when, category, who paid, how it was split, any
             note, and the original currency and rate for foreign expenses), settlements, recurring bills and
@@ -129,6 +134,9 @@ export default function PrivacyPage() {
           <li>
             <b>Tallies:</b> from <i>Manage this Tally</i>, leave a Tally once you’re settled up, or delete one
             you created.
+          </li>
+          <li>
+            <b>Your profile photo:</b> remove it any time in Settings — the file is deleted, not just hidden.
           </li>
           <li>
             <b>Your account:</b>{" "}

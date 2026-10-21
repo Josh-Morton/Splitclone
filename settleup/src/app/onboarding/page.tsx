@@ -12,6 +12,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button, Card, ErrorText, Input, Label, Screen } from "@/components/ui";
 import { getSupabaseRepo } from "@/lib/data";
+import { AvatarPicker } from "@/components/avatar-picker";
 import { parseCents, fmt } from "@/lib/domain";
 import { clearPendingInviteCode, getPendingInviteCode, useSessionState } from "@/lib/session";
 
@@ -48,6 +49,9 @@ function OnboardingFlow() {
   const [joinCode, setJoinCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Optional photo on the name step (backlog: avatar photos). Saved the moment
+  // it's picked, so skipping it costs nothing.
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (session.status === "signedout" || session.status === "demo") {
@@ -156,6 +160,14 @@ function OnboardingFlow() {
           <p style={{ fontSize: 13.5, color: "var(--muted)", marginBottom: 20, lineHeight: 1.5 }}>
             This is how you&apos;ll appear to the people you share expenses with.
           </p>
+          <AvatarPicker
+            repo={repo}
+            userId={session.session.user.id}
+            displayName={name || "Me"}
+            photoUrl={photoUrl}
+            onChanged={setPhotoUrl}
+          />
+          <div style={{ height: 18 }} />
           <Label>Display name</Label>
           <Input label="Display name" value={name} onChange={setName} placeholder="e.g. Josh" autoFocus onEnter={saveName} />
           <div style={{ height: 16 }} />

@@ -94,6 +94,13 @@ export interface Repo {
   updateProfile(
     profile: Partial<Profile> & { userId: string; displayName?: string }
   ): Promise<Profile>;
+  /**
+   * Set the signed-in user's profile photo from an already square-cropped
+   * JPEG; returns the new public URL. Replaces (and deletes) any previous one.
+   */
+  setAvatar(image: Blob): Promise<string>;
+  /** Remove the signed-in user's profile photo, falling back to initials. */
+  removeAvatar(): Promise<void>;
 
   /**
    * Salary-proportional shares for a prospective expense, computed without

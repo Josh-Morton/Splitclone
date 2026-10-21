@@ -22,6 +22,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Repo } from "@/lib/data";
 import type { Group, GroupMember, SupportedSplitMethod } from "@/lib/domain";
 import { Button, ErrorText, Input, Label } from "./ui";
+import { Avatar } from "./avatar";
 import { Pill, Sheet } from "./sheet";
 
 const SPLIT_LABELS: [SupportedSplitMethod, string][] = [
@@ -263,7 +264,10 @@ export function ManageTallySheet({
         return (
           <div key={m.id} style={{ borderBottom: "1px solid var(--line)", padding: "9px 0" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <p style={{ fontSize: 14.5, fontWeight: 600 }}>{memberName(m)}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                <Avatar member={m} meUserId={meUserId} size={30} />
+                <p style={{ fontSize: 14.5, fontWeight: 600 }}>{memberName(m)}</p>
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 12, color: "var(--faint)", fontWeight: 700, textTransform: "capitalize" }}>
                   {m.userId ? m.role : "placeholder"}

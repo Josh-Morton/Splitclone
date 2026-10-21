@@ -185,10 +185,21 @@ criteria are met (bar the E6 trial); these are the visible deltas:
   "+ Add a note" link so the Add sheet stays zero-friction (ADR-0008), open by
   default only when editing an expense that has one. A receipt scan's item
   list now lands in it (visible and editable) instead of being saved silently.
-- Avatar photos (add-photo affordance in onboarding/settings) — still open.
-  Storage and the image-compression helper already exist from receipts, so the
-  groundwork is done. **Effort:** M · **Credits:** ~10–20 *(upload, crop,
-  bucket policy, and every avatar fallback across the app.)*
+- ~~Avatar photos (add-photo affordance in onboarding/settings)~~ → **done**
+  2026-10-21. Add / change / remove in **Settings** and (optional) on
+  onboarding's name step, via one shared `AvatarPicker`. The photo is
+  centre-cropped to a 256px square in the browser before upload — automatic
+  rather than an interactive cropper, so it stays one tap. Shows everywhere an
+  avatar does (all go through `Avatar`, which falls back to initials if a photo
+  fails to load), now also in the *Manage this Tally* member list, and the
+  header's "Settings" pill is now your avatar, per the design.
+  Storage: migration `20261021000000_avatar_photos` (applied and recorded) adds
+  a **public** `avatars` bucket with unguessable per-upload paths — URLs reach
+  only co-members, via `profile_public` — and write access limited to your own
+  folder; proven under RLS (own folder writable and visible, anyone else's
+  rejected and invisible). The privacy page says photos are stored and
+  link-shareable. **Not verified end-to-end:** the real upload, which needs a
+  signed-in user; the demo path and the storage policies are verified.
 - ~~Group rename UI; member-leave-with-zero-balance rule~~ → **done**
   (Phase 6, consolidated into "Manage this Tally" in Phase 12).
 - Percentage/shares split methods: implemented + tested in the domain layer but

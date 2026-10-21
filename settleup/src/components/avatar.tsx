@@ -1,10 +1,17 @@
 "use client";
 
 /**
- * Initials avatar in a colored circle (design: avatars are 50% radius with
- * the brand gradient for "you", stable per-member hues for others).
+ * Avatar: the member's profile photo when they have one, otherwise initials in
+ * a coloured circle (design: 50% radius, brand colour for "you", stable
+ * per-member hues for others).
+ *
+ * Every avatar in the app goes through this component, so a photo shows up
+ * everywhere at once — and if a photo URL ever fails to load (deleted, offline
+ * and uncached), it quietly falls back to the initials rather than a broken
+ * image.
  */
 
+import { useState } from "react";
 import type { GroupMember } from "@/lib/domain";
 
 // Token references, not literals — avatars re-theme with the palette
@@ -41,14 +48,44 @@ export function Avatar({
   member,
   meUserId,
   size = 32,
+  photoUrl,
+  initialsFrom,
 }: {
   member: GroupMember | undefined;
   meUserId: string;
   size?: number;
+  /** Overrides the member's photo — e.g. the signed-in user's own, in Settings. */
+  photoUrl?: string | null;
+  /** Show these initials instead of "Me" for the signed-in user (the header). */
+  initialsFrom?: string;
 }) {
   const you = member?.userId === meUserId;
   const name = memberDisplayName(member, meUserId);
-  const label = you ? "Me" : initials(name);
+  const label = initialsFrom ? initials(initialsFrom) : you ? "Me" : initials(name);
+  const url = photoUrl !== undefined ? photoUrl : (member?.profileAvatarUrl ?? null);
+  // Keyed on the URL, so a new photo gets a fresh chance to load.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  if (url && failedUrl !== url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- remote storage URL, sized by us
+      <img
+        src={url}
+        alt={name}
+        width={size}
+        height={size}
+        onError={() => setFailedUrl(url)}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          objectFit: "cover",
+          flexShrink: 0,
+          display: "block",
+          background: "var(--s2)",
+        }}
+      />
+    );
+  }
   return (
     <div
       aria-label={name}

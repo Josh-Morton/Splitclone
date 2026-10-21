@@ -318,6 +318,46 @@ export class SupabaseRepo implements Repo {
     return mapProfile(data);
   }
 
+  // --- avatar photos ---
+  async setAvatar(image: Blob): Promise<string> {
+    const userId = await this.uid();
+    // A fresh random name per upload: the URL is unguessable (the bucket is
+    // public — see the avatar migration), and changing photo changes the URL,
+    // so nobody keeps seeing a cached old one.
+    const path = `${userId}/${uuid()}.jpg`;
+    const { error: upErr } = await this.sb.storage
+      .from("avatars")
+      .upload(path, image, { contentType: "image/jpeg", upsert: false });
+    if (upErr) this.fail(upErr);
+    const { data: pub } = this.sb.storage.from("avatars").getPublicUrl(path);
+    const previous = await this.currentAvatarPath(userId);
+    const { error } = await this.sb.from("profile").update({ avatar_url: pub.publicUrl }).eq("user_id", userId);
+    if (error) this.fail(error);
+    // Best-effort tidy-up: a leftover old file costs storage, not correctness.
+    if (previous) await this.sb.storage.from("avatars").remove([previous]).catch(() => {});
+    return pub.publicUrl;
+  }
+
+  async removeAvatar(): Promise<void> {
+    const userId = await this.uid();
+    const previous = await this.currentAvatarPath(userId);
+    const { error } = await this.sb.from("profile").update({ avatar_url: null }).eq("user_id", userId);
+    if (error) this.fail(error);
+    if (previous) await this.sb.storage.from("avatars").remove([previous]).catch(() => {});
+  }
+
+  /** Storage path of the user's current photo, if it's one we host. */
+  private async currentAvatarPath(userId: string): Promise<string | null> {
+    const { data } = await this.sb.from("profile").select("avatar_url").eq("user_id", userId).maybeSingle();
+    const url: string | null = data?.avatar_url ?? null;
+    const marker = "/object/public/avatars/";
+    const i = url ? url.indexOf(marker) : -1;
+    if (i < 0) return null;
+    const path = url!.slice(i + marker.length);
+    // Only ever delete inside our own folder.
+    return path.startsWith(`${userId}/`) ? path : null;
+  }
+
   // --- groups & members ---
   async listGroups(): Promise<Group[]> {
     const { data, error } = await this.sb
@@ -408,11 +448,14 @@ export class SupabaseRepo implements Repo {
     if (userIds.length > 0) {
       const { data: profs } = await this.sb
         .from("profile_public")
-        .select("user_id, display_name")
+        .select("user_id, display_name, avatar_url")
         .in("user_id", userIds);
-      const names = new Map((profs ?? []).map((p: any) => [p.user_id, p.display_name]));
+      const byId = new Map((profs ?? []).map((p: any) => [p.user_id, p]));
       for (const m of members) {
-        if (m.userId) m.profileName = names.get(m.userId) || null;
+        if (!m.userId) continue;
+        const prof: any = byId.get(m.userId);
+        m.profileName = prof?.display_name || null;
+        m.profileAvatarUrl = prof?.avatar_url || null;
       }
     }
     return members;

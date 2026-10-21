@@ -81,6 +81,8 @@ export interface GroupMember extends SyncMeta {
   placeholderName: string | null;
   /** Real user's display name, hydrated from profile_public (Phase 3). */
   profileName?: string | null;
+  /** Real user's profile photo URL, hydrated from profile_public (avatar photos). */
+  profileAvatarUrl?: string | null;
   role: MemberRole;
   status: MemberStatus;
 }
