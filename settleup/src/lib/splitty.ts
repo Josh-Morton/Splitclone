@@ -63,6 +63,35 @@ export function coveredCents(bill: SplitBill): number {
   return bill.guests.reduce((a, g) => a + guestContributionCents(bill, g.id), 0);
 }
 
+/**
+ * Cents of line items someone has claimed — tips EXCLUDED (BUG-019).
+ *
+ * This, not coveredCents(), is what to compare against the bill total. The
+ * bill total is the sum of the items, while coveredCents() adds each guest's
+ * tip on top, so comparing the two showed "R1 376,25 of R1 225,00 claimed" for
+ * a bill that was exactly fully claimed plus tips — which reads as an error.
+ */
+export function claimedItemsCents(bill: SplitBill): number {
+  return bill.items
+    .filter((it) => it.claimedByGuestId !== null)
+    .reduce((a, it) => a + it.lineTotalCents, 0);
+}
+
+/**
+ * Sum of every line item, claimed or not — the denominator for "items
+ * claimed". Using this rather than the stored receipt total guarantees
+ * claimed + unclaimed always adds up, even if the two ever disagree. (All 11
+ * production bills agreed as of 2026-10-21; the demo seed didn't.)
+ */
+export function itemsTotalCents(bill: SplitBill): number {
+  return bill.items.reduce((a, it) => a + it.lineTotalCents, 0);
+}
+
+/** Tips on top of the claimed items, across every guest. */
+export function tipsCents(bill: SplitBill): number {
+  return coveredCents(bill) - claimedItemsCents(bill);
+}
+
 /** Cents of line items nobody has claimed yet. */
 export function unclaimedCents(bill: SplitBill): number {
   return bill.items

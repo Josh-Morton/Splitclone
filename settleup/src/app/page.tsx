@@ -19,11 +19,12 @@ import { ManageTallySheet } from "@/components/manage-tally-sheet";
 import { RecurringOverlay } from "@/components/recurring";
 import { ReportsTab } from "@/components/reports-tab";
 import { SettingsSheet } from "@/components/settings-sheet";
+import { HomeSkeleton } from "@/components/skeletons";
 import { SpacesSheet } from "@/components/spaces-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
 import { SplittyTab } from "@/components/splitty-tab";
 import { TabBar, type Tab } from "@/components/tab-bar";
-import { Button, Card, Screen, Spinner } from "@/components/ui";
+import { Button, Card, Screen } from "@/components/ui";
 import { WaveCard } from "@/components/wave";
 import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
 import {
@@ -42,7 +43,111 @@ import {
   type User,
 } from "@/lib/domain";
 import { postAuthDestination } from "@/lib/routing";
+import { useCountUp } from "@/lib/use-count-up";
+import { PULL_THRESHOLD, usePullToRefresh } from "@/lib/use-pull-to-refresh";
 import { ensureFreshSession, isAuthError, signOut, useSessionState } from "@/lib/session";
+
+/**
+ * The Home balance figure. It counts from the old value to the new one
+ * (animation backlog: "Balance figure snaps") and still replays its pop.
+ *
+ * The count-up hook lives here, OUTSIDE the keyed <p>: the key remounts the
+ * <p> on every change to replay the pop, which would reset a hook inside it
+ * straight to the new value. The SIGNED net is animated, so going from "you're
+ * owed" to "you owe" visibly passes through zero rather than jumping.
+ */
+function HeroBalance({ net }: { net: number }) {
+  const shown = useCountUp(net);
+  return (
+    <p
+      key={net}
+      className="value-pop"
+      style={{
+        fontSize: "var(--t-hero)",
+        fontWeight: "var(--w-black)" as unknown as number,
+        letterSpacing: "-1.4px",
+        marginBottom: 14,
+        // Digits don't jitter sideways while counting.
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      {fmt(Math.abs(shown))}
+    </p>
+  );
+}
+
+/**
+ * The pull-to-refresh indicator: drops in from the top with the pull, its
+ * arrow turning as you near the threshold, then spins while refreshing.
+ */
+function PullIndicator({ pull, refreshing }: { pull: number; refreshing: boolean }) {
+  if (pull <= 0 && !refreshing) return null;
+  const progress = Math.min(1, pull / PULL_THRESHOLD);
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      aria-label={refreshing ? "Refreshing" : progress >= 1 ? "Release to refresh" : "Pull to refresh"}
+      style={{
+        position: "fixed",
+        left: 0,
+        right: 0,
+        top: "env(safe-area-inset-top, 0px)",
+        display: "flex",
+        justifyContent: "center",
+        pointerEvents: "none",
+        zIndex: 25,
+        transform: `translateY(${pull - 30}px)`,
+        transition: refreshing || pull === 0 ? "transform var(--d-med) var(--ease-rise)" : "none",
+      }}
+    >
+      <span
+        style={{
+          width: 34,
+          height: 34,
+          borderRadius: "50%",
+          background: "var(--surface)",
+          border: "1px solid var(--line2)",
+          boxShadow: "0 4px 14px color-mix(in srgb, var(--ink) 14%, transparent)",
+          display: "grid",
+          placeItems: "center",
+          opacity: refreshing ? 1 : progress,
+        }}
+      >
+        {refreshing ? (
+          <span
+            aria-hidden
+            style={{
+              width: 16,
+              height: 16,
+              border: "2.5px solid var(--line)",
+              borderTopColor: "var(--primary)",
+              borderRadius: "50%",
+              animation: "spin 0.9s linear infinite",
+            }}
+          />
+        ) : (
+          <span
+            aria-hidden
+            style={{
+              color: progress >= 1 ? "var(--primary)" : "var(--muted)",
+              fontSize: 17,
+              fontWeight: 800,
+              lineHeight: 1,
+              transform: `rotate(${progress * 180}deg)`,
+            }}
+          >
+            ↓
+          </span>
+        )}
+      </span>
+    </div>
+  );
+}
+
+/** How long a toast (and its undo window) stays up. */
+const TOAST_MS = 4000;
+const TOAST_EXIT_MS = 200;
 
 interface HomeData {
   mode: "demo" | "supabase";
@@ -155,8 +260,17 @@ export default function HomePage() {
   const [viewing, setViewing] = useState<Expense | null>(null);
   // Push deep links (?expense=<id> / ?tab=list) are consumed exactly once.
   const deepLinkDone = useRef(false);
-  const [toast, setToast] = useState<{ msg: string; undo?: () => void } | null>(null);
+  const [toast, setToast] = useState<{
+    msg: string;
+    undo?: () => void;
+    /** Changes per toast so the countdown bar restarts. */
+    id: number;
+    leaving: boolean;
+  } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Pull-to-refresh on the main screen (animation backlog). Bound to the tab
+  // content only, so sheets (portalled) and overlays (siblings) never trigger it.
+  const pullRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -208,7 +322,7 @@ export default function HomePage() {
       // is exactly the bug.
       if (isAuthError(e)) {
         if (await ensureFreshSession()) {
-          setError("Couldn't reach the server — pull down to try again.");
+          setError("Couldn't reach the server — tap Retry to try again.");
           return;
         }
         router.replace("/welcome");
@@ -217,6 +331,7 @@ export default function HomePage() {
       setError(e instanceof Error ? e.message : String(e));
     }
   }, [session.status, router]);
+  const { pull, refreshing } = usePullToRefresh(pullRef, load, Boolean(data));
 
   // A backgrounded PWA gets its refresh timer throttled, so the token is
   // usually already stale by the time the user looks at it again. Refresh on
@@ -291,8 +406,17 @@ export default function HomePage() {
 
   function showToast(msg: string, undo?: () => void) {
     if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast({ msg, undo });
-    toastTimer.current = setTimeout(() => setToast(null), 4000);
+    const id = Date.now();
+    setToast({ msg, undo, id, leaving: false });
+    // Animate out for the last TOAST_EXIT_MS instead of vanishing mid-read
+    // (backlog: "Toast has an entry but no exit").
+    toastTimer.current = setTimeout(() => {
+      setToast((t) => (t && t.id === id ? { ...t, leaving: true } : t));
+      toastTimer.current = setTimeout(
+        () => setToast((t) => (t && t.id === id ? null : t)),
+        TOAST_EXIT_MS
+      );
+    }, TOAST_MS - TOAST_EXIT_MS);
   }
 
   async function handleDelete(e: Expense) {
@@ -308,9 +432,11 @@ export default function HomePage() {
   }
 
   if (session.status === "loading" || (!data && !error)) {
+    // Home's own shape instead of a lone spinner — this is the loading state
+    // seen on every single app open (animation backlog).
     return (
-      <Screen center>
-        <Spinner />
+      <Screen>
+        <HomeSkeleton />
       </Screen>
     );
   }
@@ -361,6 +487,8 @@ export default function HomePage() {
 
   return (
     <Screen>
+      <PullIndicator pull={pull} refreshing={refreshing} />
+      <div ref={pullRef}>
       {tab === "home" && (
         <div key="home" className="tab-in">
           <CollapsingHeader
@@ -444,20 +572,7 @@ export default function HomePage() {
             {/* On the accent panel the figure is always white — owed/owing is
                 already carried by the label above and the breakdown below, so
                 red/green here would fail contrast for no extra meaning. */}
-            {/* Keyed on the value so a change remounts and replays the pop —
-                money moving is the most important thing on this screen. */}
-            <p
-              key={d.yourNet}
-              className="value-pop"
-              style={{
-                fontSize: "var(--t-hero)",
-                fontWeight: "var(--w-black)" as unknown as number,
-                letterSpacing: "-1.4px",
-                marginBottom: 14,
-              }}
-            >
-              {fmt(Math.abs(d.yourNet))}
-            </p>
+            <HeroBalance net={d.yourNet} />
             {/* 3+ members: break the net down per person */}
             {multiParty && (owedToMe.length > 0 || iOwe.length > 0) && (
               <div
@@ -615,10 +730,13 @@ export default function HomePage() {
         </div>
       )}
 
+      </div>
+
       {tab !== "splitty" && (
         <button
           aria-label="Add expense"
           onClick={() => setSheet("add")}
+          className="press"
           style={{
             position: "fixed",
             right: "max(18px, calc(50% - 215px + 18px))",
@@ -827,40 +945,78 @@ export default function HomePage() {
       />
 
       {toast && (
+        // Centring lives on this full-width wrapper, NOT on the pill: the
+        // pill's toastPop animation sets `transform`, which used to override
+        // an inline translateX(-50%) — so every toast slid in off-centre and
+        // snapped to the middle when the animation ended.
         <div
           style={{
             position: "fixed",
+            left: 0,
+            right: 0,
             bottom: "calc(env(safe-area-inset-bottom) + 150px)",
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: "var(--s3)",
-            border: "1px solid var(--line2)",
-            borderRadius: 999,
-            padding: "10px 18px",
             display: "flex",
-            gap: 14,
-            alignItems: "center",
+            justifyContent: "center",
+            pointerEvents: "none",
             zIndex: 60,
-            animation: "toastPop .2s",
-            whiteSpace: "nowrap",
           }}
         >
-          <span style={{ fontSize: 13.5, fontWeight: 600 }}>{toast.msg}</span>
-          {toast.undo && (
-            <button
-              onClick={toast.undo}
-              style={{
-                background: "none",
-                border: "none",
-                color: "var(--primary)",
-                fontSize: 13.5,
-                fontWeight: 800,
-                cursor: "pointer",
-              }}
-            >
-              Undo
-            </button>
-          )}
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              position: "relative",
+              overflow: "hidden",
+              pointerEvents: "auto",
+              background: "var(--s3)",
+              border: "1px solid var(--line2)",
+              borderRadius: 999,
+              padding: "10px 18px",
+              display: "flex",
+              gap: 14,
+              alignItems: "center",
+              whiteSpace: "nowrap",
+              animation: toast.leaving
+                ? `toastOut ${TOAST_EXIT_MS}ms var(--ease-rise) forwards`
+                : "toastPop .2s var(--ease-rise)",
+            }}
+          >
+            <span style={{ fontSize: 13.5, fontWeight: 600 }}>{toast.msg}</span>
+            {toast.undo && (
+              <button
+                onClick={toast.undo}
+                className="press"
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "var(--primary)",
+                  fontSize: 13.5,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                Undo
+              </button>
+            )}
+            {toast.undo && (
+              // How long is left to undo — previously there was no way to tell.
+              <span
+                key={toast.id}
+                aria-hidden
+                className="toast-countdown"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 3,
+                  background: "var(--primary)",
+                  transformOrigin: "left center",
+                  animation: `toastCountdown ${TOAST_MS}ms linear forwards`,
+                }}
+              />
+            )}
+          </div>
         </div>
       )}
     </Screen>

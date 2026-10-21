@@ -93,31 +93,41 @@ than piecemeal — one reduced-motion guard, one easing vocabulary, one review.
 Per-item sizes below are for cherry-picking; they don't sum to the section
 figure because each would re-pay the same setup.
 
+**Status 2026-10-21: every item in this section is done.**
+
 Candidates for a later pass, roughly highest value first:
-- **Tab switching is an instant swap** — no cross-fade or directional slide
-  between Home/Expenses/List/Reports/Splitty. Probably the single most
-  "website-not-app" moment left after Phase 11. **[S · ~5–10]**
-- **List rows appear all at once** (Expenses, List, Activity, Splitty items) —
-  a short staggered fade/slide on first paint would make loading feel
-  intentional rather than abrupt. **[S · ~4–9]**
-- **No press feedback** on the FAB, tab-bar items, pills or list rows — a
-  scale-down/ripple on `:active` is the cheapest possible "feels native" win. **[XS · ~2–5]**
-- **Checkbox ticks are instant** — shopping-list check/uncheck and Splitty
-  item claim are the two most-tapped controls in the app and have no
-  transition at all. Worth animating the tick draw + row strike-through. **[S · ~4–8]**
-- **Balance figure snaps** between values — a count-up/roll animation when
-  the hero number changes (after adding an expense or settling) would make
-  the app's most important number feel alive. **[S · ~4–8]**
-- **Loading is a bare spinner** — skeleton placeholders matching row shapes
-  would reduce perceived latency, especially on the Reports tab. **[M · ~10–20]**
-- **Toast has an entry (`toastPop`) but no exit** — it disappears abruptly
-  after 4s; also no visual countdown on the undo window, so users can't tell
-  how long they have to hit Undo. **[S · ~4–8]**
-- **Sheet content doesn't animate in** — only the sheet container slides up;
-  contents appear fully formed. The Phase 11 stagger pattern could extend to
-  sheet bodies. **[S · ~4–8]**
-- **No pull-to-refresh** anywhere, despite Realtime already keeping data
-  fresh — worth considering only if users actually reach for it. **[M · ~10–18]**
+- ~~**Tab switching is an instant swap**~~ → **done** in Phase 11 (`tabIn`:
+  each tab fades and rises in). 2026-10-21: its fill mode changed to
+  `backwards` so the wrapper no longer holds a transform (BUG-018).
+- ~~**List rows appear all at once**~~ → **done**: Expenses and List in
+  Phase 11; Activity rows and Splitty bill cards added 2026-10-21, same capped
+  cross-group stagger.
+- ~~**No press feedback**~~ → **done**: tab bar, pills, buttons and list rows
+  in Phase 11 (`.press`); the FAB, Activity rows, Splitty cards, Splitty claim
+  rows, toast Undo and "+ Add a note" added 2026-10-21.
+- ~~**Checkbox ticks are instant**~~ → **done**: shopping list in Phase 11;
+  Splitty claim 2026-10-21 (colour transition + tick pop, and the row is now
+  keyboard-operable with `aria-pressed`).
+- ~~**Balance figure snaps**~~ → **done** 2026-10-21: `useCountUp` counts the
+  signed balance from old to new (so owed→owing passes through zero), whole
+  cents every frame, tabular digits, instant under reduced motion; the pop
+  still plays.
+- ~~**Loading is a bare spinner**~~ → **done** 2026-10-21
+  (`components/skeletons.tsx`): Home's own shape on every app open — it is
+  server-rendered, so it is also the very first paint — plus Splitty and
+  Activity. Reports never had a loading state (its data rides in with Home's).
+- ~~**Toast has an entry but no exit**~~ → **done** 2026-10-21: `toastOut`
+  exit, and a bar draining across the undo window (exempt from the
+  reduced-motion guard — it's information). Also fixed an existing glitch:
+  `toastPop` overrode the inline centring transform, so every toast slid in
+  off-centre and snapped to the middle.
+- ~~**Sheet content doesn't animate in**~~ → **done** 2026-10-21:
+  `.sheet-stagger` settles a sheet's children in (6px, staggered, then the rest
+  together) just behind the panel.
+- ~~**No pull-to-refresh**~~ → **done** 2026-10-21 (`usePullToRefresh`):
+  arms only at the top and only for a vertical downward drag, half-speed
+  resistance, Material-style indicator (content doesn't move, so nothing gains
+  a transform). Installed iOS PWAs have no browser pull-to-refresh at all.
 
 ## Design-fidelity backlog (audit vs design handoff, 2026-07-13)
 Gaps between the built app and `design_handoff_settleup/README.md`, each with
@@ -141,9 +151,10 @@ criteria are met (bar the E6 trial); these are the visible deltas:
 - ~~Upcoming-recurring card on Home~~ → built in Phase 4, then **deliberately
   removed** in the Tally polish batch when Recurring moved into Settings. Not
   pending — listed only so it isn't "re-fixed" later.
-- Note input on Add/Edit sheet — still open; the schema and the detail view
-  already carry notes, so this is just the input.
-  **Effort:** XS · **Credits:** ~2–4
+- ~~Note input on Add/Edit sheet~~ → **done** 2026-10-21: behind a
+  "+ Add a note" link so the Add sheet stays zero-friction (ADR-0008), open by
+  default only when editing an expense that has one. A receipt scan's item
+  list now lands in it (visible and editable) instead of being saved silently.
 - Avatar photos (add-photo affordance in onboarding/settings) — still open.
   Storage and the image-compression helper already exist from receipts, so the
   groundwork is done. **Effort:** M · **Credits:** ~10–20 *(upload, crop,

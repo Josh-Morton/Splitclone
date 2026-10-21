@@ -15,17 +15,20 @@ import { useParams } from "next/navigation";
 import type { Repo, SplitBill, SplitBillGuest } from "@/lib/data";
 import { fmt } from "@/lib/domain";
 import {
+  claimedItemsCents,
   claimedSubtotalCents,
   coveredCents,
   guestContributionCents,
+  itemsTotalCents,
   loadGuestIdentity,
+  tipsCents,
   saveGuestIdentity,
   unclaimedCents,
   type GuestIdentity,
 } from "@/lib/splitty";
 import { getDemoRepo, getSupabaseRepo, isSupabaseConfigured } from "@/lib/data";
 import { isDemoMode, useSessionState } from "@/lib/session";
-import { Button, Card, ErrorText, Input, Label, Logo, Screen, Spinner } from "@/components/ui";
+import { Button, Card, ErrorText, Input, Label, Logo, Screen, Spinner, pressable } from "@/components/ui";
 
 const TIP_PRESETS = [0, 10, 15, 20];
 
@@ -326,9 +329,13 @@ function ClaimCard({
           return (
             <div
               key={it.id}
-              onClick={() => toggleItem(it.id, mine, claimed)}
-              role="button"
+              // Keyboard-operable, and only interactive when it can actually
+              // be toggled (a11y pass) — it used to be a role="button" div
+              // that a keyboard couldn't reach.
+              {...pressable(editable && (!claimed || mine) ? () => toggleItem(it.id, mine, claimed) : undefined)}
+              aria-pressed={editable && (!claimed || mine) ? mine : undefined}
               aria-label={`${mine ? "Release" : "Claim"} ${it.name}`}
+              className={editable && (!claimed || mine) ? "press" : undefined}
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -352,9 +359,19 @@ function ClaimCard({
                   fontWeight: 800,
                   lineHeight: "20px",
                   textAlign: "center",
+                  // Claiming is the most-tapped control on this page and had
+                  // no transition at all (animation backlog).
+                  transition: "background var(--d-fast), border-color var(--d-fast)",
                 }}
               >
-                {mine ? "✓" : ""}
+                {/* Keyed so the tick replays its pop each time it's claimed. */}
+                {mine ? (
+                  <span key="tick" className="value-pop" style={{ display: "block" }}>
+                    ✓
+                  </span>
+                ) : (
+                  ""
+                )}
               </span>
               <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 600 }}>
                 {it.name}
@@ -565,6 +582,8 @@ function SharePanel({ shareCode, merchant }: { shareCode: string; merchant: stri
 
 function OverviewCard({ bill }: { bill: SplitBill }) {
   const covered = coveredCents(bill);
+  const claimed = claimedItemsCents(bill);
+  const tips = tipsCents(bill);
   const unclaimed = unclaimedCents(bill);
   return (
     <Card style={{ padding: 16, marginBottom: 12 }}>
@@ -609,11 +628,26 @@ function OverviewCard({ bill }: { bill: SplitBill }) {
           paddingTop: 10,
         }}
       >
-        <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Claimed so far</span>
+        <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Items claimed</span>
         <span style={{ fontSize: 14, fontWeight: 800 }}>
-          {fmt(covered)} of {fmt(bill.receiptTotalCents)}
+          {fmt(claimed)} of {fmt(itemsTotalCents(bill))}
         </span>
       </div>
+      {/* Tips are on top of the bill, so they're shown as their own line —
+          folding them into "claimed" made a fully claimed bill look
+          over-claimed (BUG-019). */}
+      {tips > 0 && (
+        <>
+          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 6 }}>
+            <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Tips on top</span>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(tips)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 6 }}>
+            <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Everyone&apos;s paying</span>
+            <span style={{ fontSize: 14, fontWeight: 800 }}>{fmt(covered)}</span>
+          </div>
+        </>
+      )}
       {unclaimed > 0 && (
         <p style={{ fontSize: 12, color: "var(--amber)", marginTop: 8, fontWeight: 600 }}>
           {fmt(unclaimed)} of items still unclaimed

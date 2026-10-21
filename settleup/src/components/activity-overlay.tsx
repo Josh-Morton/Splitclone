@@ -11,7 +11,8 @@ import type { Repo } from "@/lib/data";
 import { fmt, type Activity, type Expense, type GroupMember, type Settlement } from "@/lib/domain";
 import { memberDisplayName } from "./avatar";
 import { dayLabel } from "./expenses-tab";
-import { Spinner } from "./ui";
+import { RowsSkeleton } from "./skeletons";
+import { pressable } from "./ui";
 
 interface FeedRow {
   id: string;
@@ -103,12 +104,12 @@ export function ActivityOverlay({
         </header>
 
         {error && <p style={{ color: "var(--red)", fontSize: 13 }}>{error}</p>}
-        {!rows && !error && <Spinner />}
+        {!rows && !error && <RowsSkeleton rows={6} label="Loading activity" />}
         {rows && rows.length === 0 && (
           <p style={{ fontSize: 13.5, color: "var(--muted)" }}>Nothing has happened yet.</p>
         )}
 
-        {groups.map((g) => (
+        {groups.map((g, gi) => (
           <section key={g.label} style={{ marginBottom: 18 }}>
             <p
               style={{
@@ -133,9 +134,11 @@ export function ActivityOverlay({
               {g.items.map((r, i) => (
                 <div
                   key={r.id}
-                  role={r.expense ? "button" : undefined}
-                  onClick={r.expense ? () => onOpenExpense(r.expense!) : undefined}
+                  {...pressable(r.expense ? () => onOpenExpense(r.expense!) : undefined)}
+                  className={r.expense ? "row-in press" : "row-in"}
                   style={{
+                    // Same capped, cross-group stagger as the Expenses list.
+                    animationDelay: `${Math.min(gi * 2 + i, 8) * 32}ms`,
                     display: "flex",
                     alignItems: "center",
                     gap: 12,

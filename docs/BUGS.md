@@ -29,9 +29,9 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- All logged bugs (BUG-001…018) are fixed. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
+- All logged bugs (BUG-001…019) are fixed. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
 
-## Fixed — 2026-10-21 (BUG-018)
+## Fixed — 2026-10-21 (BUG-018, BUG-019)
 
 ### BUG-018 — ~~sheets opened inside a tab were pinned to the tab, not the screen~~ ✅ fixed
 
@@ -84,6 +84,28 @@ of `<body>`; the nested picker paints above its parent and picking a category
 still updates the Add sheet; `.tab-in`'s transform clears to `none` after its
 animation; and under real hit-testing the finger lands on "Take / choose a
 photo", not the tab bar.
+
+### BUG-019 — ~~Splitty said more was claimed than the bill was worth~~ ✅ fixed
+
+**Status:** ✅ fixed 2026-10-21 · **Reported:** 2026-10-21 (visible in Josh's
+screenshots) · **Severity: medium** · **Effort:** XS · **Credits:** ~2–5
+
+**Symptom.** Bill cards read "R1 376,25 of R1 225,00 claimed", "R120,00 of
+R100,00", "R932,16 of R792,00" — more claimed than the bill, which looks like a
+maths error.
+
+**Cause — confirmed.** The figure was `coveredCents()`, which adds each guest's
+own **tip** on top of the items they claimed, compared against the bill total,
+which is **items only**. "R1 376,25 of R1 225,00" was really "all R1 225,00 of
+items claimed, plus R151,25 of tips". Correct maths, mislabelled.
+
+**Fix.** Compare items with items: `claimedItemsCents()` against
+`itemsTotalCents()`, and show tips as their own line — "· +R151,25 tips" on the
+card; "Items claimed / Tips on top / Everyone's paying" on the bill's overview.
+The denominator is the sum of the items rather than the stored receipt total,
+so claimed + unclaimed always adds up; all 11 production bills had the two
+equal, but the demo seed didn't (R620 vs R570 of items), and that seed is
+corrected too. Unit-tested in `src/lib/__tests__/splitty.test.ts`.
 
 ## Fixed — 2026-10-20 (BUG-014 … BUG-017)
 

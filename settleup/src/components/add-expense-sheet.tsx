@@ -119,7 +119,14 @@ export function AddExpenseSheet({
   const [error, setError] = useState("");
   // Receipt scan (Phase 7): prefills amount + note; image never stored.
   const [scanOpen, setScanOpen] = useState(false);
-  const [scanNote, setScanNote] = useState<string | null>(null);
+  // The note (backlog: "Note input on Add/Edit sheet"). The schema and the
+  // detail view always carried notes; only the input was missing. It stays
+  // behind an "+ Add a note" link so the Add sheet keeps its zero-friction
+  // default (ADR-0008) — open from the start only when there's already a note.
+  // A receipt scan writes its item list here, so it's visible and editable
+  // instead of being saved silently.
+  const [note, setNote] = useState(editing?.note ?? "");
+  const [noteOpen, setNoteOpen] = useState(Boolean(editing?.note));
 
   const isForeign = currency !== "ZAR";
   const cachedRate = rates.find((r) => r.code === currency)?.rateToZar;
@@ -204,7 +211,8 @@ export function AddExpenseSheet({
     setRepeatFreq("monthly");
     setRepeatDom(String(new Date().getDate()));
     setRepeatDow(new Date().getDay());
-    setScanNote(null);
+    setNote("");
+    setNoteOpen(false);
     setCategoryOverride(null);
     setError("");
   }
@@ -251,7 +259,7 @@ export function AddExpenseSheet({
         splitMethod: (method === "salary" && proportionalFallsBack ? "equal" : method) as SplitMethod,
         payers,
         splits,
-        note: editing ? editing.note : (scanNote ?? null),
+        note: note.trim() || null,
         // amountCents above is already Rand; these only record where it came
         // from. All null for a Rand expense, which also clears them if an
         // edit switches back to Rand (ADR-0017).
@@ -428,6 +436,49 @@ export function AddExpenseSheet({
           {categoryOverride ? "· tap to change" : "· auto · tap to change"}
         </span>
       </button>
+      {noteOpen ? (
+        <>
+          <div style={{ height: 10 }} />
+          <textarea
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            placeholder="Add a note — what it covered, who it was for…"
+            aria-label="Note"
+            rows={note.split("\n").length > 2 ? 4 : 2}
+            maxLength={1000}
+            style={{
+              width: "100%",
+              background: "var(--s2)",
+              border: "1px solid var(--line2)",
+              borderRadius: "var(--r-input)",
+              color: "var(--ink)",
+              fontSize: 14,
+              lineHeight: 1.45,
+              padding: "10px 14px",
+              fontFamily: "inherit",
+              resize: "vertical",
+            }}
+          />
+        </>
+      ) : (
+        <button
+          onClick={() => setNoteOpen(true)}
+          className="press"
+          style={{
+            display: "block",
+            marginTop: 8,
+            background: "none",
+            border: "none",
+            color: "var(--muted)",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+            padding: "4px 2px",
+          }}
+        >
+          + Add a note
+        </button>
+      )}
       {editing && (
         <>
           <div style={{ height: 10 }} />
@@ -443,7 +494,9 @@ export function AddExpenseSheet({
               border: "1px solid var(--line2)",
               borderRadius: "var(--r-input)",
               color: "var(--ink)",
-              colorScheme: "dark",
+              // Was "dark" — a leftover from before the Phase 11 light reskin,
+              // so the native date picker opened in dark mode.
+              colorScheme: "light",
               fontSize: 15,
               fontWeight: 600,
               padding: "12px 16px",
@@ -718,7 +771,10 @@ export function AddExpenseSheet({
         onAdd={({ amountCents, merchant, note }) => {
           setAmount(centsToInput(amountCents));
           if (!desc.trim()) setDesc(merchant || "Groceries");
-          setScanNote(note);
+          if (note) {
+            setNote(note);
+            setNoteOpen(true);
+          }
           setCategoryOverride(null); // let it auto-detect from merchant/description
           setScanOpen(false);
         }}

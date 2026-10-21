@@ -11,6 +11,30 @@
 
 import type { CSSProperties, ReactNode } from "react";
 
+/**
+ * Props that make a non-<button> element behave like one (a11y pass).
+ *
+ * Several rows are `<div role="button">` because they hold block layout that
+ * a <button> shouldn't contain — but `role` alone gives neither focus nor
+ * keyboard activation, so those rows were unreachable without a pointer.
+ * This adds both. Returns nothing when there's no action, so a static row
+ * stays non-interactive.
+ */
+export function pressable(onPress?: () => void) {
+  if (!onPress) return {};
+  return {
+    role: "button" as const,
+    tabIndex: 0,
+    onClick: onPress,
+    onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onPress();
+      }
+    },
+  };
+}
+
 export function Screen({
   children,
   padding = 18,

@@ -1136,7 +1136,8 @@ export async function seedDemo(repo: MemoryRepo): Promise<{ groupId: string }> {
 
   // A demo Splitty bill so the tab isn't empty. Josh is the admin; a second
   // guest "Sam" has already claimed a couple of items and locked in.
-  const bill = await repo.splittyCreateBill("Mzoli's braai", 62000, [
+  // Total = the sum of the items below, as a real scanned bill's always is.
+  const bill = await repo.splittyCreateBill("Mzoli's braai", 57000, [
     { name: "Boerewors roll", lineTotalCents: 8500 },
     { name: "Lamb chops 300g", lineTotalCents: 22000 },
     { name: "Pap & chakalaka", lineTotalCents: 6500 },

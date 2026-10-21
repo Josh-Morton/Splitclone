@@ -216,6 +216,72 @@ input::placeholder {
   }
 }
 
+@keyframes toastOut {
+  to {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+/* Sheet contents settle in just behind the panel instead of appearing fully
+   formed (animation backlog). Kept to 6px — the panel is already moving, so
+   anything larger reads as the content sliding off its own sheet. Children are
+   staggered a few at a time, then the rest arrive together so a long sheet
+   doesn't trickle in. */
+@keyframes sheetContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sheet-stagger > * {
+  animation: sheetContentIn 240ms var(--ease-rise) 60ms backwards;
+}
+.sheet-stagger > :nth-child(2) { animation-delay: 85ms; }
+.sheet-stagger > :nth-child(3) { animation-delay: 110ms; }
+.sheet-stagger > :nth-child(4) { animation-delay: 135ms; }
+.sheet-stagger > :nth-child(n + 5) { animation-delay: 160ms; }
+
+/* Skeleton placeholders: a soft sweep across a neutral block. Derived from
+   LAYER 1 tokens so a reskin recolours them for free. */
+@keyframes skeletonShimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+.skeleton {
+  /* Ink at low alpha rather than --s2: --s2 is nearly the same colour as the
+     page background, so blocks on the page itself were close to invisible.
+     Alpha-based, it reads on both the cream page and white cards. */
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--ink) 8%, transparent) 0%,
+    color-mix(in srgb, var(--ink) 3%, transparent) 50%,
+    color-mix(in srgb, var(--ink) 8%, transparent) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.3s ease-in-out infinite;
+}
+
+/* The undo window, drawn as a bar draining left-to-right. */
+@keyframes toastCountdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 /* Ambient drift on the welcome hero waves. */
 @keyframes waveDrift {
   from {
@@ -239,7 +305,8 @@ input::placeholder {
 }
 
 .rise-in {
-  animation: riseIn var(--d-slow) var(--ease-rise) both;
+  /* backwards, not both — same lingering-transform trap as BUG-018. */
+  animation: riseIn var(--d-slow) var(--ease-rise) backwards;
 }
 
 /* Tab content cross-fades + rises slightly when you switch tabs, so the
@@ -279,8 +346,11 @@ input::placeholder {
   }
 }
 
+/* `backwards` (BUG-018 reasoning): it applies the hidden start frame during
+   each row's stagger delay, which is the part that matters; holding the end
+   frame forever only left a transform on every row of a long list. */
 .row-in {
-  animation: rowIn 280ms var(--ease-rise) both;
+  animation: rowIn 280ms var(--ease-rise) backwards;
 }
 
 /* The balance figure pops when it changes, so money moving is noticeable. */
@@ -327,5 +397,11 @@ input::placeholder {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  /* Exempt: this bar is information (time left to undo), not decoration, and
+     a slow linear drain isn't the kind of motion this setting guards against.
+     Killing it would make the undo window invisible again. */
+  .toast-countdown {
+    animation-duration: 4000ms !important;
   }
 }

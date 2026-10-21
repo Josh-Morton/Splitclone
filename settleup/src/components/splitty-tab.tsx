@@ -12,10 +12,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Repo, SplitBill, SplitBillSummary } from "@/lib/data";
 import { fmt } from "@/lib/domain";
-import { coveredCents, saveGuestIdentity } from "@/lib/splitty";
+import { claimedItemsCents, itemsTotalCents, saveGuestIdentity, tipsCents } from "@/lib/splitty";
 import { CollapsingHeader } from "./collapsing-header";
 import { ReceiptScanSheet } from "./receipt-scan-sheet";
-import { Button, Card, Spinner } from "./ui";
+import { CardsSkeleton } from "./skeletons";
+import { Button, Card, pressable } from "./ui";
 
 export function SplittyTab({ repo, demo }: { repo: Repo; demo: boolean }) {
   const router = useRouter();
@@ -86,56 +87,60 @@ export function SplittyTab({ repo, demo }: { repo: Repo; demo: boolean }) {
       )}
 
       {bills === null ? (
-        <div style={{ padding: "24px 0" }}>
-          <Spinner />
-        </div>
+        <CardsSkeleton cards={3} label="Loading your splits" />
       ) : bills.length === 0 ? (
         <p style={{ fontSize: 13.5, color: "var(--muted)", padding: "6px 0" }}>
           No splits yet — tap <span style={{ color: "var(--ink)", fontWeight: 700 }}>New split</span> to scan
           your first bill.
         </p>
       ) : (
-        bills.map((b) => {
+        bills.map((b, i) => {
           const bill = details[b.shareCode];
-          const covered = bill ? coveredCents(bill) : 0;
-          const total = bill?.receiptTotalCents ?? 0;
+          // Items vs items: the old figure added tips to one side only, so a
+          // fully claimed bill read "R1 376,25 of R1 225,00" (BUG-019).
+          const claimed = bill ? claimedItemsCents(bill) : 0;
+          const tips = bill ? tipsCents(bill) : 0;
+          const total = bill ? itemsTotalCents(bill) : 0;
           const closed = b.status === "closed";
           return (
-            <Card
+            <div
               key={b.shareCode}
-              style={{ padding: 16, marginBottom: 10, cursor: "pointer" }}
+              className="row-in press"
+              style={{ animationDelay: `${Math.min(i, 8) * 32}ms`, marginBottom: 10 }}
             >
-              <div
-                role="button"
-                aria-label={`Open ${b.merchant ?? "split"}`}
-                onClick={() => router.push(`/split/${b.shareCode}`)}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 15, fontWeight: 700 }}>{b.merchant ?? "Split"}</span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                      color: closed ? "var(--faint)" : "var(--green)",
-                    }}
-                  >
-                    {closed ? "Closed" : "Open"}
-                  </span>
+              <Card style={{ padding: 16, cursor: "pointer" }}>
+                <div
+                  {...pressable(() => router.push(`/split/${b.shareCode}`))}
+                  aria-label={`Open ${b.merchant ?? "split"}`}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 15, fontWeight: 700 }}>{b.merchant ?? "Split"}</span>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                        color: closed ? "var(--faint)" : "var(--green)",
+                      }}
+                    >
+                      {closed ? "Closed" : "Open"}
+                    </span>
+                  </div>
+                  <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6 }}>
+                    {bill ? (
+                      <>
+                        <span style={{ color: "var(--ink)", fontWeight: 700 }}>{fmt(claimed)}</span> of {fmt(total)}{" "}
+                        claimed
+                        {tips > 0 && <span style={{ color: "var(--faint)" }}> · +{fmt(tips)} tips</span>}
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </p>
                 </div>
-                <p style={{ fontSize: 13, color: "var(--muted)", marginTop: 6 }}>
-                  {bill ? (
-                    <>
-                      <span style={{ color: "var(--ink)", fontWeight: 700 }}>{fmt(covered)}</span> of {fmt(total)}{" "}
-                      claimed
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </p>
-              </div>
-            </Card>
+              </Card>
+            </div>
           );
         })
       )}

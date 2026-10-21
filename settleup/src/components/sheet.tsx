@@ -211,6 +211,7 @@ export function Sheet({
             the top, so the two gestures never fight. */}
         <div
           ref={bodyRef}
+          className="sheet-stagger"
           onTouchStart={(e) => begin(e.touches[0].clientY, true, e.target)}
           style={{ overflowY: "auto", flex: 1, minHeight: 0, touchAction: "pan-y" }}
         >
