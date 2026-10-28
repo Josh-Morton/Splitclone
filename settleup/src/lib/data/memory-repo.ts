@@ -1149,6 +1149,34 @@ export async function seedDemo(repo: MemoryRepo): Promise<{ groupId: string }> {
   });
   await repo.setRecurringPaused(paused.id, true);
 
+  // ── History for Reports (Phase 20) ───────────────────────────────────────────
+  // A few things the flat buys again and again, going back ~5 months, so the
+  // demo's trend, per-category mini-charts and "Regulars" have something real
+  // to show. Payers rotate round the four of them, so the balances barely move.
+  const history: [string, string, number, number, string][] = [
+    // description, category, rand, days ago, payer
+    ["Woolworths", "groceries", 1840, 46, josh.id],
+    ["Woolworths", "groceries", 1720, 76, thandi.id],
+    ["Woolworths", "groceries", 1910, 106, sipho.id],
+    ["Woolworths", "groceries", 1680, 136, lerato.id],
+    ["Vida e Caffè", "eatingout_coffee", 96, 44, thandi.id],
+    ["Vida e Caffè", "eatingout_coffee", 104, 81, josh.id],
+    ["Vida e Caffè", "eatingout_coffee", 92, 112, lerato.id],
+    ["Uber", "transport_rideshare", 138, 52, sipho.id],
+    ["Uber", "transport_rideshare", 164, 95, josh.id],
+    ["Uber", "transport_rideshare", 121, 128, thandi.id],
+    ["Eskom prepaid electricity", "utilities_electricity", 850, 58, lerato.id],
+    ["Eskom prepaid electricity", "utilities_electricity", 850, 88, josh.id],
+    ["Eskom prepaid electricity", "utilities_electricity", 850, 118, thandi.id],
+  ];
+  for (const [description, category, rand, ago, payer] of history) {
+    await repo.createExpense({
+      groupId: group.id, description, category,
+      amountCents: rand * 100, spentAt: day(ago), splitMethod: "equal",
+      payers: pay(payer, rand * 100), splits: eq(rand * 100),
+    });
+  }
+
   // A demo Splitty bill so the tab isn't empty. Josh is the admin; a second
   // guest "Sam" has already claimed a couple of items and locked in.
   // Total = the sum of the items below, as a real scanned bill's always is.

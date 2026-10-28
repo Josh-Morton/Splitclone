@@ -35,7 +35,7 @@
 >   Shipped work doesn't need one — the estimate exists to price the decision
 >   *before* committing to it. Scale + calibration: [Estimating scale](#estimating-scale).
 
-**Last updated:** 2026-10-28 (Phase 20 — Reporting v2 — specced; BUG-021 receipt scanning fixed)
+**Last updated:** 2026-10-28 (Phase 20 — Reporting v2 — shipped: drill-down, trends, pace, insights; BUG-021 fixed)
 
 ## Where we are
 
@@ -78,7 +78,7 @@ features people actually asked for before offline-first).
 | [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | ✅ Shipped (2026-08-04) | — | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
 | [18 — Learning categorisation engine](phases/phase-18-learning-categorisation.md) | 🟡 §1 **live in production** (2026-10-20, `9f366c2`) · rest spec only | **L** · ~35–70 remaining | — | Scoring matcher + 2 339-entry library shipped; still to build: corrections learned globally on consensus, ambiguity picker, subcategory report filters, backfill (ADR-0019) |
 | [19 — User category assignments](phases/phase-19-category-assignments.md) | 📝 Spec only — not built (2026-10-20) | **L** · ~20–35 (M · ~10–20 after 18 §2) | — | "Always file *Vida* as Coffee": per-Tally rules from an override prompt, the expense detail, or Manage this Tally → Category rules |
-| [20 — Reporting v2: drill-down, trends & insights](phases/phase-20-reporting-v2.md) | 📝 Spec (2026-10-28) — building | **L** · ~20–35 | — | Drill from any number to its expenses (month · category · subcategory · regulars); 12-month trend, within-month pace, per-category sparklines, plain-language insights (ADR-0021) |
+| [20 — Reporting v2: drill-down, trends & insights](phases/phase-20-reporting-v2.md) | ✅ Shipped (2026-10-28) | — | — | Drill from any number to its expenses (month · category · subcategory · regulars); 12-month trend, within-month pace, per-category sparklines, plain-language insights (ADR-0021) |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, [`docs/BACKLOG.md`](BACKLOG.md) for

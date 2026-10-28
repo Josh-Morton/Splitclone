@@ -1,6 +1,6 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 20 — Reporting v2: drill-down, trends & insights 📝 SPEC (2026-10-28)
+# Phase 20 — Reporting v2: drill-down, trends & insights ✅ SHIPPED (2026-10-28)
 
 > **Effort:** L · **Credits:** ~20–35 *(no migration or server work — L because
 > it's a full rewrite of Reports plus three chart components, a drill-down
@@ -12,6 +12,9 @@
 > thing, per month"*; wants *"a bit more of a detailed spending graph"*, trend
 > data *"in a nice chart"*, and for it to be *interesting*. Document first,
 > then build.
+>
+> **The spec below is kept as written.** What was actually built, and the
+> few places it differs, is recorded in [§11 · Shipped](#11--shipped-2026-10-28).
 >
 > **Decision record:** [ADR-0021](../decisions/0021-reporting-charts.md) —
 > hand-rolled SVG, one hue + emphasis, small multiples instead of a stacked
@@ -282,3 +285,47 @@ only, reversible — as already specced and agreed). **Effort:** S–M ·
   - keyboard: focus a chart, arrow keys move, Enter drills;
   - totals in the drill equal the sum of the listed expenses.
 - Screenshot each section.
+
+## 11 · Shipped (2026-10-28)
+
+Everything in §3–§7 is built. Code: `src/lib/reports.ts` (aggregation, 28
+tests in `src/lib/__tests__/reports.test.ts`), `src/components/charts/`
+(`MonthColumns`, `PaceLines`, `Sparkline`, `NumbersTable`, `scale.ts`),
+`src/components/report-drill.tsx`, and `src/components/reports-tab.tsx`
+(rewritten). Chart colours come from new LAYER 2 tokens (`--chart-accent`,
+`--chart-context`, `--chart-line-muted`, `--chart-grid`, `--chart-wash`).
+
+**Where the build differs from the spec — and why**
+- **Trend window:** up to 12 months, but starting no earlier than the first
+  month with any spending, and **never fewer than 6 columns**. A Tally with
+  four months of history shows those months, not eight empty ones; a brand-new
+  Tally still has context. (§7's "one month of history" case is covered by the
+  6-column floor.)
+- **Axis rounding** uses finer steps (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10):
+  with the classic 1/2/5 a R28.8k peak got a R50k axis and the chart used half
+  its height. The tallest mark now fills 81–96% of the plot.
+- **The drill's readout** starts on the latest month that scope actually has
+  spending in, not the window's end (which showed "R0 · 0 expenses" for a
+  regular last bought last month).
+- **The drill's back button is named for where it goes** ("Back to Eating
+  out"): the expense detail opened from a drill has its own "Back", and two
+  identically named controls is ambiguous for a screen reader.
+- **Changing filters keeps your place in a drill** — filters scope the drill
+  too, so there's no reason to throw the user back to the overview.
+- **The demo seed gained ~5 months of history** (13 recurring expenses —
+  Woolworths, Vida e Caffè, Uber, Eskom — with payers rotating so balances
+  barely move). Without it, the demo showed no "Regulars" at all and thin
+  mini-charts, so a visitor would never see half the feature.
+
+**Verified** (demo data, 375×812, real pointer and keyboard events — not
+`.click()`): the default range shows a multi-month trend with empty months at
+zero; tapping, dragging and ← / → move the readout; Enter and "See expenses"
+drill; category → subcategory → expense → expense detail → back returns to the
+same level; breadcrumb and back step up; month → category drills; a regular's
+drill; pace scrubbing, including past today; "All time" via the real filter
+sheet. **At every drill level the header total equals the sum of the listed
+expenses, to the cent.** "Show numbers" tables match the chart readouts. No
+console errors. 429 tests pass; tsc, lint and build clean.
+
+**Not verified here:** how it feels on a real phone (scroll vs scrub on the
+charts uses `touch-action: pan-y`, which only a device can really judge).

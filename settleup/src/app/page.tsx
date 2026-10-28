@@ -734,6 +734,7 @@ export default function HomePage() {
             settlements={d.settlements}
             members={d.members}
             meUserId={d.user.id}
+            onOpenExpense={setViewing}
           />
         </div>
       )}

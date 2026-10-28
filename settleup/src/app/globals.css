@@ -99,6 +99,14 @@
   --scrim: color-mix(in srgb, var(--ink) 42%, transparent);
   /* Translucent surface for the tab bar / sticky headers. */
   --surface-blur: color-mix(in srgb, var(--bg) 82%, transparent);
+  /* Charts (Phase 20, ADR-0021): one hue + emphasis. The accent marks the
+     focus; context marks are a neutral grey, so the eye goes to the focus
+     without a second hue competing. All derived, so a reskin follows. */
+  --chart-accent: var(--primary);
+  --chart-context: color-mix(in srgb, var(--ink) 17%, var(--surface));
+  --chart-line-muted: color-mix(in srgb, var(--ink) 34%, var(--surface));
+  --chart-grid: color-mix(in srgb, var(--ink) 8%, var(--surface));
+  --chart-wash: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 /* ══ LAYER 3 ══ Shape primitives. Theme-independent. ═══════════════════ */
