@@ -30,3 +30,5 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | [0017](0017-multi-currency-expenses.md) | Per-expense foreign currency, converted + rate-locked to ZAR at entry | Accepted |
 | [0018](0018-exchange-rate-provider.md) | Exchange rates from open.er-api.com (166 currencies) instead of Frankfurter (30) | Accepted (supersedes 0017's provider clause) |
 | [0019](0019-learning-categorisation-engine.md) | Scoring categorisation engine + globally-learned rules, gated by cross-household consensus | Accepted (extends 0011) |
+| 0020 | *Reserved by [Phase 19](../phases/phase-19-category-assignments.md) for its pending decision* | — |
+| [0021](0021-reporting-charts.md) | Reporting charts: hand-rolled SVG, one hue + emphasis, small multiples over stacked categories | Accepted |

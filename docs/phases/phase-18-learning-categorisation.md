@@ -225,7 +225,9 @@ system rather than cosmetic.
   down. Widen to accept subcategory slugs, keeping parent selection as
   "select all children" so existing saved behaviour is unchanged.
 - **Drill-down stays as-is structurally** (ADR-0011) — it only becomes useful
-  once §1 and §2 land.
+  once §1 and §2 land. *(2026-10-28: [Phase 20](phase-20-reporting-v2.md) adds
+  the drill from category → subcategory → individual expenses. This section's
+  filter-sheet widening is still separate and still optional.)*
 - **Export already emits a `Subcategory` column** (`src/lib/export.ts`) —
   verify it still reads correctly after the swap; no change expected.
 
