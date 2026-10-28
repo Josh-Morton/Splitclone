@@ -11,33 +11,57 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
-// MODEL SELECTION (BUG-016)
+// MODEL SELECTION (BUG-016, revised for BUG-021)
 //
-// This used to request `gemini-flash-latest`. That is an *alias*, and Google
-// only commits to two weeks' notice before repointing it — its target
-// (gemini-3.5-flash) was deprecated on 2026-10-08. When an alias's underlying
-// model is retired the request fails with 404 NOT_FOUND, which takes receipt
-// scanning down in both the expense flow and Splitty with no warning.
+// Two lessons, both learned in production:
 //
-// So: pin a known model, and keep a fallback chain behind it so a single
-// retirement degrades instead of breaking. GEMINI_MODEL still overrides the
-// first choice, so the model can be changed by setting a secret rather than
-// redeploying this function.
+// 1. Don't depend on a moving alias. `gemini-flash-latest` is repointed with
+//    two weeks' notice, and a retired target fails with 404 (BUG-016).
+// 2. Don't lead with the newest model on a free-tier key. The 2026-10-20 fix
+//    pinned gemini-3.8-flash; on the free tier it returns repeated
+//    503 UNAVAILABLE ("high demand") — widely reported Sept–Oct 2026 — and the
+//    alias now points at it too. Every scan failed (BUG-021).
+//
+// So Flash-Lite leads: current, recommended by Google for new projects
+// alongside 3.8 Flash, and the free tier's high-capacity option. Bigger models
+// sit behind it, so a busy or exhausted model degrades to the next instead of
+// failing the scan. GEMINI_MODEL (a function secret) still overrides the first
+// choice without a redeploy.
 const MODEL_CHAIN = [
   Deno.env.get("GEMINI_MODEL"),
-  "gemini-3.8-flash", // GA 2026-09-02; Google's recommendation for new projects
-  "gemini-3.6-flash", // GA 2026-07-21; what the deprecated 3.5-flash now routes to
-  "gemini-flash-latest", // last resort: the moving alias, wherever it points today
-].filter((m): m is string => Boolean(m));
+  "gemini-3.5-flash-lite", // GA 2026-07-21 — free-tier capacity, low demand
+  "gemini-3.1-flash-lite", // GA 2026-05-07 — older Lite, separate quota bucket
+  "gemini-3.6-flash", // GA 2026-07-21 — stronger, but tight free quota (429s)
+  "gemini-3.8-flash", // GA 2026-09-02 — strongest, but overloaded on free tier
+].filter((m, i, all): m is string => Boolean(m) && all.indexOf(m) === i);
 
-/** A model that doesn't exist / isn't available to this key — try the next. */
-const isModelUnavailable = (status: number) => status === 404 || status === 400;
+/**
+ * Should the scan move on to the next model? Yes for anything specific to THIS
+ * model: missing/unsupported (404/400), its own quota (429 — free-tier quotas
+ * are per model), or overloaded/erroring (5xx). Not for 401/403: a bad or
+ * restricted key fails identically on every model, so trying more just burns
+ * time.
+ */
+const tryNextModel = (status: number) =>
+  status === 404 || status === 400 || status === 429 || status >= 500;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+
+/** Google's own error status + message, trimmed — safe to log and return. */
+async function upstreamReason(res: Response): Promise<string> {
+  const text = await res.text().catch(() => "");
+  try {
+    const e = JSON.parse(text)?.error;
+    if (e) return `${e.status ?? ""} ${String(e.message ?? "").slice(0, 160)}`.trim();
+  } catch {
+    /* not JSON */
+  }
+  return text.slice(0, 160);
+}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -144,36 +168,42 @@ Deno.serve(async (req: Request) => {
         }),
       });
 
-    // Walk the chain until one model answers. Only a "model isn't there"
-    // status moves on — a quota or auth failure is the same for every model,
-    // so retrying would just burn the rate limit.
+    // Walk the chain until one model answers. Every failed attempt is logged
+    // (model, status, Google's reason — never the key) so the next failure is
+    // diagnosable from the function logs rather than guessed at.
     let geminiRes = await callGemini(MODEL_CHAIN[0]);
     let usedModel = MODEL_CHAIN[0];
-    for (let i = 1; i < MODEL_CHAIN.length && isModelUnavailable(geminiRes.status); i++) {
-      console.warn(`scan-receipt: model ${usedModel} returned ${geminiRes.status}, trying ${MODEL_CHAIN[i]}`);
+    const attempts: string[] = [];
+    for (let i = 1; !geminiRes.ok && tryNextModel(geminiRes.status) && i < MODEL_CHAIN.length; i++) {
+      const reason = await upstreamReason(geminiRes);
+      attempts.push(`${usedModel}:${geminiRes.status}`);
+      console.error(`scan-receipt: ${usedModel} -> ${geminiRes.status} ${reason}; trying ${MODEL_CHAIN[i]}`);
       geminiRes = await callGemini(MODEL_CHAIN[i]);
       usedModel = MODEL_CHAIN[i];
     }
 
     if (!geminiRes.ok) {
-      const body = await geminiRes.text();
-      // 429 = daily/rate limit reached
-      const status = geminiRes.status === 429 ? 429 : 502;
-      // The upstream reason is echoed in `detail` because the generic message
-      // made every distinct failure (bad model name, expired key, quota)
-      // look identical from the app (BUG-009).
+      const reason = await upstreamReason(geminiRes);
+      attempts.push(`${usedModel}:${geminiRes.status}`);
+      console.error(`scan-receipt: all models failed — ${attempts.join(", ")} — last: ${reason}`);
+      const busy = geminiRes.status >= 500;
+      const quota = geminiRes.status === 429;
       return json(
         {
-          error:
-            status === 429
-              ? "Scan limit reached, try again later"
+          // Said in words, with the code kept in brackets so a screenshot is
+          // still diagnosable (BUG-009/016/021).
+          error: quota
+            ? "Today's free scan limit is used up — try again tomorrow, or add the amount by hand (limit reached · 429)"
+            : busy
+              ? "Google's receipt reader is busy right now — try again in a minute (scanner busy · " +
+                geminiRes.status +
+                ")"
               : `Could not read the receipt (scanner error ${geminiRes.status})`,
-          // Named so a failure is diagnosable from the app instead of every
-          // cause looking identical (BUG-009/BUG-016).
           model: usedModel,
-          detail: body.slice(0, 300),
+          attempts,
+          detail: reason,
         },
-        status
+        quota ? 429 : busy ? 503 : 502
       );
     }
 

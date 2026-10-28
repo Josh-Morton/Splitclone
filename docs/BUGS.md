@@ -29,7 +29,43 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- All logged bugs (BUG-001…020) are fixed. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
+- All logged bugs (BUG-001…021) are fixed. BUG-021 awaits a real scan to confirm. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
+
+## Fixed — 2026-10-28 (BUG-021)
+
+### BUG-021 — ~~receipt scanning failed every time with "scanner error 503"~~ ✅ fixed (deployed; awaiting a real scan)
+
+**Status:** ✅ deployed 2026-10-28 as `scan-receipt` v5 · **Reported:** 2026-10-28
+· **Severity: high** · **Effort:** S · **Credits:** ~4–10
+
+**Confirmed from the function logs.** Both scans on 21 Oct reached the
+function, which booted normally, and returned **502** — the function's code for
+"Google's call failed". The 503 Josh saw is **Google's** status, passed through
+in the message (`scanner error 503`). Gemini's 503 is `UNAVAILABLE`: overloaded.
+
+**Cause — my own BUG-016 fix.** It pinned `gemini-3.8-flash`, then Google's
+recommendation for new projects. On the free tier that model has been
+returning repeated 503 "high demand" since September (widely reported on
+Google's developer forum), `gemini-flash-latest` now points at it too, and the
+fallback chain only moved on for a *missing* model (404/400) — never an
+overloaded one. So every scan stopped at the first model.
+
+**Fix.** Flash-Lite leads the chain (`gemini-3.5-flash-lite`, then
+`3.1-flash-lite`, `3.6-flash`, `3.8-flash`), and the scan moves to the next
+model on 404/400, **429 (per-model quota)** and **any 5xx** — but stops at once
+on 401/403, since a bad key fails identically everywhere. Every failed attempt
+is logged with Google's reason (never the key). Messages are now words with the
+code in brackets: "busy · 503", "limit reached · 429".
+
+**Verified** by running the real function code under Node with Google's API and
+Supabase auth mocked: 503-then-success, 429×2-then-success, all-503, 403-stops,
+first-works — all correct, and the old version fails the first. **Not verified:**
+a real scan against Google — that needs a signed-in user and the key.
+
+**Also found:** the Management API's `logs.all` endpoint was **removed** (HTTP
+410). Every earlier "no requests in the logs" reading came from that dead
+endpoint, not from an absence of traffic. Logs now come from
+`/analytics/endpoints/logs`, table `logs`, filtered on `source`.
 
 ## Fixed — 2026-10-21 (BUG-018 … BUG-020)
 
