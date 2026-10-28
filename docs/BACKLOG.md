@@ -25,6 +25,186 @@ inferred from work volume, not measured spend.
 >   Phase 10 domain) and CAPTCHA (hCaptcha — and only if bot sign-ups appear).
 > - **Needs another phase first:** the sync-state pill (Phase 2's offline outbox).
 > - **Decided not to build:** percentage/shares split methods (design has three).
+>
+> **New 2026-10-28:** sign-up, login and accounts audited and a holistic fix
+> scoped: [the section below](#sign-up-login--accounts--holistic-rework-audit-2026-10-28),
+> with flow diagrams in [AUTH-FLOWS.md](AUTH-FLOWS.md).
+
+## Sign-up, login & accounts — holistic rework (audit 2026-10-28)
+
+> **Effort:** XL · **Credits:** ~50–105 for everything, in three stages that
+> each ship on their own. **Stages 0 + 1 fix every problem people are hitting:
+> L · ~32–68.** Stage 0 needs nothing outside the repo. Stage 1 needs an email
+> sender (decision D1). Stage 2 is optional. If D1 is settled before work
+> starts, 0.1 and 1.2 merge (the sign-in screen is reworked once), which saves
+> ~4–8.
+>
+> **Diagrams** of every flow, as built (broken steps in red) and as proposed:
+> **[AUTH-FLOWS.md](AUTH-FLOWS.md)**. The confirmed defects are
+> [BUG-022 to BUG-026](BUGS.md#open--2026-10-28-auth-audit).
+
+### Why it feels clunky: what the audit found
+
+Ranked by how much each one hurts a real person. Checked against the code,
+the live auth configuration and the live user records (aggregates only).
+
+1. **Tally can't email its users.** No custom email server is set up, so
+   Supabase's built-in sender is in use. Supabase's docs say it will "refuse to
+   deliver messages to addresses that are not part of the project's team",
+   which means everyone except the owner. It is also capped at **2 emails an
+   hour for the whole project**, and the docs call it "not meant for
+   production use". So "Email me a sign-in link", "Forgot password?" and
+   "Resend email" fail for every real user, and show a raw backend error.
+   Email confirmation was switched off to work around this, which is why
+   sign-up never checks the address. → BUG-022
+2. **"Forgot password?" can't reset a password even when the email arrives.**
+   The link signs you in, but there's no screen to choose a new password, and
+   nothing in the app can set one (`updateUser` is never called). The next
+   password log-in fails again. → BUG-023
+3. **Two ways in that look equal but don't work equally.** There's a password
+   form and a sign-in-link button, and the error copy keeps sending people to
+   the sign-in link, which can't arrive. This is BUG-015's confusion, patched
+   with copy rather than resolved.
+4. **Invites get lost.** The invite code is kept in `sessionStorage`, which
+   belongs to one browser tab. Open the email in a new tab, or restart the app
+   mid-way, and the invitee lands on "Create your Tally" and ends up in an
+   empty Tally of their own. The sign-in screen also doesn't say they're
+   joining anything, and it opens on *Log in* even though they're new.
+   → BUG-024
+5. **The home-screen app and email links don't mix.** A link opens in the
+   browser, not the installed app. That happens to work on Android (shared
+   storage) but never signs in an iPhone home-screen app. Typed codes avoid
+   the problem, but the code screen can't work today: it takes 6 digits,
+   Supabase is set to issue 8, and the email contains no code. → BUG-025
+6. **No account controls.** Settings doesn't show which email you're signed
+   in with, and has no change password, change email or delete account. The
+   privacy page says deletion is "on request", with no contact set.
+7. **Onboarding asks too much, in the wrong order.** Everyone, including an
+   invitee who only wants to join, goes through name, then salary, then
+   create-a-Tally. Salary is private and optional, and means nothing yet at
+   that point.
+8. **Loose ends in the records.** 5 of the 9 accounts are leftover test
+   accounts in production. They have no name and no expenses, and they own 2
+   empty Tallies and 2 invite codes. Invite codes never expire and can be
+   used any number of times. "Finished onboarding" is guessed from a
+   non-empty display name.
+9. **Security settings to tighten.** The auth redirect allow-list accepts any
+   `*.vercel.app` site, so a crafted sign-in link could hand a session to
+   someone else's Vercel app. It's harmless only while email is team-only.
+   → BUG-026. Passwords need just 6 characters, and email ownership is never
+   proven (that needs working email first).
+
+**What's fine and stays:**
+
+- Session handling: after BUG-005/007/014, sessions survive flaky networks,
+  and sign-out only affects this device.
+- One account per email address, with all data hanging off `auth.users.id`.
+- RLS.
+- Splitty's guest access (ADR-0013).
+
+### The target experience
+
+One obvious path: **email → 6-digit code → in.** The same flow covers
+sign-up, log-in, a new phone and a forgotten password, so there's nothing
+separate to recover, and typing a code works inside the home-screen app on
+any phone.
+
+- A password stays available for anyone who prefers one. All 9 accounts have
+  one today.
+- "Continue with Google" is an optional extra. All four real users are on
+  Gmail.
+- Invites carry through every step and land the person straight in the right
+  Tally.
+- Settings gets a proper Account section.
+
+### Stage 0 — stop the confusion (nothing needed from outside)
+
+**Effort:** M–L · **Credits:** ~16–33
+
+| # | Work | Size |
+|---|---|---|
+| 0.1 | **Password-only sign-in screen, for now.** Hide the sign-in-link button and the dead code entry until email can be delivered. One form with "New here? Create an account", and a show/hide password toggle. Error messages come from one mapped, unit-tested table (`auth-messages.ts`), never raw Supabase strings. | S · ~4–8 |
+| 0.2 | **Honest recovery until email works.** "Forgot password?" explains that the Tally owner can reset it. Add an `npm run admin:reset-password` script for Josh (Management API, same pattern as the category backfill), with a runbook in SETUP.md. | S · ~3–6 |
+| 0.3 | **Invites that survive.** Keep the code in `localStorage` with an expiry *and* in the URL (`/welcome?invite=CODE`). The sign-in screen shows "Joining {Tally}: {name} invited you" and opens on Create account. After sign-up it goes name → joined, skipping salary and create-a-Tally. | S–M · ~5–10 |
+| 0.4 | **Account section in Settings.** Show the signed-in email. Add set/change password via `updateUser`, which works without email because reauthentication isn't required. | S · ~3–6 |
+| 0.5 | **Config and hygiene.** Narrow the redirect allow-list to the production URL plus this project's preview URLs. Set the code length to 6 to match the screen. Delete the 5 test accounts and their empty Tallies and invites once Josh confirms (D4). | XS · ~1–3 |
+
+### Stage 1 — email that works (needs D1)
+
+**Effort:** M–L · **Credits:** ~16–35, plus Josh's account setup
+
+| # | Work | Size |
+|---|---|---|
+| 1.1 | **Custom SMTP.** Connect the chosen sender to Supabase Auth and raise the email limit (e.g. 30/hour). Sender name "Tally". Branded sign-in, reset and email-change emails that carry **both** the 6-digit code and the link. | S · ~3–8 |
+| 1.2 | **Email-code sign-in as the main path** (`signInWithOtp` + `verifyOtp`), the same for new and returning people. Resend with a 60-second cooldown, and "Use a password instead" for people who have one. | M · ~6–12 |
+| 1.3 | **Real recovery.** A "Choose a new password" screen for the reset link (the `PASSWORD_RECOVERY` event) and for the code. The admin script becomes break-glass only. | S · ~3–6 |
+| 1.4 | **Email confirmation on**, by code at sign-up, so a mistyped address is caught at the door and nobody can squat someone else's email. | XS–S · ~2–4 |
+| 1.5 | **Change email** in Settings: a code goes to the new address. (`mailer_secure_email_change_enabled` is already on.) | S · ~2–5 |
+
+### Stage 2 — nice to have (pick any)
+
+**Effort:** M–L · **Credits:** ~19–38 if all of it
+
+| # | Work | Size |
+|---|---|---|
+| 2.1 | **Continue with Google** (D3). A Google Cloud OAuth client from Josh's Google account, the Supabase provider, and the button. Check same-email account linking, and the redirect back into the home-screen app on both phones. | S–M · ~5–10 |
+| 2.2 | **Delete my account**, self-serve and confirmed by code. It leaves every Tally (shared expenses stay, shown as "Former member"), removes the profile and photo, and deletes the auth user through an Edge Function holding the service key. This settles the privacy page's open contact question. | M · ~8–15 |
+| 2.3 | **Invite controls.** Expiry (default 14 days), "New link" revokes the old one, and the owner sees who joined. | S · ~3–6 |
+| 2.4 | **Salary in context.** Ask the first time someone picks a proportional split, not during sign-up (D6). | S · ~2–5 |
+| 2.5 | **Explicit `profile.onboarded_at`**, instead of guessing from the display name. | XS · ~1–2 |
+
+### Decisions for Josh
+
+- **D1: email sender (blocks Stage 1).**
+  - (a) A **dedicated Gmail account with an app password**
+    (`smtp.gmail.com`): free, no domain, about 10 minutes, 500 emails a day.
+    Emails come from that Gmail address.
+  - (b) **Domain + Resend** ([Phase 10](phases/phase-10-custom-domain-launch.md)):
+    the proper long-term answer with a branded sender, but the domain has to
+    be bought and its DNS set up first.
+  - *Recommendation: (a) now, unless the domain is days away. Moving to (b)
+    later is a settings change, not code.*
+- **D2: the main way in after Stage 1.** Email code (recommended: one flow
+  for everything, and safe in the home-screen app), or keep password first
+  and use codes only for recovery.
+- **D3: add "Continue with Google"?** Recommended, but only after 1.4, so
+  email confirmation closes the account-linking loophole first.
+- **D4:** confirm deleting the 5 test accounts.
+- **D5:** invite expiry (14 days proposed), and whether a link stays reusable.
+- **D6:** keep salary in sign-up, or move it (recommended: move it, 2.4).
+
+### What only Josh can do
+
+- **For D1, create the account.** That's either the Gmail address (2-step
+  verification on, then an app password) or the Phase 10 domain + Resend.
+  Then paste the SMTP password yourself into Supabase → Authentication →
+  Emails → SMTP settings. It's a credential, so Claude won't enter it.
+  Everything else (host, limits, templates) Claude can set.
+- **For D3, create the OAuth client** in Google Cloud Console and paste its
+  ID and secret into Supabase → Authentication → Providers → Google.
+
+### Decisions already on record
+
+- Building Stage 1 supersedes **[ADR-0006](decisions/0006-passwordless-otp-auth.md)**
+  (password primary, magic-link fallback). Write the new ADR then; 0020 is
+  reserved for Phase 19, so it will be 0022 or later.
+- D1(b) *is* Phase 10's Resend step. D1(a) is an interim that doesn't block
+  it.
+
+### How we'll know it's fixed
+
+On a real Android phone **and** a real iPhone home-screen app, test as a
+brand-new person and as an existing one:
+
+- sign up;
+- sign in on a second phone;
+- forget the password;
+- accept an invite with the email opened in another app;
+- change email;
+- delete a throwaway account.
+
+Every error a person can hit has a plain message, backed by the unit-tested
+table, and a test fails if a raw Supabase string reaches the screen.
 
 ## Other open items
 - ~~**Formal a11y pass (WCAG)**~~ → **done** 2026-10-21, against WCAG 2.2 AA.

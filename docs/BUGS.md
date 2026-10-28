@@ -29,7 +29,98 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- All logged bugs (BUG-001…021) are fixed. BUG-021 awaits a real scan to confirm. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan — see its entry.
+- **Open: BUG-022 to BUG-026**, all from the 2026-10-28 sign-up/login audit. Their fixes are scoped together in [BACKLOG → Sign-up, login & accounts rework](BACKLOG.md#sign-up-login--accounts--holistic-rework-audit-2026-10-28); diagrams in [AUTH-FLOWS.md](AUTH-FLOWS.md). BUG-001 to BUG-021 are fixed. BUG-021 awaits a real scan to confirm. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan; see its entry.
+
+## Open — 2026-10-28 (auth audit)
+
+Found in one audit of sign-up, login, invites and user records. They're fixed
+as one piece of work, not one by one, because most of them come from the same
+two causes: no working email, and two competing ways in. See the
+[rework scope](BACKLOG.md#sign-up-login--accounts--holistic-rework-audit-2026-10-28).
+
+### BUG-022 — sign-in links and password-reset emails never reach real users
+
+**Status:** open · **Reported:** 2026-10-28 · **Severity: critical** ·
+**Effort:** S · **Credits:** ~3–8 *(rework 1.1, after Josh sets up a sender:
+decision D1)*
+
+**Confirmed** from the live auth config (no SMTP host set) and Supabase's own
+docs. The built-in sender "will refuse to deliver messages to addresses that
+are not part of the project's team", is limited to 2 emails an hour for the
+whole project, and is "not meant for production use". Every email-based
+button on the sign-in screen (the sign-in link, Forgot password?, Resend)
+therefore fails for anyone who isn't on the Supabase team. They see the raw
+error ("Email address not authorized" or a rate-limit message), set straight
+from `error.message` in `welcome/page.tsx` and `verify/page.tsx`.
+
+**Expected:** these emails arrive, or the buttons aren't offered.
+**Fix:** custom SMTP (rework 1.1). Until then, hide the email buttons and map
+errors to plain words (rework 0.1).
+
+### BUG-023 — "Forgot password?" never lets you choose a new password
+
+**Status:** open · **Reported:** 2026-10-28 · **Severity: high** ·
+**Effort:** S · **Credits:** ~3–6 *(rework 1.3; interim 0.2 and 0.4)*
+
+**Confirmed by code reading.** `resetPasswordForEmail` redirects to the app's
+origin, supabase-js signs the person in from the link and emits
+`PASSWORD_RECOVERY`, and nothing listens for it. `updateUser` is never called
+anywhere in the app, so no screen can set a password. The person is signed in
+once and the old password still fails next time. BUG-015's fix tells
+link-only users to "reset your password", which leads into this dead end.
+
+**Expected:** the reset link opens "Choose a new password".
+**Fix:** a recovery screen (rework 1.3). Set/change password in Settings
+(rework 0.4) works even before email does.
+
+### BUG-024 — an invite is forgotten if sign-up happens in another tab
+
+**Status:** open · **Reported:** 2026-10-28 · **Severity: high** ·
+**Effort:** S–M · **Credits:** ~5–10 *(rework 0.3)*
+
+**Confirmed by code reading.** `/join` stores the code with
+`setPendingInviteCode`, which writes to **`sessionStorage`**, scoped to one
+tab. Anything that continues in a different tab (an email link, the browser
+handing back to the installed app, an app restart) loses it. Onboarding then
+offers "Create your Tally", and the invitee builds an empty Tally instead of
+joining. `/welcome` also never mentions the invite and opens on *Log in*,
+although invitees are almost always new.
+
+**Expected:** an invitee always ends up in the inviter's Tally.
+**Fix:** persist the code in `localStorage` with an expiry and carry it in
+the URL. Make the sign-in screen invite-aware (rework 0.3).
+
+### BUG-025 — the code-entry option can never work
+
+**Status:** open · **Reported:** 2026-10-28 · **Severity: low** (a hidden
+secondary path, but it's the only one that could work in an iPhone
+home-screen app) · **Effort:** XS · **Credits:** ~1–2 *(rework 0.5 + 1.1)*
+
+**Confirmed** from the live config: `mailer_otp_length` is **8**, while
+`/verify` asks for "the 6-digit code" and caps the input at 6. The sign-in
+email template is Supabase's default, which contains only a link and no
+code. So "Got a 6-digit code instead? Enter it" can't succeed.
+
+**Expected:** if a code is offered, the email contains one of the length the
+screen accepts.
+**Fix:** set the code length to 6, and add `{{ .Token }}` to the templates
+once custom SMTP allows editing them.
+
+### BUG-026 — the auth redirect allow-list accepts any `*.vercel.app` site
+
+**Status:** open · **Reported:** 2026-10-28 · **Severity: medium (security;
+latent)** · **Effort:** XS · **Credits:** ~1 *(rework 0.5)*
+
+**Confirmed** from the live config: `uri_allow_list` is
+`http://localhost:3000/**,https://*.vercel.app/**`. The second pattern lets
+anyone request a sign-in or reset email whose link returns to *their own*
+Vercel app, carrying the victim's tokens in the URL. It's latent only because
+email currently reaches team members alone (BUG-022), so fixing BUG-022
+without this would open it.
+
+**Expected:** only Tally's own URLs are allowed.
+**Fix:** replace the wildcard with the production URL and this project's
+preview pattern. One config change, made before (or with) custom SMTP.
 
 ## Fixed — 2026-10-28 (BUG-021)
 
