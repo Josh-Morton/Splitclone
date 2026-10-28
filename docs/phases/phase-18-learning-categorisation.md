@@ -250,6 +250,99 @@ deliberate choice from a matcher guess (ADR-0019).
 - 56 rows today, so it's fast — but write it to be re-runnable, because it
   will be run again after the rule set has learned something.
 
+### 5a · Build spec (2026-10-28)
+
+> **Effort:** M · **Credits:** ~12–20. That's more than the S–M first
+> quoted, because the measurement below showed the engine alone barely
+> dents *Other*, so two more evidence sources were added.
+>
+> Josh's constraints for this run: **no spending information may be lost**;
+> legacy categories may be changed.
+
+**What the live data says (2026-10-28, aggregates only; the repo is
+public).** There are 136 live expenses across 4 Tallies. *Other* holds 46 rows
+and R16 701, which is 38% of all spend. A further 47 rows sit in a bare
+parent bucket, almost all of them `groceries` (now labelled *Supermarket*). A
+dry run of the §1 engine over the 46 *Other* rows re-files only **6**. The
+rest break down like this:
+
+- **One recurring payee's name, about half of Other by value.** The engine
+  can't know a person's name, and must never be taught one in a public
+  library. But the same Tally already filed one identical entry under a
+  specific subcategory by hand, which is exactly the household's own
+  evidence that §2's local tier is meant to use.
+- **Ordinary words the library lacks:** Afrikaans meal and toiletry words,
+  a few common dishes, pet, garden and hardware odds and ends, a Cape Town
+  cinema, and emphasis spellings with stretched letters ("driiinks").
+- **Things that genuinely are Other:** cash, a balance-equaliser entry, test
+  rows and keyboard mash. These stay put.
+
+**Rules, in precedence order.** `planRefiles()` in
+`src/lib/domain/category-backfill.ts` is pure and unit-tested.
+
+1. **Only fallback rows are candidates:** `other`, an unknown slug, or a
+   *general* bucket (each parent's "(other)" bucket, including `groceries`,
+   `utilities` and `entertainment`). Specific subcategories are never
+   touched (ADR-0019), even where the engine now disagrees. Tombstoned rows
+   are skipped.
+2. **The household's own filing wins.** If other live rows in the **same
+   Tally** with the identical normalised description are all filed under one
+   specific subcategory, use it. If they disagree, there's no household rule
+   and the row falls through to the engine. Nothing crosses Tallies, so this
+   is ADR-0019's local tier, applied backwards.
+3. **Otherwise the engine** (`scoreCategory`), with a bar that depends on
+   how much the move changes:
+   - from `other`: any match. That's what the app would file today.
+   - within the same parent (e.g. Supermarket → Liquor): any match. Parent
+     totals don't move; the row only gains detail.
+   - to a **different** parent: only when the engine is confident
+     (`CONFIDENT_MIN_SCORE` 2 and `CONFIDENT_MIN_MARGIN` 1, named constants
+     §3 will reuse). This keeps a hand-picked "Groceries" for *Dinner Friday*
+     from becoming *Restaurant* on one weak word.
+4. **Never move a row to `other`**, to the slug it already has, or from one
+   general bucket to another.
+5. **Recurring templates** are included under the same rules, so the next
+   generated expense inherits the better category.
+
+**Library additions (§1 follow-up).** These are generic vocabulary only:
+never a personal name, and nothing a stranger couldn't have typed. Stretched
+letters are collapsed during normalisation (`driiinks` → `drinks`). Runs of 3
+or more letters only, so `coffee` and `bottle` are untouched. The corpus test
+gains the new cases, and an integrity check makes sure no library entry
+itself contains such a run.
+
+**Provenance.** A migration adds `expense.category_source`
+(`auto` | `manual` | `learned`, default `auto`). `create_expense` and
+`update_expense` read it from `p_expense`; on update a missing key keeps the
+stored value, so old clients change nothing. The Add/Edit sheet sends
+`manual` only when the person actually picked from the category picker in
+that session. Re-running the backfill skips anything not `auto`.
+
+**Safety.** Spending information is never touched:
+
+- The apply step is **one SQL statement**: a CTE updates `category` only,
+  guarded by `category = before` (and `category_source = 'auto'`), and logs
+  every change to `category_backfill`. A row edited since the plan was made
+  is skipped, not overwritten.
+- **Spending fingerprint.** Inside the same transaction, an md5 is taken over
+  every expense column except `category`, `category_source`, `version` and
+  `updated_at`, plus every payer and split row, before and after. If they
+  differ, an exception aborts the transaction and nothing is written.
+- **Dry run = the real statement inside `begin … rollback`.** It exercises
+  the constraints, triggers and fingerprint against live data and leaves no
+  trace. This replaces "a throwaway copy".
+- **Reversible.** `category_backfill` holds (run id, table, row id, before,
+  after, reason) with RLS on and no policies (service-only). `revert <run>`
+  restores `before` wherever the row still holds `after`.
+- Updating a row bumps its `version` and `updated_at` (the sync trigger),
+  which is correct: the category did change. No activity rows and no push
+  notifications are written.
+
+**Running it.** `npm run backfill:categories -- plan | apply | revert <run-id>`
+in `settleup/`, with `SUPABASE_ACCESS_TOKEN` in the environment (the
+logged-in Supabase CLI's token). `plan` prints the diff and the before/after
+distribution and proves the statement in a rolled-back transaction.
+
 ## Non-goals
 
 - **No taxonomy change.** Seven parents, same subcategories, same Phase 11
