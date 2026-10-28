@@ -147,6 +147,9 @@ export function AddExpenseSheet({
   const [categoryOverride, setCategoryOverride] = useState<Category | null>(
     editing ? editing.category : null
   );
+  // True once a person picks from the picker in this session — the only
+  // thing that marks an expense's category "manual" (Phase 18 §5).
+  const [categoryPicked, setCategoryPicked] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const category: Category = categoryOverride ?? autoCategory(desc);
   const catMeta = categoryMeta(category);
@@ -214,6 +217,7 @@ export function AddExpenseSheet({
     setNote("");
     setNoteOpen(false);
     setCategoryOverride(null);
+    setCategoryPicked(false);
     setError("");
   }
 
@@ -253,6 +257,7 @@ export function AddExpenseSheet({
         groupId,
         description: desc.trim(),
         category,
+        categorySource: categoryPicked ? ("manual" as const) : undefined,
         amountCents: total,
         spentAt,
         // Proportional that fell back is stored as what it actually was.
@@ -762,6 +767,7 @@ export function AddExpenseSheet({
         selected={category}
         onPick={(slug) => {
           setCategoryOverride(slug);
+          setCategoryPicked(true);
           setPickerOpen(false);
         }}
       />
@@ -778,6 +784,7 @@ export function AddExpenseSheet({
             setNoteOpen(true);
           }
           setCategoryOverride(null); // let it auto-detect from merchant/description
+          setCategoryPicked(false);
           setScanOpen(false);
         }}
       />

@@ -164,6 +164,7 @@ function mapExpense(row: any): Expense {
     groupId: row.group_id,
     description: row.description,
     category: row.category,
+    categorySource: row.category_source ?? "auto",
     amountCents: Number(row.amount_cents),
     spentAt: row.spent_at,
     splitMethod: row.split_method,
@@ -577,6 +578,7 @@ export class SupabaseRepo implements Repo {
         group_id: input.groupId,
         description: input.description,
         category: input.category ?? autoCategory(input.description),
+        category_source: input.categorySource,
         amount_cents: input.amountCents,
         spent_at: input.spentAt,
         split_method: input.splitMethod,
@@ -621,6 +623,8 @@ export class SupabaseRepo implements Repo {
       p_expense: {
         description: input.description,
         category: input.category ?? autoCategory(input.description),
+        // Undefined is dropped from the JSON, so the stored value stands.
+        category_source: input.categorySource,
         amount_cents: input.amountCents,
         spent_at: input.spentAt,
         split_method: input.splitMethod,

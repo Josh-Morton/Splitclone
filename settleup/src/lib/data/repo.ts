@@ -29,6 +29,7 @@ import type {
   SupportedSplitMethod,
   User,
   Category,
+  CategorySource,
   Cents,
 } from "../domain";
 
@@ -37,6 +38,11 @@ export interface NewExpenseInput {
   groupId: string;
   description: string;
   category: Category;
+  /**
+   * "manual" when a person picked the category. Omit otherwise: a new
+   * expense is then "auto", and an edit keeps whatever was stored.
+   */
+  categorySource?: CategorySource;
   amountCents: Cents;
   spentAt: string;
   splitMethod: SplitMethod;

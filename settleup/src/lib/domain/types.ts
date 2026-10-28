@@ -21,7 +21,7 @@ export type SupportedSplitMethod = Extract<SplitMethod, "equal" | "exact" | "sal
 
 // Category (a subcategory/parent slug) is owned by ./category.ts; the domain
 // index re-exports it, so `import { Category } from "../domain"` still works.
-import type { Category } from "./category";
+import type { Category, CategorySource } from "./category";
 
 export type MemberRole = "owner" | "member";
 export type MemberStatus = "active" | "invited" | "left";
@@ -104,6 +104,8 @@ export interface Expense extends SyncMeta {
   groupId: string;
   description: string;
   category: Category;
+  /** Who chose `category`. Absent on rows read before Phase 18 §5 = "auto". */
+  categorySource?: CategorySource;
   /** Total; must equal the sum of payers' paidCents and of splits' shareCents. */
   amountCents: Cents;
   /** The expense date (defaults to now); ISO timestamp. */

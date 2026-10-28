@@ -35,7 +35,7 @@
 >   Shipped work doesn't need one — the estimate exists to price the decision
 >   *before* committing to it. Scale + calibration: [Estimating scale](#estimating-scale).
 
-**Last updated:** 2026-10-28 (Phase 20 — Reporting v2 — shipped: drill-down, trends, pace, insights; BUG-021 fixed)
+**Last updated:** 2026-10-28 (Phase 18 §5 legacy category backfill live: Other 38% → 11% of spend; Phase 20 Reporting v2 shipped; BUG-021 fixed)
 
 ## Where we are
 
@@ -76,7 +76,7 @@ features people actually asked for before offline-first).
 | [15 — Fix Tally navigation](phases/phase-15-tally-navigation-fix.md) | ✅ Shipped (2026-07-30) | — | — | Bug fix: header should switch Tallies, Settings should manage them — Phase 12 built it backwards ([BUG-001](BUGS.md#bug-001-tally-navigation--header-should-switch-settings-should-manage)) |
 | [16 — Performance: cut the reload chain](phases/phase-16-performance.md) | ✅ Shipped (2026-07-31) | — | — | ~1000ms delays switching Tallies/saving/logging in — every action reloads the whole home screen sequentially, with several calls duplicated |
 | [17 — Unified shopping list across Tallies](phases/phase-17-unified-shopping-list.md) | ✅ Shipped (2026-08-04) | — | — | Per-Tally segments within one List tab, drop the price estimate, default-Tally picker on add |
-| [18 — Learning categorisation engine](phases/phase-18-learning-categorisation.md) | 🟡 §1 **live in production** (2026-10-20, `9f366c2`) · §5 backfill in build (2026-10-28) · rest spec only | **L** · ~35–70 remaining (§5: **M** · ~12–20) | — | Scoring matcher + 2 339-entry library shipped; §5 re-files legacy *Other* rows (household's own filings first, then the engine) with provenance + reversible audit; still to build: corrections learned globally on consensus, ambiguity picker, subcategory report filters (ADR-0019) |
+| [18 — Learning categorisation engine](phases/phase-18-learning-categorisation.md) | 🟡 §1 **live** (2026-10-20, `9f366c2`) · §5 backfill **live** (2026-10-28) · §2–§4 spec only | **L** · ~25–55 remaining | — | Scoring matcher + 2 369-entry library; legacy backfill ran: *Other* fell from 38% to 11% of spend, reversibly, with `category_source` provenance. Still to build: corrections learned globally on consensus, ambiguity picker, subcategory report filters (ADR-0019) |
 | [19 — User category assignments](phases/phase-19-category-assignments.md) | 📝 Spec only — not built (2026-10-20) | **L** · ~20–35 (M · ~10–20 after 18 §2) | — | "Always file *Vida* as Coffee": per-Tally rules from an override prompt, the expense detail, or Manage this Tally → Category rules |
 | [20 — Reporting v2: drill-down, trends & insights](phases/phase-20-reporting-v2.md) | ✅ Shipped (2026-10-28) | — | — | Drill from any number to its expenses (month · category · subcategory · regulars); 12-month trend, within-month pace, per-category sparklines, plain-language insights (ADR-0021) |
 

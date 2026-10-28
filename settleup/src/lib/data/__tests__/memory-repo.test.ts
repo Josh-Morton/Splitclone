@@ -41,6 +41,26 @@ describe("MemoryRepo — Repo contract behavior", () => {
     ).rejects.toThrow(ValidationError);
   });
 
+  it("records who chose the category: auto unless a person picked it, and edits keep it", async () => {
+    const [m] = await repo.listMembers(groupId);
+    const base = {
+      groupId,
+      description: "Cat litter",
+      category: "other_pets",
+      amountCents: 100,
+      spentAt: new Date().toISOString(),
+      splitMethod: "equal" as const,
+      payers: [{ memberId: m.id, paidCents: 100 }],
+      splits: [{ memberId: m.id, shareCents: 100 }],
+    };
+    expect((await repo.createExpense(base)).categorySource).toBe("auto");
+
+    const picked = await repo.createExpense({ ...base, categorySource: "manual" });
+    expect(picked.categorySource).toBe("manual");
+    // An edit that doesn't touch the picker sends no source: it stays manual.
+    expect((await repo.updateExpense(picked.id, { ...base, note: "15kg" })).categorySource).toBe("manual");
+  });
+
   it("soft delete removes from list, restore brings it back, balances follow", async () => {
     const members = await repo.listMembers(groupId);
     const memberIds = members.map((m) => m.id);

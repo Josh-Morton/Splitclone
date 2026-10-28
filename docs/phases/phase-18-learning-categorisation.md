@@ -1,6 +1,6 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 18 — Learning categorisation engine 🟡 §1 LIVE (2026-10-20) · §2–§5 SPEC ONLY
+# Phase 18 — Learning categorisation engine 🟡 §1 LIVE (2026-10-20) · §5 LIVE (2026-10-28) · §2–§4 SPEC ONLY
 
 > **§1 release check (2026-10-20, shipped in `9f366c2`).** Before release it
 > was verified against production: no subcategory slug removed (six added);
@@ -10,7 +10,8 @@
 > resolve to a labelled category; the public API is additive and
 > `autoCategory`'s signature is unchanged; all 62 categories have a vendored
 > icon. Existing expenses are untouched — §1 only changes how *new*
-> descriptions are auto-filed. Re-filing old ones is §5 (backfill), not built.
+> descriptions are auto-filed. Re-filing old ones is §5 (backfill), shipped
+> 2026-10-28; see [§5b](#5b--shipped-2026-10-28).
 
 > **Effort:** XL · **Credits:** ~55–100 — a new engine, a new cross-tenant
 > table with consensus logic, an ambiguity UI, report changes and a
@@ -343,6 +344,53 @@ in `settleup/`, with `SUPABASE_ACCESS_TOKEN` in the environment (the
 logged-in Supabase CLI's token). `plan` prints the diff and the before/after
 distribution and proves the statement in a rolled-back transaction.
 
+### 5b · Shipped (2026-10-28)
+
+Built as specced in §5a. Migration `20261028000000_category_provenance`
+applied to production (rehearsed first inside a rolled-back transaction) and
+recorded in `supabase_migrations.schema_migrations`.
+
+**Run `e4279c0d-1602-4263-b0b5-9273057e97f6`** re-filed **36 rows**: 35
+expenses and 1 recurring template.
+
+| | Before | After |
+|---|---|---|
+| *Other* (the slug itself) | 46 rows · R16 701 · **38%** of spend | 13 rows · R4 766 · **11%** |
+| Any general bucket | 93 rows | 59 rows |
+| Total live spend | R43 727,37 | R43 727,37 |
+
+- **13 by the household rule** (12 expenses + the template that generates
+  them): one recurring payee the Tally had already filed specifically once.
+- **23 by the engine.** 21 came from *Other*; one *Supermarket* → *Pets* was
+  confident (3 vs 0.75); one *Transport (other)* → *Public* was same-parent.
+  Sixteen of the 23 only matched because of the §5a library additions.
+- **What's left in Other** is genuinely unknowable to a deterministic
+  matcher: cash, a balance-equaliser entry, test rows, keyboard mash,
+  misspellings, a bare name, and a few one-off places. Each can be fixed by
+  hand from the Reports drill-down; a hand fix is now recorded as `manual`,
+  so no future run will undo it.
+- **Left alone on purpose:** 4 specific-subcategory rows the new engine
+  disagrees with (ADR-0019: no provenance, so no overwrite), and two
+  *Supermarket* rows with a single weak meal word, which would have needed
+  a cross-parent move.
+
+**Verification.**
+
+- **Spending untouched, two ways.** The in-transaction fingerprint matched,
+  and a full before/after snapshot diff of all 605 expense, payer, split and
+  template rows found **zero** differences outside `category`, `version`
+  and `updated_at`.
+- **Reversible.** `revert --dry-run` restored the exact original
+  distribution, 36 of 36 rows, then rolled back.
+- **Idempotent.** A second `plan` finds nothing to re-file.
+- **Provenance.** As a signed-in user in a rolled-back transaction, an edit
+  that sends `manual` stores it, and a later edit that doesn't send it keeps
+  `manual`. The `MemoryRepo` test covers the same contract. Audit-table
+  privileges: `authenticated` and `anon` have none.
+- **App.** 471 tests, tsc, lint and build are green. In the demo, the Add
+  sheet auto-files `Driiinks with friends` as *Bars & drinks*, and a
+  hand-picked category saves with no console errors.
+
 ## Non-goals
 
 - **No taxonomy change.** Seven parents, same subcategories, same Phase 11
@@ -366,7 +414,7 @@ distribution and proves the statement in a rolled-back transaction.
 5. Rule loading into the home batch; `autoCategory(desc, rules?)`.
 6. Ambiguity chip row in add-expense.
 7. Report subcategory filtering.
-8. Backfill script — dry run, diff, then apply.
+8. ✅ Backfill script — dry run, diff, then apply. *Done 2026-10-28 (§5b).*
 9. Update the privacy-policy backlog item to name the global rule table.
 10. ✅ **Regenerate [`docs/CATEGORY-MATRIX.md`](../CATEGORY-MATRIX.md).** *Done 2026-10-20.* That
     readable snapshot currently documents the OLD engine — it states that
@@ -391,5 +439,6 @@ distribution and proves the statement in a rolled-back transaction.
   candidates; a clean one ("netflix") does not.
 - Backfill: dry-run diff reviewed; specific subcategories untouched; the
   before/after distribution improves the 64%-in-fallback figure materially.
+  ✅ 2026-10-28: *Other* fell from 38% to 11% of spend (§5b).
 - `npm test` + build + lint green; the whole flow browser-verified in the
   demo and spot-checked against live Postgres on a throwaway group.

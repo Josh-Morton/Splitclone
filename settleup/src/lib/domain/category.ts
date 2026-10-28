@@ -59,6 +59,12 @@ export type ParentCategory =
 export type Category = string;
 
 /**
+ * Who chose an expense's category (Phase 18 §5): the matcher, a person in
+ * the picker, or a learned rule (§2). Legacy rows are all "auto".
+ */
+export type CategorySource = "auto" | "manual" | "learned";
+
+/**
  * Parent display metadata (Phase 11).
  *
  * `color` is a TOKEN REFERENCE, not a literal — these used to be the dark
@@ -336,12 +342,13 @@ export const SUBCATEGORIES: SubcategoryDef[] = [
       "date night", "sit down meal", "eating out", "meal out", "set menu", "tasting menu",
       "fine dining", "sushi", "sushi bar", "pizza", "pizzeria", "burger", "burgers",
       "steakhouse", "waiter", "waiter tip", "buffet", "carvery", "dim sum", "ramen", "tapas",
-      "bistro", "trattoria"],
+      "bistro", "trattoria", "goulash", "langos", "pierogi", "paprikash"],
     brands: ["spur", "ocean basket", "col'cacchio", "colcacchio", "panarottis", "the hussar",
       "hussar grill", "rocomamas", "tashas", "kauai", "john dory's", "john dorys", "cappello",
       "news cafe", "primi piatti", "turn n tender", "turn 'n tender", "rj's", "black steer",
       "beefcakes", "doppio zero", "the grillhouse", "marble"],
-    weak: ["dinner", "lunch", "breakfast", "brunch", "tip", "curry", "grill"],
+    weak: ["dinner", "lunch", "breakfast", "brunch", "tip", "curry", "grill",
+      "aandete", "middagete", "ontbyt", "brekkie", "brekky", "brekki"],
   },
   {
     slug: "eatingout", parent: "eatingout", label: "Eating out (other)", keywords: [],
@@ -432,7 +439,7 @@ export const SUBCATEGORIES: SubcategoryDef[] = [
       "paper towel", "paper towels", "kitchen towel", "serviettes", "napkins", "tissues",
       "sponges", "steel wool", "scourer", "dishwasher tablets", "finish tablets",
       "surface spray", "disinfectant", "dettol", "omo", "ariel", "maq", "sta-soft", "vanish",
-      "batteries", "battery", "candles", "rat poison", "ant poison", "insect spray", "firelighters", "charcoal", "firewood", "braai wood"],
+      "batteries", "battery", "candles", "rat poison", "ant poison", "insect spray", "firelighters", "charcoal", "firewood", "braai wood", "braaihout"],
     weak: ["wood"],
   },
   {
@@ -481,7 +488,8 @@ export const SUBCATEGORIES: SubcategoryDef[] = [
       "pool chemicals", "pool pump", "pool cleaning", "chlorine", "solar panel", "solar panels",
       "inverter", "battery backup", "backup battery", "generator", "jojo tank", "water tank",
       "aircon", "air conditioner", "damp proofing", "waterproofing", "renovation",
-      "renovations", "contractor"],
+      "renovations", "contractor", "multi plug", "extension lead", "plug adapter",
+      "key copy", "key copies", "spare key", "duplicate key", "super glue"],
     brands: ["builders", "builders warehouse", "builders express", "leroy merlin", "cashbuild",
       "buco", "brights", "chamberlain", "chamberlains", "mica", "timbercity", "build it",
       "pennypinchers", "penny pinchers", "plumblink", "brico", "bricomart", "plascon", "dulux"],
@@ -513,7 +521,8 @@ export const SUBCATEGORIES: SubcategoryDef[] = [
     keywords: ["garden", "gardening", "garden service", "plant", "plants", "nursery", "lawn",
       "lawn mower", "lawnmower", "lawn service", "grass cutting", "compost", "seedlings",
       "seeds", "potting soil", "fertiliser", "fertilizer", "mulch", "plant pots",
-      "garden hose", "weed killer", "tree felling", "irrigation", "sprinkler"],
+      "garden hose", "weed killer", "tree felling", "irrigation", "sprinkler", "bokashi",
+      "compost bin", "worm farm"],
     brands: ["stodels", "lifestyle garden", "starke ayres", "plantland"],
     weak: ["soil", "hose", "trees"],
   },
@@ -522,7 +531,7 @@ export const SUBCATEGORIES: SubcategoryDef[] = [
     keywords: ["pharmacy", "chemist", "meds", "medication", "medicine", "prescription",
       "cold and flu", "vitamins", "supplements", "antihistamine", "plasters", "first aid kit",
       "toiletries", "toiletry", "shampoo", "conditioner", "deodorant", "deo", "roll on", "toothpaste",
-      "toothbrush", "dental floss", "mouthwash", "body wash", "shower gel", "soap", "hand soap",
+      "toothbrush", "tandeborsel", "tandepasta", "dental floss", "mouthwash", "body wash", "shower gel", "soap", "hand soap",
       "face wash", "moisturiser", "moisturizer", "body lotion", "lotion", "sunscreen",
       "sunblock", "lip balm", "razor", "razors", "shaving cream", "sanitary pads", "tampons",
       "panty liners", "nappies", "diapers", "baby wipes", "wet wipes", "cotton wool",
@@ -547,7 +556,7 @@ export const SUBCATEGORIES: SubcategoryDef[] = [
     keywords: ["movie", "movies", "movie night", "movie tickets", "cinema", "imax", "4dx",
       "drive-in", "theatre", "theater", "musical", "ballet", "opera", "film", "box office"],
     brands: ["ster-kinekor", "ster kinekor", "sterkinekor", "nu metro", "numetro", "nu-metro",
-      "the bioscope", "artscape", "joburg theatre", "montecasino theatre", "theatre on the bay"],
+      "the bioscope", "labia", "artscape", "joburg theatre", "montecasino theatre", "theatre on the bay"],
     weak: ["show", "shows"],
   },
   {
@@ -603,7 +612,7 @@ export const SUBCATEGORIES: SubcategoryDef[] = [
     slug: "leisure_hobbies", parent: "leisure", label: "Hobbies & outings",
     keywords: ["hobby", "hobbies", "activities", "crafts", "art supplies", "art class", "pottery",
       "painting class", "sewing", "knitting", "books", "bookstore", "book shop", "kindle",
-      "magazine", "magazines", "board game", "puzzle", "lego", "museum", "zoo", "aquarium",
+      "magazine", "magazines", "board game", "chess", "puzzle", "lego", "museum", "zoo", "aquarium",
       "theme park", "water park", "bowling", "putt putt", "mini golf", "escape room",
       "go karting", "go-karts", "paintball", "trampoline park", "picnic", "wine tasting",
       "wine farm", "brewery tour", "botanical garden", "botanical gardens", "day out",
@@ -680,7 +689,7 @@ export const SUBCATEGORIES: SubcategoryDef[] = [
       "cat food", "pet food", "pet mince", "dog treats", "cat litter", "kitty litter",
       "petshop", "pet shop", "pet grooming", "dog grooming", "groomer", "kennel", "kennels",
       "cattery", "dog walker", "dog sitter", "pet sitter", "deworm", "flea treatment",
-      "tick and flea", "bird seed", "fish food", "dog", "dogs", "cat", "cats", "puppy", "kitten"],
+      "tick and flea", "bird seed", "fish food", "poo bags", "poop bags", "kattekos", "hondekos", "dog", "dogs", "cat", "cats", "puppy", "kitten"],
     brands: ["petworld", "pet world", "absolute pets", "bravecto", "nexgard", "royal canin",
       "hill's", "acana", "montego", "bobtail"],
     weak: ["litter", "spca"],
@@ -861,9 +870,21 @@ interface MatchCtx {
   ends: Map<number, number>;
 }
 
+/**
+ * Undo emphasis spelling: a letter typed three or more times in a row
+ * ("driiinks", "spicessss") becomes one, or two when only that is a word the
+ * library knows. Real doubles ("coffee", "bottle") are never touched.
+ */
+function unstretch(t: string): string {
+  if (!/([a-z])\1\1/.test(t)) return t;
+  const one = t.replace(/([a-z])\1{2,}/g, "$1");
+  const two = t.replace(/([a-z])\1{2,}/g, "$1$1");
+  return !KNOWN_WORDS.has(one) && KNOWN_WORDS.has(two) ? two : one;
+}
+
 function buildCtx(desc: string | null | undefined): MatchCtx {
   const lower = normalise(desc ?? "");
-  const tokens = tokenise(lower);
+  const tokens = tokenise(lower).map(unstretch);
   const starts = new Map<number, number>();
   const ends = new Map<number, number>();
   let offset = 0;
@@ -998,6 +1019,36 @@ export interface CategoryScore {
   runnerUp: number;
   /** Up to three best-scoring subcategories, strongest first — for an "is it one of these?" row. */
   candidates: { slug: Category; score: number }[];
+}
+
+/**
+ * Phase 18 §3: a guess counts as confident at this score with at least this
+ * lead over the runner-up. Below it the engine is choosing between near-equal
+ * readings. Named, not inline: these get tuned against real data.
+ */
+export const CONFIDENT_MIN_SCORE = 2;
+export const CONFIDENT_MIN_MARGIN = 1;
+
+export function isConfident(s: Pick<CategoryScore, "score" | "runnerUp">): boolean {
+  return s.score >= CONFIDENT_MIN_SCORE && s.score - s.runnerUp >= CONFIDENT_MIN_MARGIN;
+}
+
+/**
+ * Each parent's catch-all bucket, plus Other. `groceries` doubles as
+ * Supermarket but is still the bare parent slug the old matcher fell back
+ * to, so it counts here (ADR-0019).
+ */
+const GENERAL_SLUGS = new Set<Category>([
+  "other", "bills", "utilities", "eatingout", "transport", "groceries", "household", "entertainment",
+]);
+
+/**
+ * True for a slug that says little about what was bought: Other, a parent's
+ * "(other)" bucket, or a slug the registry doesn't know (it displays as its
+ * parent). These are the rows a backfill may re-file.
+ */
+export function isGeneralCategory(slug: Category): boolean {
+  return GENERAL_SLUGS.has(slug) || !SUB_BY_SLUG.has(slug);
 }
 
 /**

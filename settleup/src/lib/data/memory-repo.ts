@@ -401,6 +401,7 @@ export class MemoryRepo implements Repo {
       groupId: input.groupId,
       description: input.description,
       category: input.category ?? autoCategory(input.description),
+      categorySource: input.categorySource ?? "auto",
       amountCents: input.amountCents,
       spentAt: input.spentAt,
       splitMethod: input.splitMethod,
@@ -427,6 +428,7 @@ export class MemoryRepo implements Repo {
     Object.assign(e, {
       description: input.description,
       category: input.category ?? autoCategory(input.description),
+      categorySource: input.categorySource ?? e.categorySource ?? "auto",
       amountCents: input.amountCents,
       spentAt: input.spentAt,
       splitMethod: input.splitMethod,

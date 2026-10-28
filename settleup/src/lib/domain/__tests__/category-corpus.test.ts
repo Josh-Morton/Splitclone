@@ -285,6 +285,30 @@ const CORPUS: [string, string][] = [
   ["PostNet courier", "other_shopping"],
   ["mystery purchase", "other"],
   ["Misc", "other"],
+  // --- Phase 18 §5a: words found sitting in Other ---
+  ["Ontbyt saam met vriende", "eatingout_restaurant"],
+  ["Middagete", "eatingout_restaurant"],
+  ["Brekkie", "eatingout_restaurant"],
+  ["Goulash and langos", "eatingout_restaurant"],
+  ["Pierogi", "eatingout_restaurant"],
+  ["Tandeborsels", "household_pharmacy"],
+  ["Tandepasta", "household_pharmacy"],
+  ["Bokashi bran", "household_garden"],
+  ["Worm farm", "household_garden"],
+  ["Poo bags", "other_pets"],
+  ["Hondekos", "other_pets"],
+  ["Multi-plug", "household_maintenance"],
+  ["Multiplug", "household_maintenance"],
+  ["Spare keys cut", "household_maintenance"],
+  ["Key copies", "household_maintenance"],
+  ["Super glue", "household_maintenance"],
+  ["The Labia", "entertainment_movies"],
+  ["Chess club", "leisure_hobbies"],
+  ["Braaihout", "groceries_consumables"],
+  // Stretched for emphasis: the run collapses before matching.
+  ["Driiiinks", "eatingout_drinks"],
+  ["Spicessss", "groceries"],
+  ["Coffeeee beans", "groceries"],
 ];
 
 /** Things that used to (or easily could) mis-file — each guards a specific trap. */
@@ -368,6 +392,15 @@ describe("library integrity", () => {
       }
     }
     expect(dupes).toEqual([]);
+  });
+
+  it("no entry has a letter three times in a row (they'd never match: input runs collapse)", () => {
+    const stretched = SUBCATEGORIES.flatMap((sub) =>
+      [...(sub.brands ?? []), ...sub.keywords, ...(sub.weak ?? []), ...(sub.retailers ?? [])].filter((w) =>
+        /([a-z])\1\1/i.test(w)
+      )
+    );
+    expect(stretched).toEqual([]);
   });
 
   it("is a massive library", () => {

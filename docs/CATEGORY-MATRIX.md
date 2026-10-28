@@ -1,8 +1,8 @@
 # Tally — expense → category matrix
 
-A readable snapshot of [`settleup/src/lib/domain/category.ts`](../settleup/src/lib/domain/category.ts), which is the source of truth. **Regenerate this file whenever that one changes.** It's generated, not hand-edited, so it can't drift by typo.
+A readable snapshot of [`settleup/src/lib/domain/category.ts`](../settleup/src/lib/domain/category.ts), which is the source of truth. **Regenerate this file whenever that one changes** (`npm run gen:category-matrix` in `settleup/`). The counts and word lists are generated, not hand-edited, so they can't drift by typo; the audit and notes are written by hand.
 
-**7 parents · 54 pickable subcategories · 2 339 vocabulary entries.** Engine: the scoring matcher from [ADR-0019](decisions/0019-learning-categorisation-engine.md) / [Phase 18 §1](phases/phase-18-learning-categorisation.md#1--swap-the-matcher-engine). Learning, the ambiguity UI and user-added assignments come later: see [the audit](#requirements-audit) below.
+**7 parents · 54 pickable subcategories · 2 369 vocabulary entries.** Engine: the scoring matcher from [ADR-0019](decisions/0019-learning-categorisation-engine.md) / [Phase 18 §1](phases/phase-18-learning-categorisation.md#1--swap-the-matcher-engine). Learning, the ambiguity UI and user-added assignments come later: see [the audit](#requirements-audit) below.
 
 ## How a description becomes a category
 
@@ -25,6 +25,7 @@ Worked examples:
 Matching rules:
 
 - **Normalised.** Lower-cased and accent-stripped (`café` = `cafe`). Phrases also match with separators removed (`ster kinekor` = `ster-kinekor` = `sterkinekor`, `e toll` = `etoll`), but only on whole-word boundaries, so `drinking games` can never spell *in-game*.
+- **Stretched letters collapse.** A letter typed three or more times in a row becomes one (two, if only that is a known word), so `driiinks` = `drinks` and `spicessss` = `spices`. Real doubles (`coffee`) are untouched.
 - **Word-aware.** A single word hits a whole token, its plural, or a ≥6-letter prefix (`grocer` → *groceries*). It never hits a bare substring (`car` ✗ *cardigan*, `tea` ✗ *steam*).
 - **A known word is only ever itself.** If the library lists a token exactly, the engine won't read it as some other keyword's plural, prefix or typo: *bolts* is hardware, not *bolt* the rideshare; *electrician* is not *electric*.
 - **Credited once.** Within a subcategory each word counts once, at its strongest reading: `car insurance` scores the phrase (3), not phrase + *insurance*.
@@ -56,10 +57,12 @@ Everything asked of categorisation across the ADRs, phase specs and requests, ch
 | 16 | Learned corrections: Tally-local now, global on 3/3/70% consensus | ADR-0019, Phase 18 §2 | ❌ Not built | Needs the migration, RPC and term extraction |
 | 17 | Ambiguity: offer the top candidates when the margin is thin | Phase 18 §3 | 🟡 Half | Domain signal ready (`candidates`); thresholds and chip row not built |
 | 18 | Report filter by subcategory | Phase 18 §4 | ❌ Not built | `ReportFilters.categories` is still parent-only |
-| 19 | `category_source` provenance + fallback-only backfill | Phase 18 §5 | ❌ Not built | Until it exists, the new engine only affects **new** expenses |
+| 19 | `category_source` provenance + fallback-only backfill | Phase 18 §5 | ✅ Built | Run 2026-10-28 (36 rows): *Other* went from 38% of spend to 11%. `npm run backfill:categories`; every change logged in `category_backfill` and reversible |
 | 20 | Regenerate this matrix after the engine swap | Phase 18 step 10 | ✅ Done | This file |
 | 21 | User adds their own category assignment ("always file *Vida* as Coffee") | Josh, this request | 📝 Spec only | UI flow notes: [Phase 19](phases/phase-19-category-assignments.md) |
 | 22 | Privacy policy names the global rule table | ADR-0019 | ❌ Not built | Blocked on #16; tracked in BACKLOG |
+| 23 | Everyday words that were landing in *Other* (Afrikaans meal and toiletry words, common dishes, pet, garden and hardware odds and ends) | Phase 18 §5a measurement | ✅ Built | 30 entries; generic vocabulary only, never a name |
+| 24 | Emphasis spellings ("driiinks") | Phase 18 §5a measurement | ✅ Built | Stretched letters collapse before matching |
 
 **Taxonomy change.** Phase 18 listed "no taxonomy change" as a non-goal. #13 adds subcategories, not parents: the seven parents, their colours and their Phase 11 glyphs are untouched, and no stored slug changes meaning. Two existing labels widened to match what they now hold: *Parking & tolls* → *Parking, tolls & fines*, and *Furniture & décor* → *Furniture, décor & appliances*. The change is recorded as a revision in [ADR-0011](decisions/0011-two-level-categories.md).
 
@@ -67,13 +70,13 @@ Everything asked of categorisation across the ADRs, phase specs and requests, ch
 
 | # | Parent | Slug | Icon | Colour token | Subcategories | Vocabulary |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | Groceries | `groceries` | 🛒 | `var(--cat-groceries)` | 4 | 576 |
-| 2 | Eating out | `eatingout` | 🍝 | `var(--cat-eatingout)` | 5 | 179 |
+| 1 | Groceries | `groceries` | 🛒 | `var(--cat-groceries)` | 4 | 577 |
+| 2 | Eating out | `eatingout` | 🍝 | `var(--cat-eatingout)` | 5 | 189 |
 | 3 | Bills & rent | `bills` | 🏠 | `var(--cat-rent)` | 14 | 265 |
 | 4 | Transport | `transport` | 🚗 | `var(--cat-transport)` | 6 | 155 |
-| 5 | Household | `household` | 🧴 | `var(--cat-household)` | 7 | 383 |
-| 6 | Leisure | `leisure` | 🎬 | `var(--cat-entertainment)` | 7 | 291 |
-| 7 | Other | `other` | 💳 | `var(--cat-other)` | 11 | 490 |
+| 5 | Household | `household` | 🧴 | `var(--cat-household)` | 7 | 396 |
+| 6 | Leisure | `leisure` | 🎬 | `var(--cat-entertainment)` | 7 | 293 |
+| 7 | Other | `other` | 💳 | `var(--cat-other)` | 11 | 494 |
 
 ## Matrix overview
 
@@ -98,7 +101,7 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 | Eating out | Takeaway / delivery | `eatingout_takeaway` | 37 | 19 | 3 | 0 |
 | Eating out | Coffee & café | `eatingout_coffee` | 16 | 19 | 0 | 0 |
 | Eating out | Bars & drinks | `eatingout_drinks` | 0 | 19 | 5 | 0 |
-| Eating out | Restaurant | `eatingout_restaurant` | 23 | 28 | 7 | 0 |
+| Eating out | Restaurant | `eatingout_restaurant` | 23 | 32 | 13 | 0 |
 | Eating out | Eating out (other) | `eatingout` | 0 | 0 | 3 | 0 |
 | Transport | Uber / Bolt / taxi | `transport_rideshare` | 6 | 6 | 3 | 0 |
 | Transport | Fuel / petrol | `transport_fuel` | 12 | 12 | 1 | 0 |
@@ -108,28 +111,28 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 | Transport | Transport (other) | `transport` | 0 | 5 | 3 | 0 |
 | Groceries | Liquor | `groceries_liquor` | 28 | 40 | 3 | 0 |
 | Groceries | Meat & butcher | `groceries_butcher` | 0 | 22 | 2 | 0 |
-| Groceries | Household consumables | `groceries_consumables` | 0 | 63 | 1 | 0 |
+| Groceries | Household consumables | `groceries_consumables` | 0 | 64 | 1 | 0 |
 | Groceries | Supermarket | `groceries` | 3 | 382 | 3 | 29 |
 | Household | Cleaning & domestic help | `household_cleaning` | 2 | 20 | 3 | 0 |
 | Household | Security & armed response | `household_security` | 9 | 18 | 1 | 0 |
-| Household | Maintenance & hardware | `household_maintenance` | 19 | 66 | 9 | 0 |
+| Household | Maintenance & hardware | `household_maintenance` | 19 | 74 | 9 | 0 |
 | Household | Furniture, décor & appliances | `household_furniture` | 27 | 75 | 7 | 0 |
-| Household | Garden | `household_garden` | 4 | 24 | 3 | 0 |
-| Household | Pharmacy & toiletries | `household_pharmacy` | 23 | 64 | 3 | 1 |
+| Household | Garden | `household_garden` | 4 | 27 | 3 | 0 |
+| Household | Pharmacy & toiletries | `household_pharmacy` | 23 | 66 | 3 | 1 |
 | Household | Household (other) | `household` | 0 | 0 | 5 | 0 |
-| Leisure | Movies & shows | `entertainment_movies` | 11 | 15 | 2 | 0 |
+| Leisure | Movies & shows | `entertainment_movies` | 12 | 15 | 2 | 0 |
 | Leisure | Events & tickets | `entertainment_events` | 9 | 17 | 2 | 0 |
 | Leisure | Games | `entertainment_gaming` | 9 | 26 | 3 | 0 |
 | Leisure | Sport & fitness | `entertainment_sport` | 10 | 47 | 3 | 0 |
 | Leisure | Travel & accommodation | `other_travel` | 27 | 42 | 4 | 0 |
-| Leisure | Hobbies & outings | `leisure_hobbies` | 7 | 46 | 8 | 0 |
+| Leisure | Hobbies & outings | `leisure_hobbies` | 7 | 47 | 8 | 0 |
 | Leisure | Leisure (other) | `entertainment` | 0 | 0 | 3 | 0 |
 | Other | Doctor & medical | `other_medical` | 11 | 46 | 5 | 0 |
 | Other | Bank & fees | `other_fees` | 0 | 18 | 10 | 0 |
 | Other | Tax, legal & admin | `other_admin` | 0 | 27 | 3 | 0 |
 | Other | Gifts & donations | `other_gifts` | 1 | 26 | 6 | 0 |
 | Other | Kids & school | `other_kids` | 3 | 41 | 6 | 0 |
-| Other | Pets | `other_pets` | 10 | 35 | 2 | 0 |
+| Other | Pets | `other_pets` | 10 | 39 | 2 | 0 |
 | Other | Clothing & shoes | `other_clothing` | 39 | 43 | 8 | 0 |
 | Other | Hair & personal care | `other_personal` | 4 | 34 | 3 | 0 |
 | Other | Electronics & tech | `other_tech` | 22 | 48 | 8 | 0 |
@@ -154,7 +157,7 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 
 #### Household consumables — `groceries_consumables`
 
-- **Keywords:** `toilet paper`, `toilet roll`, `toilet rolls`, `loo roll`, `cleaning supplies`, `cleaning products`, `dishwash`, `dishwashing liquid`, `dish soap`, `washing powder`, `washing liquid`, `laundry detergent`, `detergent`, `fabric softener`, `fabric conditioner`, `sunlight liquid`, `handy andy`, `domestos`, `jik`, `bleach`, `mr muscle`, `doom`, `baygon`, `air freshener`, `glade`, `cling wrap`, `cling film`, `foil`, `tin foil`, `aluminium foil`, `bin bags`, `refuse bags`, `black bags`, `garbage bags`, `paper towel`, `paper towels`, `kitchen towel`, `serviettes`, `napkins`, `tissues`, `sponges`, `steel wool`, `scourer`, `dishwasher tablets`, `finish tablets`, `surface spray`, `disinfectant`, `dettol`, `omo`, `ariel`, `maq`, `sta-soft`, `vanish`, `batteries`, `battery`, `candles`, `rat poison`, `ant poison`, `insect spray`, `firelighters`, `charcoal`, `firewood`, `braai wood`
+- **Keywords:** `toilet paper`, `toilet roll`, `toilet rolls`, `loo roll`, `cleaning supplies`, `cleaning products`, `dishwash`, `dishwashing liquid`, `dish soap`, `washing powder`, `washing liquid`, `laundry detergent`, `detergent`, `fabric softener`, `fabric conditioner`, `sunlight liquid`, `handy andy`, `domestos`, `jik`, `bleach`, `mr muscle`, `doom`, `baygon`, `air freshener`, `glade`, `cling wrap`, `cling film`, `foil`, `tin foil`, `aluminium foil`, `bin bags`, `refuse bags`, `black bags`, `garbage bags`, `paper towel`, `paper towels`, `kitchen towel`, `serviettes`, `napkins`, `tissues`, `sponges`, `steel wool`, `scourer`, `dishwasher tablets`, `finish tablets`, `surface spray`, `disinfectant`, `dettol`, `omo`, `ariel`, `maq`, `sta-soft`, `vanish`, `batteries`, `battery`, `candles`, `rat poison`, `ant poison`, `insect spray`, `firelighters`, `charcoal`, `firewood`, `braai wood`, `braaihout`
 - **Weak:** `wood`
 
 #### Supermarket — `groceries`
@@ -185,8 +188,8 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 #### Restaurant — `eatingout_restaurant`
 
 - **Brands:** `spur`, `ocean basket`, `col'cacchio`, `colcacchio`, `panarottis`, `the hussar`, `hussar grill`, `rocomamas`, `tashas`, `kauai`, `john dory's`, `john dorys`, `cappello`, `news cafe`, `primi piatti`, `turn n tender`, `turn 'n tender`, `rj's`, `black steer`, `beefcakes`, `doppio zero`, `the grillhouse`, `marble`
-- **Keywords:** `restaurant`, `dinner out`, `lunch out`, `breakfast out`, `brunch out`, `date night`, `sit down meal`, `eating out`, `meal out`, `set menu`, `tasting menu`, `fine dining`, `sushi`, `sushi bar`, `pizza`, `pizzeria`, `burger`, `burgers`, `steakhouse`, `waiter`, `waiter tip`, `buffet`, `carvery`, `dim sum`, `ramen`, `tapas`, `bistro`, `trattoria`
-- **Weak:** `dinner`, `lunch`, `breakfast`, `brunch`, `tip`, `curry`, `grill`
+- **Keywords:** `restaurant`, `dinner out`, `lunch out`, `breakfast out`, `brunch out`, `date night`, `sit down meal`, `eating out`, `meal out`, `set menu`, `tasting menu`, `fine dining`, `sushi`, `sushi bar`, `pizza`, `pizzeria`, `burger`, `burgers`, `steakhouse`, `waiter`, `waiter tip`, `buffet`, `carvery`, `dim sum`, `ramen`, `tapas`, `bistro`, `trattoria`, `goulash`, `langos`, `pierogi`, `paprikash`
+- **Weak:** `dinner`, `lunch`, `breakfast`, `brunch`, `tip`, `curry`, `grill`, `aandete`, `middagete`, `ontbyt`, `brekkie`, `brekky`, `brekki`
 
 #### Eating out (other) — `eatingout`
 
@@ -319,7 +322,7 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 #### Maintenance & hardware — `household_maintenance`
 
 - **Brands:** `builders`, `builders warehouse`, `builders express`, `leroy merlin`, `cashbuild`, `buco`, `brights`, `chamberlain`, `chamberlains`, `mica`, `timbercity`, `build it`, `pennypinchers`, `penny pinchers`, `plumblink`, `brico`, `bricomart`, `plascon`, `dulux`
-- **Keywords:** `hardware`, `hardware store`, `plumber`, `plumbing`, `electrician`, `handyman`, `tools`, `toolbox`, `drill`, `repairs`, `geyser`, `paint`, `painter`, `light bulb`, `light bulbs`, `globes`, `extension cord`, `leaking tap`, `tap washer`, `pipes`, `blocked drain`, `roofing`, `roof repair`, `gutter`, `gutters`, `tiles`, `tiling`, `grout`, `cement`, `bricks`, `timber`, `screws`, `screws and nails`, `bolts`, `nuts and bolts`, `silicone`, `sealant`, `locksmith`, `key cutting`, `gate remote`, `garage door`, `gate motor`, `gate repair`, `pest control`, `fumigation`, `borehole`, `pool maintenance`, `pool chemicals`, `pool pump`, `pool cleaning`, `chlorine`, `solar panel`, `solar panels`, `inverter`, `battery backup`, `backup battery`, `generator`, `jojo tank`, `water tank`, `aircon`, `air conditioner`, `damp proofing`, `waterproofing`, `renovation`, `renovations`, `contractor`
+- **Keywords:** `hardware`, `hardware store`, `plumber`, `plumbing`, `electrician`, `handyman`, `tools`, `toolbox`, `drill`, `repairs`, `geyser`, `paint`, `painter`, `light bulb`, `light bulbs`, `globes`, `extension cord`, `leaking tap`, `tap washer`, `pipes`, `blocked drain`, `roofing`, `roof repair`, `gutter`, `gutters`, `tiles`, `tiling`, `grout`, `cement`, `bricks`, `timber`, `screws`, `screws and nails`, `bolts`, `nuts and bolts`, `silicone`, `sealant`, `locksmith`, `key cutting`, `gate remote`, `garage door`, `gate motor`, `gate repair`, `pest control`, `fumigation`, `borehole`, `pool maintenance`, `pool chemicals`, `pool pump`, `pool cleaning`, `chlorine`, `solar panel`, `solar panels`, `inverter`, `battery backup`, `backup battery`, `generator`, `jojo tank`, `water tank`, `aircon`, `air conditioner`, `damp proofing`, `waterproofing`, `renovation`, `renovations`, `contractor`, `multi plug`, `extension lead`, `plug adapter`, `key copy`, `key copies`, `spare key`, `duplicate key`, `super glue`
 - **Weak:** `maintenance`, `repair`, `globe`, `lock`, `builder`, `pool`, `toilet`, `remote`, `keys`
 
 #### Furniture, décor & appliances — `household_furniture`
@@ -331,13 +334,13 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 #### Garden — `household_garden`
 
 - **Brands:** `stodels`, `lifestyle garden`, `starke ayres`, `plantland`
-- **Keywords:** `garden`, `gardening`, `garden service`, `plant`, `plants`, `nursery`, `lawn`, `lawn mower`, `lawnmower`, `lawn service`, `grass cutting`, `compost`, `seedlings`, `seeds`, `potting soil`, `fertiliser`, `fertilizer`, `mulch`, `plant pots`, `garden hose`, `weed killer`, `tree felling`, `irrigation`, `sprinkler`
+- **Keywords:** `garden`, `gardening`, `garden service`, `plant`, `plants`, `nursery`, `lawn`, `lawn mower`, `lawnmower`, `lawn service`, `grass cutting`, `compost`, `seedlings`, `seeds`, `potting soil`, `fertiliser`, `fertilizer`, `mulch`, `plant pots`, `garden hose`, `weed killer`, `tree felling`, `irrigation`, `sprinkler`, `bokashi`, `compost bin`, `worm farm`
 - **Weak:** `soil`, `hose`, `trees`
 
 #### Pharmacy & toiletries — `household_pharmacy`
 
 - **Brands:** `dis-chem`, `dischem`, `dis chem`, `medirite`, `medi rite`, `link pharmacy`, `alpha pharm`, `nivea`, `vaseline`, `colgate`, `sensodyne`, `gillette`, `huggies`, `pampers`, `garnier`, `loreal`, `l'oreal`, `maybelline`, `revlon`, `the body shop`, `protex`, `lifebuoy`, `rexona`
-- **Keywords:** `pharmacy`, `chemist`, `meds`, `medication`, `medicine`, `prescription`, `cold and flu`, `vitamins`, `supplements`, `antihistamine`, `plasters`, `first aid kit`, `toiletries`, `toiletry`, `shampoo`, `conditioner`, `deodorant`, `deo`, `roll on`, `toothpaste`, `toothbrush`, `dental floss`, `mouthwash`, `body wash`, `shower gel`, `soap`, `hand soap`, `face wash`, `moisturiser`, `moisturizer`, `body lotion`, `lotion`, `sunscreen`, `sunblock`, `lip balm`, `razor`, `razors`, `shaving cream`, `sanitary pads`, `tampons`, `panty liners`, `nappies`, `diapers`, `baby wipes`, `wet wipes`, `cotton wool`, `cotton buds`, `cosmetics`, `makeup`, `make-up`, `mascara`, `lipstick`, `skincare`, `nail polish`, `perfume`, `fragrance`, `cologne`, `hair dye`, `condoms`, `contact lens solution`, `panado`, `disprin`, `med-lemon`, `grand-pa`
+- **Keywords:** `pharmacy`, `chemist`, `meds`, `medication`, `medicine`, `prescription`, `cold and flu`, `vitamins`, `supplements`, `antihistamine`, `plasters`, `first aid kit`, `toiletries`, `toiletry`, `shampoo`, `conditioner`, `deodorant`, `deo`, `roll on`, `toothpaste`, `toothbrush`, `tandeborsel`, `tandepasta`, `dental floss`, `mouthwash`, `body wash`, `shower gel`, `soap`, `hand soap`, `face wash`, `moisturiser`, `moisturizer`, `body lotion`, `lotion`, `sunscreen`, `sunblock`, `lip balm`, `razor`, `razors`, `shaving cream`, `sanitary pads`, `tampons`, `panty liners`, `nappies`, `diapers`, `baby wipes`, `wet wipes`, `cotton wool`, `cotton buds`, `cosmetics`, `makeup`, `make-up`, `mascara`, `lipstick`, `skincare`, `nail polish`, `perfume`, `fragrance`, `cologne`, `hair dye`, `condoms`, `contact lens solution`, `panado`, `disprin`, `med-lemon`, `grand-pa`
 - **Weak:** `wipes`, `pads`, `script`
 - **Retailers:** `clicks`
 
@@ -349,7 +352,7 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 
 #### Movies & shows — `entertainment_movies`
 
-- **Brands:** `ster-kinekor`, `ster kinekor`, `sterkinekor`, `nu metro`, `numetro`, `nu-metro`, `the bioscope`, `artscape`, `joburg theatre`, `montecasino theatre`, `theatre on the bay`
+- **Brands:** `ster-kinekor`, `ster kinekor`, `sterkinekor`, `nu metro`, `numetro`, `nu-metro`, `the bioscope`, `labia`, `artscape`, `joburg theatre`, `montecasino theatre`, `theatre on the bay`
 - **Keywords:** `movie`, `movies`, `movie night`, `movie tickets`, `cinema`, `imax`, `4dx`, `drive-in`, `theatre`, `theater`, `musical`, `ballet`, `opera`, `film`, `box office`
 - **Weak:** `show`, `shows`
 
@@ -380,7 +383,7 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 #### Hobbies & outings — `leisure_hobbies`
 
 - **Brands:** `exclusive books`, `bargain books`, `cna`, `two oceans aquarium`, `ushaka`, `gold reef city`, `kirstenbosch`
-- **Keywords:** `hobby`, `hobbies`, `activities`, `crafts`, `art supplies`, `art class`, `pottery`, `painting class`, `sewing`, `knitting`, `books`, `bookstore`, `book shop`, `kindle`, `magazine`, `magazines`, `board game`, `puzzle`, `lego`, `museum`, `zoo`, `aquarium`, `theme park`, `water park`, `bowling`, `putt putt`, `mini golf`, `escape room`, `go karting`, `go-karts`, `paintball`, `trampoline park`, `picnic`, `wine tasting`, `wine farm`, `brewery tour`, `botanical garden`, `botanical gardens`, `day out`, `photography`, `music lessons`, `guitar`, `piano`, `fishing`, `fishing licence`, `party supplies`
+- **Keywords:** `hobby`, `hobbies`, `activities`, `crafts`, `art supplies`, `art class`, `pottery`, `painting class`, `sewing`, `knitting`, `books`, `bookstore`, `book shop`, `kindle`, `magazine`, `magazines`, `board game`, `chess`, `puzzle`, `lego`, `museum`, `zoo`, `aquarium`, `theme park`, `water park`, `bowling`, `putt putt`, `mini golf`, `escape room`, `go karting`, `go-karts`, `paintball`, `trampoline park`, `picnic`, `wine tasting`, `wine farm`, `brewery tour`, `botanical garden`, `botanical gardens`, `day out`, `photography`, `music lessons`, `guitar`, `piano`, `fishing`, `fishing licence`, `party supplies`
 - **Weak:** `outing`, `activity`, `craft`, `book`, `gallery`, `party`, `fabric`, `wool`
 
 #### Leisure (other) — `entertainment`
@@ -420,7 +423,7 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 #### Pets — `other_pets`
 
 - **Brands:** `petworld`, `pet world`, `absolute pets`, `bravecto`, `nexgard`, `royal canin`, `hill's`, `acana`, `montego`, `bobtail`
-- **Keywords:** `pet`, `pets`, `vet`, `vet bill`, `veterinary`, `veterinarian`, `dog food`, `cat food`, `pet food`, `pet mince`, `dog treats`, `cat litter`, `kitty litter`, `petshop`, `pet shop`, `pet grooming`, `dog grooming`, `groomer`, `kennel`, `kennels`, `cattery`, `dog walker`, `dog sitter`, `pet sitter`, `deworm`, `flea treatment`, `tick and flea`, `bird seed`, `fish food`, `dog`, `dogs`, `cat`, `cats`, `puppy`, `kitten`
+- **Keywords:** `pet`, `pets`, `vet`, `vet bill`, `veterinary`, `veterinarian`, `dog food`, `cat food`, `pet food`, `pet mince`, `dog treats`, `cat litter`, `kitty litter`, `petshop`, `pet shop`, `pet grooming`, `dog grooming`, `groomer`, `kennel`, `kennels`, `cattery`, `dog walker`, `dog sitter`, `pet sitter`, `deworm`, `flea treatment`, `tick and flea`, `bird seed`, `fish food`, `poo bags`, `poop bags`, `kattekos`, `hondekos`, `dog`, `dogs`, `cat`, `cats`, `puppy`, `kitten`
 - **Weak:** `litter`, `spca`
 
 #### Clothing & shoes — `other_clothing`
@@ -455,7 +458,7 @@ Registry order. Each subcategory's full vocabulary is listed in [By subcategory]
 ## Notes
 
 - **Storage is free text.** `expense.category` holds the slug as-is; nothing enforces the registry at the database level.
-- **Categories are stored, not recomputed.** A library change only affects expenses entered after it ships. Re-filing old rows is Phase 18 §5's backfill, which will touch only fallback buckets.
+- **Categories are stored, not recomputed.** A library change only affects expenses entered after it ships. To re-file old rows, run `npm run backfill:categories` (Phase 18 §5). It touches only fallback buckets, never a category a person picked, and logs every change so a run can be reverted.
 - **Legacy slugs still resolve.** The retired `rent` / `utilities` / `entertainment` parents remain in the registry, re-parented (Bills & rent, Leisure). `other_insurance` is a pure alias of Bills → Insurance and is hidden from the picker.
 - **Unknown slugs degrade gracefully.** `parentOf()` falls back to the slug's `_`-prefix if that names a parent, otherwise `other`.
-- **Adding vocabulary:** put the word in the right tier of the right subcategory, then run `npm test`. The integrity tests fail if a word is listed twice, if a brand or keyword typed alone files anywhere other than its own subcategory, or if a golden-corpus row regresses.
+- **Adding vocabulary:** put the word in the right tier of the right subcategory, then run `npm test` and `npm run gen:category-matrix`. The integrity tests fail if a word is listed twice, if a brand or keyword typed alone files anywhere other than its own subcategory, or if a golden-corpus row regresses.

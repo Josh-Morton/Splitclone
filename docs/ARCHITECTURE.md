@@ -46,7 +46,8 @@ Everything is a pure function; everything is unit-tested (`__tests__/`).
 | `money.ts` | `fmt` (`R1 200,00`), `fmtR`, `parseCents` | integer cents only |
 | `split.ts` | `splitEqual`, `splitWeighted`, `computeSplit`, reconciliation validators | every split sums exactly to the total (largest-remainder) |
 | `balance.ts` | `computeBalances`, `simplifyDebts` | balances derived, never stored; nets sum to zero |
-| `category.ts` | `autoCategory` keyword map, category display meta | map order matters; keep in sync with prototype |
+| `category.ts` | `autoCategory`/`scoreCategory` scoring engine + library, category display meta, `isGeneralCategory`, §3 confidence constants | strongest evidence wins; registry order is only a tie-breaker (ADR-0019); regenerate `docs/CATEGORY-MATRIX.md` after edits |
+| `category-backfill.ts` | `planRefiles`: which legacy rows to re-file, and to what | only general buckets; never to Other; never across Tallies (Phase 18 §5) |
 | `types.ts` | entity types incl. `SyncMeta` on every synced record | ids are client UUIDs; deletes are soft |
 
 ### 2. Data (`settleup/src/lib/data/`) — the only I/O boundary
@@ -77,6 +78,17 @@ activity) with:
 - RLS: users touch only groups they actively belong to; salary is owner-only
   unless `salary_visible` (group-mates read via the `profile_public` view)
 - auto-created profile row on signup
+
+`expense.category_source` records who chose a category (`auto` | `manual` |
+`learned`). `category_backfill` is a service-only audit log of every category
+the backfill script changed, which is what makes a run reversible.
+
+### 5. Ops scripts (`settleup/scripts/`)
+Plain Node runs the app's own TypeScript domain code via `ts-hooks.mjs`, so a
+script categorises exactly as the app does. `npm run backfill:categories`
+(plan | apply | revert) re-files legacy categories through the Management
+API, fingerprinting all spending data so only categories can change.
+`npm run gen:category-matrix` regenerates `docs/CATEGORY-MATRIX.md`.
 
 ## Cross-cutting rules (do not violate)
 
