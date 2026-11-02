@@ -16,12 +16,24 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://www.tally-ho.co.za"),
   title: "Tally",
   description: "Shared expenses for your home — always know who owes whom.",
   manifest: "/manifest.webmanifest",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/icons/apple-touch-icon.png?v=2",
+    icon: [
+      { url: "/icons/tally-icon.svg", type: "image/svg+xml" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icons/apple-touch-icon.png?v=3",
+  },
+  // The opaque icon: link previews paint transparent pixels black or white.
+  openGraph: {
+    title: "Tally",
+    description: "Shared expenses for your home — always know who owes whom.",
+    images: [{ url: "/icons/icon-maskable-512.png", width: 512, height: 512, alt: "Tally" }],
   },
   appleWebApp: {
     capable: true,

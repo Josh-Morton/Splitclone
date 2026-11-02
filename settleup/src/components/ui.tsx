@@ -236,10 +236,12 @@ export function Logo({ size = 64 }: { size?: number }) {
     // eslint-disable-next-line @next/next/no-img-element -- static brand icon
     <img
       src="/icons/icon-192.png"
+      srcSet="/icons/icon-192.png 192w, /icons/icon-512.png 512w"
+      sizes={`${size}px`}
       alt="Tally"
       width={size}
       height={size}
-      style={{ width: size, height: size, borderRadius: size * 0.24, display: "block" }}
+      style={{ width: size, height: size, display: "block", flexShrink: 0 }}
     />
   );
 }

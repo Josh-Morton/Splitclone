@@ -10,7 +10,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Button, Card, ErrorText, Input, Label, Screen } from "@/components/ui";
+import { Button, Card, ErrorText, Input, Label, Logo, Screen } from "@/components/ui";
 import { getSupabaseRepo } from "@/lib/data";
 import { AvatarPicker } from "@/components/avatar-picker";
 import { parseCents, fmt } from "@/lib/domain";
@@ -150,6 +150,9 @@ function OnboardingFlow() {
 
   return (
     <Screen padding={26} center>
+      <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+        <Logo size={52} />
+      </div>
       <Progress step={step} />
 
       {step === "name" && (

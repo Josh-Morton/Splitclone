@@ -14,7 +14,7 @@
  * Phase 2 replaces this with full offline-first (precached shell + outbox).
  */
 
-const CACHE = "tally-shell-v4";
+const CACHE = "tally-shell-v5";
 const BRAND_ASSETS = /\/(icons\/|favicon\.ico|manifest\.webmanifest)/;
 
 self.addEventListener("install", (event) => {

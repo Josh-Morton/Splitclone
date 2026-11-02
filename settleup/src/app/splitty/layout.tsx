@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Splitty — split the bill",
     description: "Scan a restaurant or bar bill, share the link, and everyone picks what they had. No account needed.",
+    // A nested openGraph replaces the root one whole, so the image is restated.
+    images: [{ url: "/icons/icon-maskable-512.png", width: 512, height: 512, alt: "Tally" }],
   },
 };
 

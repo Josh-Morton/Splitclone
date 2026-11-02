@@ -14,7 +14,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, ErrorText, Input, Screen } from "@/components/ui";
+import { Button, ErrorText, Input, Logo, Screen } from "@/components/ui";
 import { WaveHero } from "@/components/wave";
 import { getSupabase, isSupabaseConfigured } from "@/lib/supabase/client";
 import { postAuthDestination } from "@/lib/routing";
@@ -136,9 +136,11 @@ export default function WelcomePage() {
 
   return (
     <Screen padding={26}>
-      {/* App icon deliberately dropped — the wordmark stands alone until a
-          new logo exists (ADR-0016). Staggered rise-in via .rise-in. */}
+      {/* Staggered rise-in via .rise-in. */}
       <WaveHero height={280}>
+        <div className="rise-in" style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <Logo size={76} />
+        </div>
         <h1
           className="rise-in"
           style={{

@@ -305,15 +305,23 @@ table, and a test fails if a raw Supabase string reaches the screen.
   **Effort:** S · **Credits:** ~3–8 *(a Supabase setting plus a client widget —
   but only worth spending anything on if bot signups actually appear.)*
 - ~~**Deeper "Tally-ho" brand treatment**~~ → **copy and empty states done**
-  2026-10-21; **app icon not done** (needs real design assets — not something
-  to invent). Kept deliberately scarce, so it still means something: it marks
+  2026-10-21; **app icon done** 2026-11-02 (Josh's notebook-paper design, see
+  below). Kept deliberately scarce, so it still means something: it marks
   genuine moments of arrival or success — **all square** on Home ("All square
   — tally-ho!", the state the app exists to reach), **a payment recorded**, a
   **brand-new Tally** ("Tally-ho — your Tally's ready…"), and **a Splitty bill
   fully claimed** — alongside push notifications, where it already was.
-  **Remaining:** an icon / wordmark treatment, if wanted.
-  **Effort:** S · **Credits:** ~4–10 *(design-led; needs Josh's direction or a
-  designer's assets first.)*
+  **Shipped 2026-11-02:** the icon replaces the hexagon everywhere (home-screen
+  icons, favicon, push notifications, link previews, the in-app `Logo`), and
+  `Logo` now also appears on welcome, onboarding, the Home header, `/splitty`,
+  privacy, Home's error screen and a new 404 page. The `Logo` component no
+  longer rounds its corners: the artwork has its own shape.
+  **Remaining:**
+  - **A simplified favicon.** "Tally" in script can't be read at 16–32px.
+    **Effort:** XS · **Credits:** ~1–3 *(needs Josh's design first.)*
+  - **The logo in sign-in emails.** Best done with the email rework (BUG-022,
+    BUG-025), since the templates are being rewritten anyway.
+    **Effort:** XS · **Credits:** ~1–2
 
 ## Animation & interaction polish (survey 2026-07-28)
 Josh asked for a sweep of animation opportunities beyond those in the Phase 11

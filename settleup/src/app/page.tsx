@@ -25,7 +25,7 @@ import { SpacesSheet } from "@/components/spaces-sheet";
 import { SettleSheet } from "@/components/settle-sheet";
 import { SplittyTab } from "@/components/splitty-tab";
 import { TabBar, type Tab } from "@/components/tab-bar";
-import { Button, Card, Screen } from "@/components/ui";
+import { Button, Card, Logo, Screen } from "@/components/ui";
 import { WaveCard } from "@/components/wave";
 import { getDemoRepo, getSupabaseRepo, type Repo } from "@/lib/data";
 import {
@@ -445,6 +445,9 @@ export default function HomePage() {
   if (error) {
     return (
       <Screen center>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+          <Logo size={52} />
+        </div>
         <Card>
           <p style={{ color: "var(--red)", fontWeight: 600, fontSize: 14 }}>{error}</p>
           <div style={{ height: 12 }} />
@@ -497,6 +500,7 @@ export default function HomePage() {
       {tab === "home" && (
         <div key="home" className="tab-in">
           <CollapsingHeader
+            leading={<Logo size={34} />}
             title={d.groupName}
             onTitleClick={() => setSheet("spaces")}
             titleLabel="Switch Tally"
