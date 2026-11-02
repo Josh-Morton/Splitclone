@@ -259,7 +259,7 @@ export default function HomePage() {
   const [recurringOpen, setRecurringOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [viewing, setViewing] = useState<Expense | null>(null);
-  // Push deep links (?expense=<id> / ?tab=list) are consumed exactly once.
+  // Deep links (?expense=<id> / ?tab=list|splitty) are consumed exactly once.
   const deepLinkDone = useRef(false);
   const [toast, setToast] = useState<{
     msg: string;
@@ -370,8 +370,8 @@ export default function HomePage() {
 
   // Deep links from a push notification (Phase 9): ?tab=list opens the List
   // tab; ?expense=<id> opens that expense's detail, switching space first if
-  // it lives in a different one. Runs once, then strips the params so a
-  // refresh doesn't reopen it.
+  // it lives in a different one. A Splitty bill's back link uses ?tab=splitty.
+  // Runs once, then strips the params so a refresh doesn't reopen it.
   useEffect(() => {
     if (!data || deepLinkDone.current) return;
     const params = new URLSearchParams(window.location.search);
@@ -381,7 +381,7 @@ export default function HomePage() {
     deepLinkDone.current = true;
 
     void Promise.resolve().then(async () => {
-      if (wantTab === "list") setTab("list");
+      if (wantTab === "list" || wantTab === "splitty") setTab(wantTab);
 
       if (wantExpense) {
         const here = data.expenses.find((e) => e.id === wantExpense);

@@ -143,15 +143,10 @@ export function SplittyHome({
     router.push(`/split/${shareCode}`);
   }
 
-  const intro =
-    mode === "tab"
-      ? "Scan a restaurant or bar bill, share the link, and everyone picks what they had — no account needed for them. It stays separate from your Tallies and balances."
-      : "Scan a restaurant or bar bill, share the link, and everyone picks what they had. No account needed.";
-
   return (
     <div>
-      <p style={{ fontSize: mode === "tab" ? 12.5 : 14, color: "var(--muted)", margin: "12px 0 16px", lineHeight: 1.5 }}>
-        {intro}
+      <p style={{ fontSize: 14, color: "var(--muted)", margin: "12px 0 16px", lineHeight: 1.5 }}>
+        Scan a restaurant or bar bill, share the link, and everyone picks what they had. No account needed.
         {remaining !== null && (
           <>
             {" "}

@@ -165,11 +165,11 @@ export default function SplitPage() {
 
   return (
     <Screen>
-      {/* Tally users go back to Tally; everyone else (guests, people who
-          started a split without an account) to Splitty's own page, which
-          lists their splits (Phase 21). */}
+      {/* Tally users go back to Tally's Splitty tab; everyone else (guests,
+          people who started a split without an account) to Splitty's own page,
+          which lists their splits (Phase 21). */}
       <Link
-        href={canGoBack ? "/" : "/splitty"}
+        href={canGoBack ? "/?tab=splitty" : "/splitty"}
         style={{
           display: "inline-flex",
           alignItems: "center",

@@ -60,9 +60,13 @@ A public route that works with or without a Tally account.
 
 **Shared with the Tally tab.** The tab and this page render the same
 `SplittyHome` component, in "tab" and "standalone" modes, so they can't
-drift. The tab keeps its collapsing header and gains the counter.
+drift. The tab keeps its collapsing header and gains the counter. Both show
+the same intro text at the same size (Josh, 2026-11-02). He considered sending
+Tally users to `/splitty` from the tab instead and agreed to keep the tab: it
+would lose the tab bar and reload Home to save a 23-line wrapper.
 
-**Back links on `/split/<code>`.** A Tally user still sees "‹ Back to Tally".
+**Back links on `/split/<code>`.** A Tally user still sees "‹ Back to Tally",
+which opens Tally's Splitty tab (`/?tab=splitty`), not Home.
 Everyone else now sees "‹ My splits", which goes to `/splitty`. That's the
 same viral door, for guests who never saw the message.
 
