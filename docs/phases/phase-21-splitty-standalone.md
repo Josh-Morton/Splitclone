@@ -247,12 +247,21 @@ untouched):
 
 **Live:**
 
-- Migration `20261102000000_splitty_standalone` (rehearsed in a rolled-back
-  transaction first, then recorded).
-- Anonymous sign-ins switched on.
-- `scan-receipt` v6.
-- The app at `/splitty`, plus the changes to the Splitty tab, the review
-  screen and `/split/<code>`.
+- The backend: migration `20261102000000_splitty_standalone` (rehearsed in a
+  rolled-back transaction first, then recorded), anonymous sign-ins switched
+  on, and `scan-receipt` v6.
+- The app changes (commit `1b92de4`) were built and deployed by Vercel and
+  serve correctly on the `main` branch alias.
+
+**Production promotion lagging:** on 2026-11-02, Vercel had not yet promoted
+that deployment to the production URL; it was still serving the previous
+build. This is harmless meanwhile. The backend changes are
+backward-compatible with the old app:
+
+- the 3-argument `splitty_create_bill` call still works;
+- `splitty_set_tip` is unchanged for it;
+- the scanner's extra field is ignored;
+- the old app never signs in anonymously.
 
 **Small differences from the spec:**
 
