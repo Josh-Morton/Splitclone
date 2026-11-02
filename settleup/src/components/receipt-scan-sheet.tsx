@@ -75,6 +75,7 @@ export function ReceiptScanSheet({
   const [phase, setPhase] = useState<"idle" | "scanning" | "review">("idle");
   const [rows, setRows] = useState<Row[]>([]);
   const [lines, setLines] = useState<Line[]>([]);
+  const [editingId, setEditingId] = useState<Line["id"] | null>(null);
   const [merchant, setMerchant] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -83,6 +84,7 @@ export function ReceiptScanSheet({
     setPhase("idle");
     setRows([]);
     setLines([]);
+    setEditingId(null);
     setMerchant(null);
     setBusy(false);
     setError("");
@@ -210,11 +212,15 @@ export function ReceiptScanSheet({
                 items incorrect? Fix it now before sharing with the others.
               </p>
               {merchant && <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>{merchant}</p>}
-              <div style={{ maxHeight: "46vh", overflowY: "auto", margin: "8px -4px" }}>
+              {/* overflowX: the pencil's enlarged tap area (.hit) would otherwise
+                  make this list scroll sideways. */}
+              <div style={{ maxHeight: "46vh", overflowY: "auto", overflowX: "hidden", margin: "8px 0" }}>
                 {lines.map((l) => (
                   <LineEditor
                     key={l.id}
                     line={l}
+                    editing={editingId === l.id}
+                    onToggleEdit={() => setEditingId((id) => (id === l.id ? null : l.id))}
                     onChange={(patch) => updateLine(l.id, patch)}
                     onRemove={() => setLines((ls) => ls.filter((x) => x.id !== l.id))}
                   />
@@ -226,7 +232,7 @@ export function ReceiptScanSheet({
               <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>
                 {merchant ? `${merchant} · ` : ""}Tick the items for this expense. Tap a price to fix it.
               </p>
-              <div style={{ maxHeight: "46vh", overflowY: "auto", margin: "8px -4px" }}>
+              <div style={{ maxHeight: "46vh", overflowY: "auto", margin: "8px 0" }}>
                 {rows.map((r) => (
                   <div
                     key={r.id}
@@ -337,13 +343,39 @@ const priceInputStyle = {
   textAlign: "right" as const,
 };
 
-/** One product on the Splitty review screen: name, qty stepper, price each. */
+const PENCIL_PATH =
+  "M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z";
+
+const lineButtonStyle = {
+  width: 22,
+  height: 22,
+  borderRadius: 7,
+  flexShrink: 0,
+  cursor: "pointer",
+  border: "1px solid var(--line2)",
+  background: "transparent",
+  color: "var(--faint)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 0,
+};
+
+/**
+ * One product on the Splitty review screen. Read-only until its pencil is
+ * tapped, so a long bill can be scanned by eye and scrolled without landing
+ * on an input. Removing is always one tap.
+ */
 function LineEditor({
   line,
+  editing,
+  onToggleEdit,
   onChange,
   onRemove,
 }: {
   line: Line;
+  editing: boolean;
+  onToggleEdit: () => void;
   onChange: (patch: Partial<Line>) => void;
   onRemove: () => void;
 }) {
@@ -355,79 +387,109 @@ function LineEditor({
           onClick={onRemove}
           aria-label={`Remove ${label}`}
           className="hit"
-          style={{
-            width: 22,
-            height: 22,
-            borderRadius: 7,
-            flexShrink: 0,
-            cursor: "pointer",
-            border: "1px solid var(--line2)",
-            background: "transparent",
-            color: "var(--faint)",
-            fontSize: 15,
-            fontWeight: 800,
-            lineHeight: 1,
-          }}
+          style={{ ...lineButtonStyle, fontSize: 15, fontWeight: 800, lineHeight: 1 }}
         >
           ×
         </button>
-        <input
-          className="inline-input"
-          value={line.nameInput}
-          onChange={(e) => onChange({ nameInput: e.target.value })}
-          aria-label={`Name of ${label}`}
-          style={{
-            flex: 1,
-            minWidth: 0,
-            background: "transparent",
-            border: "none",
-            // Underline on focus comes from .inline-input (WCAG 2.4.7).
-            borderBottom: "2px solid transparent",
-            color: "var(--ink)",
-            fontSize: 16, // ≥16px or iOS zooms in on focus
-            fontWeight: 600,
-          }}
-        />
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 32 }}>
-        <div
-          role="group"
-          aria-label={`Number of ${label}`}
-          style={{ display: "flex", alignItems: "center", border: "1px solid var(--line2)", borderRadius: 999 }}
-        >
-          <StepButton
-            label={`One fewer ${label}`}
-            disabled={line.qty <= 1}
-            onClick={() => onChange({ qty: Math.max(1, line.qty - 1) })}
-          >
-            −
-          </StepButton>
-          <span
-            aria-live="polite"
-            style={{ minWidth: 26, textAlign: "center", fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}
-          >
-            {line.qty}
+        {editing ? (
+          <input
+            className="inline-input"
+            value={line.nameInput}
+            onChange={(e) => onChange({ nameInput: e.target.value })}
+            aria-label={`Name of ${label}`}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              background: "transparent",
+              border: "none",
+              // Underline on focus comes from .inline-input (WCAG 2.4.7).
+              borderBottom: "2px solid transparent",
+              color: "var(--ink)",
+              fontSize: 16, // ≥16px or iOS zooms in on focus
+              fontWeight: 600,
+            }}
+          />
+        ) : (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p
+              style={{
+                fontSize: 15,
+                fontWeight: 600,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {label}
+            </p>
+            <p style={{ fontSize: 12.5, color: "var(--muted)", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+              {line.qty} × {fmt(parseCents(line.unitInput))}
+            </p>
+          </div>
+        )}
+        {!editing && (
+          <span style={{ fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums", flexShrink: 0 }}>
+            {fmt(lineCents(line))}
           </span>
-          <StepButton
-            label={`One more ${label}`}
-            disabled={line.qty >= MAX_QTY}
-            onClick={() => onChange({ qty: Math.min(MAX_QTY, line.qty + 1) })}
-          >
-            +
-          </StepButton>
-        </div>
-        <span style={{ color: "var(--faint)", fontSize: 13, fontWeight: 700 }}>× R</span>
-        <input
-          value={line.unitInput}
-          onChange={(e) => onChange({ unitInput: e.target.value })}
-          inputMode="decimal"
-          aria-label={`Price each of ${label}`}
-          style={priceInputStyle}
-        />
-        <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
-          {fmt(lineCents(line))}
-        </span>
+        )}
+        <button
+          onClick={onToggleEdit}
+          aria-label={editing ? `Finish editing ${label}` : `Edit ${label}`}
+          aria-expanded={editing}
+          className="hit"
+          style={{
+            ...lineButtonStyle,
+            // Whole `border`, not borderColor: React clearing the longhand also
+            // blanks the colour set by the shorthand, leaving a dark outline.
+            ...(editing && { border: "1px solid var(--primary)", color: "var(--primary)" }),
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d={PENCIL_PATH} />
+          </svg>
+        </button>
       </div>
+      {editing && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 32 }}>
+          <div
+            role="group"
+            aria-label={`Number of ${label}`}
+            style={{ display: "flex", alignItems: "center", border: "1px solid var(--line2)", borderRadius: 999 }}
+          >
+            <StepButton
+              label={`One fewer ${label}`}
+              disabled={line.qty <= 1}
+              onClick={() => onChange({ qty: Math.max(1, line.qty - 1) })}
+            >
+              −
+            </StepButton>
+            <span
+              aria-live="polite"
+              style={{ minWidth: 26, textAlign: "center", fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}
+            >
+              {line.qty}
+            </span>
+            <StepButton
+              label={`One more ${label}`}
+              disabled={line.qty >= MAX_QTY}
+              onClick={() => onChange({ qty: Math.min(MAX_QTY, line.qty + 1) })}
+            >
+              +
+            </StepButton>
+          </div>
+          <span style={{ color: "var(--faint)", fontSize: 13, fontWeight: 700 }}>× R</span>
+          <input
+            value={line.unitInput}
+            onChange={(e) => onChange({ unitInput: e.target.value })}
+            inputMode="decimal"
+            aria-label={`Price each of ${label}`}
+            style={priceInputStyle}
+          />
+          <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+            {fmt(lineCents(line))}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -151,8 +151,11 @@ untouched):
 - **One row per product.** The scanner returns "Jack Black (1 of 5)" … "(5 of
   5)". `groupScanItems()` folds these back into one row: *Jack Black · qty 5 ·
   R50,00 each*.
-- **Each row:** remove (×), name, a quantity stepper (− n +, 1 to 50), the
-  price **each**, and the line total.
+- **Each row** reads as text by default: remove (×), name, "2 × R15,99", the
+  line total and a pencil. Josh's change, same day: rows no longer open as
+  inputs. The pencil opens that row's editor (name, a quantity stepper − n +,
+  1 to 50, and the price **each**) and closes any other; tapping it again
+  closes it. Remove stays one tap without opening the row.
 - **On Create split**, `expandRows()` turns each row back into `qty` claimable
   items, cent-exact. If price and quantity are untouched, the original line
   total is kept exactly. Otherwise the line is price × qty.
