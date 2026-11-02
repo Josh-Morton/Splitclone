@@ -29,15 +29,12 @@ import { useEffect, useRef, type ReactNode } from "react";
 const RANGE = 44;
 
 export function CollapsingHeader({
-  leading,
   title,
   subtitle,
   right,
   onTitleClick,
   titleLabel,
 }: {
-  /** Sits before the title. Home puts the logo here. */
-  leading?: ReactNode;
   title: string;
   subtitle?: ReactNode;
   right?: ReactNode;
@@ -108,8 +105,7 @@ export function CollapsingHeader({
         transition: "border-color var(--d-fast) linear",
       }}
     >
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        {leading}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <h1
           ref={titleRef}
           style={{
@@ -119,7 +115,6 @@ export function CollapsingHeader({
             lineHeight: 1.15,
             transition: "font-size var(--d-fast) linear",
             minWidth: 0,
-            marginRight: "auto",
           }}
         >
           {onTitleClick ? (

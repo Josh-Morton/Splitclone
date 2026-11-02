@@ -19,7 +19,7 @@ import { getDemoRepo, getSupabaseRepo, isSupabaseConfigured } from "@/lib/data";
 import { isDemoMode, useSessionState } from "@/lib/session";
 import { rememberSplittyRef, splittyDeviceId } from "@/lib/splitty";
 import { SplittyHome } from "@/components/splitty-home";
-import { Logo, Screen, Spinner } from "@/components/ui";
+import { Screen, Spinner } from "@/components/ui";
 
 function SplittyPage() {
   const params = useSearchParams();
@@ -83,10 +83,7 @@ function SplittyPage() {
           ‹ Back to Tally
         </Link>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
-        <Logo size={40} />
-        <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.8px" }}>Splitty</h1>
-      </div>
+      <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.8px", marginTop: 6 }}>Splitty</h1>
       <SplittyHome repo={repo} mode="standalone" demo={session.status === "demo"} hasTallyAccount={hasTallyAccount} />
       <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--muted)", marginTop: 28, lineHeight: 1.6 }}>
         Splitty is part of Tally: shared expenses for your home.

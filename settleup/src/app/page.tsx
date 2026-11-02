@@ -500,7 +500,6 @@ export default function HomePage() {
       {tab === "home" && (
         <div key="home" className="tab-in">
           <CollapsingHeader
-            leading={<Logo size={34} />}
             title={d.groupName}
             onTitleClick={() => setSheet("spaces")}
             titleLabel="Switch Tally"

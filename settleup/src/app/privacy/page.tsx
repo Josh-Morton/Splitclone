@@ -16,7 +16,6 @@
 
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Logo } from "@/components/ui";
 
 export const metadata: Metadata = {
   title: "Privacy & terms · Tally",
@@ -46,10 +45,9 @@ export default function PrivacyPage() {
       <Link href="/" style={{ color: "var(--primary)", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
         ‹ Back to Tally
       </Link>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0 4px" }}>
-        <Logo size={40} />
-        <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-0.6px" }}>Privacy &amp; terms</h1>
-      </div>
+      <h1 style={{ fontSize: 28, fontWeight: 900, letterSpacing: "-0.6px", margin: "16px 0 4px" }}>
+        Privacy &amp; terms
+      </h1>
       <p style={{ color: "var(--muted)", fontSize: 13, marginBottom: 24 }}>Last updated {LAST_UPDATED}</p>
 
       <Section title="The short version">

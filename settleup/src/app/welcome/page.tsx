@@ -138,25 +138,15 @@ export default function WelcomePage() {
     <Screen padding={26}>
       {/* Staggered rise-in via .rise-in. */}
       <WaveHero height={280}>
-        <div className="rise-in" style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
-          <Logo size={76} />
-        </div>
-        <h1
-          className="rise-in"
-          style={{
-            fontSize: 42,
-            fontWeight: "var(--w-black)" as unknown as number,
-            letterSpacing: "-1.2px",
-            animationDelay: "60ms",
-          }}
-        >
-          Tally
+        {/* The logo is the page's heading: its alt text gives the h1 its name. */}
+        <h1 className="rise-in" style={{ display: "flex", justifyContent: "center", animationDelay: "60ms" }}>
+          <Logo size={104} />
         </h1>
         <p
           className="rise-in"
           style={{
             fontSize: 14.5,
-            marginTop: 10,
+            marginTop: 14,
             lineHeight: 1.5,
             opacity: 0.92,
             animationDelay: "130ms",

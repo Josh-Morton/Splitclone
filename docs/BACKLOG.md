@@ -313,9 +313,11 @@ table, and a test fails if a raw Supabase string reaches the screen.
   fully claimed** — alongside push notifications, where it already was.
   **Shipped 2026-11-02:** the icon replaces the hexagon everywhere (home-screen
   icons, favicon, push notifications, link previews, the in-app `Logo`), and
-  `Logo` now also appears on welcome, onboarding, the Home header, `/splitty`,
-  privacy, Home's error screen and a new 404 page. The `Logo` component no
-  longer rounds its corners: the artwork has its own shape.
+  `Logo` now also appears on onboarding, Home's error screen and a new 404
+  page. On welcome it replaces the "Tally" wordmark, which was too much
+  alongside a logo that already says Tally. Josh's call: no logo next to titles
+  (Home's Tally name, `/splitty`, privacy). The `Logo` component no longer
+  rounds its corners: the artwork has its own shape.
   **Remaining:**
   - **A simplified favicon.** "Tally" in script can't be read at 16–32px.
     **Effort:** XS · **Credits:** ~1–3 *(needs Josh's design first.)*
