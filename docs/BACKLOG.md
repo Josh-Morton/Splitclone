@@ -207,6 +207,23 @@ Every error a person can hit has a plain message, backed by the unit-tested
 table, and a test fails if a raw Supabase string reaches the screen.
 
 ## Other open items
+- **Choose a photo from the library when scanning** (reported by Josh on his
+  phone, 2026-11-02). Splitty and Tally's receipt scan open the camera with no
+  way to pick an existing photo, even though the button says "Take / choose a
+  photo".
+  - **Cause:** `capture="environment"` on the file input, which tells the phone
+    to skip its usual choice and open the camera directly. There are two
+    inputs: `receipt-scan-sheet.tsx` (shared by Splitty and the Tally receipt
+    scan) and `expense-detail.tsx` (the receipt photo on an expense).
+  - **Recommended: two buttons,** "📷 Take a photo" (keeps `capture`) and
+    "🖼️ Choose from library" (no `capture`), on both inputs. Each does exactly
+    what it says on any phone. Just deleting `capture` is smaller, but the
+    result varies by phone: iPhones show both options, while some Android
+    phones open only the gallery and lose the camera.
+  - **⚠️ When told to execute this, first remind Josh of the original request
+    and the two options above, before completing the work.** He asked for this
+    on 2026-11-02.
+  **Effort:** XS · **Credits:** ~1–2
 - **Splitty without an account: follow-ups** (from [Phase 21](phases/phase-21-splitty-standalone.md),
   ADR-0022).
   - **Keep your splits when you join Tally.** Someone who started splits
