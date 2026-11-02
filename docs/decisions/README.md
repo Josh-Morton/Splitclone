@@ -32,3 +32,4 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | [0019](0019-learning-categorisation-engine.md) | Scoring categorisation engine + globally-learned rules, gated by cross-household consensus | Accepted (extends 0011) |
 | 0020 | *Reserved by [Phase 19](../phases/phase-19-category-assignments.md) for its pending decision* | — |
 | [0021](0021-reporting-charts.md) | Reporting charts: hand-rolled SVG, one hue + emphasis, small multiples over stacked categories | Accepted |
+| [0022](0022-splitty-without-an-account.md) | Splitty without an account: anonymous sessions for creators, a shared daily scan budget, first-party usage events | Accepted (extends 0013, amends 0012) |
