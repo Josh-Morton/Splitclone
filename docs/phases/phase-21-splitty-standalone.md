@@ -338,6 +338,10 @@ its identity everywhere else. The decision, including why the scope is `/split`,
 is in [ADR-0023](../decisions/0023-splitty-own-app-identity.md); follow-ups are
 in the [backlog](../BACKLOG.md).
 
+The `/splitty` page now opens like `/welcome`: the Splitty icon sits in a
+`WaveHero` and is the page's heading (Josh's call), replacing the "Splitty"
+title. "‹ Back to Tally" moved into the hero. Bill pages still use Tally's logo.
+
 **Verified locally:**
 
 - `npm test` (493 total) and `npm run build` pass.

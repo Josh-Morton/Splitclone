@@ -231,14 +231,15 @@ export function Label({ children }: { children: ReactNode }) {
   );
 }
 
-export function Logo({ size = 64 }: { size?: number }) {
+export function Logo({ size = 64, app = "tally" }: { size?: number; app?: "tally" | "splitty" }) {
+  const dir = app === "splitty" ? "/icons/splitty" : "/icons";
   return (
     // eslint-disable-next-line @next/next/no-img-element -- static brand icon
     <img
-      src="/icons/icon-192.png"
-      srcSet="/icons/icon-192.png 192w, /icons/icon-512.png 512w"
+      src={`${dir}/icon-192.png`}
+      srcSet={`${dir}/icon-192.png 192w, ${dir}/icon-512.png 512w`}
       sizes={`${size}px`}
-      alt="Tally"
+      alt={app === "splitty" ? "Splitty" : "Tally"}
       width={size}
       height={size}
       style={{ width: size, height: size, display: "block", flexShrink: 0 }}

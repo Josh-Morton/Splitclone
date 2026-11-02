@@ -19,7 +19,8 @@ import { getDemoRepo, getSupabaseRepo, isSupabaseConfigured } from "@/lib/data";
 import { isDemoMode, useSessionState } from "@/lib/session";
 import { rememberSplittyRef, splittyDeviceId } from "@/lib/splitty";
 import { SplittyHome } from "@/components/splitty-home";
-import { Screen, Spinner } from "@/components/ui";
+import { Logo, Screen, Spinner } from "@/components/ui";
+import { WaveHero } from "@/components/wave";
 
 function SplittyPage() {
   const params = useSearchParams();
@@ -61,29 +62,34 @@ function SplittyPage() {
 
   return (
     <Screen>
-      {hasTallyAccount && (
-        <Link
-          href="/"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            alignSelf: "flex-start",
-            marginBottom: 12,
-            background: "var(--s2)",
-            border: "1px solid var(--line2)",
-            borderRadius: 999,
-            color: "var(--ink)",
-            fontSize: 13,
-            fontWeight: 700,
-            padding: "7px 14px",
-            textDecoration: "none",
-          }}
-        >
-          ‹ Back to Tally
-        </Link>
-      )}
-      <h1 style={{ fontSize: 30, fontWeight: 900, letterSpacing: "-0.8px", marginTop: 6 }}>Splitty</h1>
+      <WaveHero height={280}>
+        {hasTallyAccount && (
+          <div style={{ textAlign: "left", marginBottom: 14 }}>
+            <Link
+              href="/"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "var(--s2)",
+                border: "1px solid var(--line2)",
+                borderRadius: 999,
+                color: "var(--ink)",
+                fontSize: 13,
+                fontWeight: 700,
+                padding: "7px 14px",
+                textDecoration: "none",
+              }}
+            >
+              ‹ Back to Tally
+            </Link>
+          </div>
+        )}
+        {/* The logo is the page's heading, as on /welcome: its alt text gives the h1 its name. */}
+        <h1 className="rise-in" style={{ display: "flex", justifyContent: "center", animationDelay: "60ms" }}>
+          <Logo size={120} app="splitty" />
+        </h1>
+      </WaveHero>
       <SplittyHome repo={repo} mode="standalone" demo={session.status === "demo"} hasTallyAccount={hasTallyAccount} />
       <p style={{ textAlign: "center", fontSize: 12.5, color: "var(--muted)", marginTop: 28, lineHeight: 1.6 }}>
         Splitty is part of Tally: shared expenses for your home.
