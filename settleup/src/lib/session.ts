@@ -12,7 +12,7 @@
 
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { isSessionReallyOver } from "./auth-errors";
+import { isSessionReallyOver, isTallySession } from "./auth-errors";
 import { getSupabase, isSupabaseConfigured } from "./supabase/client";
 
 const DEMO_KEY = "settleup:demo";
@@ -49,6 +49,11 @@ export type SessionState =
   | { status: "demo" }
   | { status: "supabase"; session: Session };
 
+/** Splitty's anonymous sessions are "signed out" as far as Tally is concerned (ADR-0022). */
+function tallyState(session: Session | null): SessionState {
+  return isTallySession(session) ? { status: "supabase", session } : { status: "signedout" };
+}
+
 export function useSessionState(): SessionState {
   const [state, setState] = useState<SessionState>({ status: "loading" });
 
@@ -75,7 +80,7 @@ export function useSessionState(): SessionState {
         .then(({ data: r, error }) => {
           if (cancelled) return;
           if (r.session) {
-            setState({ status: "supabase", session: r.session });
+            setState(tallyState(r.session));
             return;
           }
           if (isSessionReallyOver(error) || ++attempts >= 4) {
@@ -112,7 +117,7 @@ export function useSessionState(): SessionState {
       const { data } = await sb.auth.getSession();
       if (cancelled) return;
       if (data.session) {
-        setState({ status: "supabase", session: data.session });
+        setState(tallyState(data.session));
       } else if (hasStoredSession()) {
         // getSession() tried to refresh an expired token and the request
         // failed — on a cold PWA open that usually just means the radio
@@ -125,7 +130,7 @@ export function useSessionState(): SessionState {
 
       const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
         if (cancelled || isDemoMode()) return;
-        setState(session ? { status: "supabase", session } : { status: "signedout" });
+        setState(tallyState(session));
       });
       unsubscribe = () => sub.subscription.unsubscribe();
     })();

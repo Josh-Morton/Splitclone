@@ -7,9 +7,12 @@
  *    "Add to expense" copies the ticked total + item note back into the
  *    Add-expense sheet, where the normal flow (split, participants, space)
  *    continues.
- *  - "splitty" (Phase 8): every scanned row becomes a real line item (rename,
- *    fix a price, or remove) → "Create split" hands the items back to the
- *    caller, which creates the shared bill and routes to /split/<code>.
+ *  - "splitty" (Phase 8): every scanned row becomes a real line item → "Create
+ *    split" hands the items back to the caller, which creates the shared bill
+ *    and routes to /split/<code>. Since Phase 21 the scanner's per-unit rows
+ *    ("Jack Black (1 of 5)") are folded back into one line with a quantity, so
+ *    the host can fix the name, the price each and the number before sharing;
+ *    they're expanded back to one claimable item per unit on create.
  *
  * The image is never stored — it's compressed, sent for extraction, discarded.
  */
@@ -18,6 +21,7 @@ import { useRef, useState } from "react";
 import type { Repo, ScanItem, SplitBillItemInput } from "@/lib/data";
 import { fmt, parseCents } from "@/lib/domain";
 import { compressImage } from "@/lib/image";
+import { editedLineCents, expandRows, groupScanItems } from "@/lib/splitty";
 import { Button, ErrorText, Spinner } from "./ui";
 import { Sheet } from "./sheet";
 
@@ -28,6 +32,18 @@ interface Row extends ScanItem {
   priceInput: string; // editable Rand string
 }
 
+/** Splitty review: one product, edited as qty × price each (Phase 21). */
+interface Line {
+  id: number;
+  nameInput: string;
+  qty: number;
+  unitInput: string; // editable Rand string, price EACH
+  scanned: { qty: number; unitCents: number; lineCents: number };
+}
+
+const MAX_QTY = 50; // same guard as the scanner's mis-read quantity cap
+const lineCents = (l: Line) => editedLineCents(l.qty, parseCents(l.unitInput), l.scanned);
+
 const centsToInput = (c: number) => (c / 100).toFixed(2).replace(".", ",");
 
 export function ReceiptScanSheet({
@@ -37,6 +53,7 @@ export function ReceiptScanSheet({
   onCreateSplit,
   repo,
   mode = "expense",
+  onScanned,
 }: {
   open: boolean;
   onClose: () => void;
@@ -50,11 +67,14 @@ export function ReceiptScanSheet({
   }) => Promise<void> | void;
   repo: Repo;
   mode?: "expense" | "splitty";
+  /** After a successful scan: today's scans left, when the server says. */
+  onScanned?: (scansRemaining?: number) => void;
 }) {
   const splitty = mode === "splitty";
   const fileRef = useRef<HTMLInputElement>(null);
   const [phase, setPhase] = useState<"idle" | "scanning" | "review">("idle");
   const [rows, setRows] = useState<Row[]>([]);
+  const [lines, setLines] = useState<Line[]>([]);
   const [merchant, setMerchant] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -62,6 +82,7 @@ export function ReceiptScanSheet({
   function reset() {
     setPhase("idle");
     setRows([]);
+    setLines([]);
     setMerchant(null);
     setBusy(false);
     setError("");
@@ -75,7 +96,20 @@ export function ReceiptScanSheet({
       const blob = await compressImage(file, 1600, 0.8);
       const base64 = await blobToBase64(blob);
       const result = await repo.scanReceipt(base64, "image/jpeg");
+      onScanned?.(result.scansRemaining);
       setMerchant(result.merchant);
+      setLines(
+        groupScanItems(result.items).map((l, i) => {
+          const unitCents = Math.round(l.lineCents / l.qty);
+          return {
+            id: i,
+            nameInput: l.name,
+            qty: l.qty,
+            unitInput: centsToInput(unitCents),
+            scanned: { qty: l.qty, unitCents, lineCents: l.lineCents },
+          };
+        })
+      );
       setRows(
         result.items.map((it, i) => ({
           ...it,
@@ -92,10 +126,15 @@ export function ReceiptScanSheet({
     }
   }
 
-  // expense mode counts only ticked rows; splitty mode counts every row.
-  const countedRows = rows.filter((r) => splitty || r.included);
-  const total = countedRows.reduce((a, r) => a + parseCents(r.priceInput), 0);
-  const countedCount = countedRows.length;
+  // expense mode counts only ticked rows; splitty mode counts every line × qty.
+  const countedRows = rows.filter((r) => r.included);
+  const total = splitty
+    ? lines.reduce((a, l) => a + lineCents(l), 0)
+    : countedRows.reduce((a, r) => a + parseCents(r.priceInput), 0);
+  const countedCount = splitty ? lines.reduce((a, l) => a + l.qty, 0) : countedRows.length;
+
+  const updateLine = (id: number, patch: Partial<Line>) =>
+    setLines((ls) => ls.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 
   function addToExpense() {
     const chosen = rows.filter((r) => r.included);
@@ -105,9 +144,9 @@ export function ReceiptScanSheet({
   }
 
   async function createSplit() {
-    const items: SplitBillItemInput[] = rows
-      .map((r) => ({ name: r.nameInput.trim(), lineTotalCents: parseCents(r.priceInput) }))
-      .filter((it) => it.name && it.lineTotalCents > 0);
+    const items: SplitBillItemInput[] = expandRows(
+      lines.map((l) => ({ name: l.nameInput, qty: l.qty, lineCents: lineCents(l) }))
+    );
     if (items.length === 0) {
       setError("A split needs at least one item");
       return;
@@ -162,127 +201,92 @@ export function ReceiptScanSheet({
 
       {phase === "review" && (
         <>
-          <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>
-            {merchant ? `${merchant} · ` : ""}
-            {splitty
-              ? "Check the items — rename, fix a price, or remove any before you share."
-              : "Tick the items for this expense. Tap a price to fix it."}
-          </p>
-          <div style={{ maxHeight: "46vh", overflowY: "auto", margin: "8px -4px" }}>
-            {rows.map((r) => (
-              <div
-                key={r.id}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 4px",
-                  borderTop: "1px solid var(--line)",
-                }}
-              >
-                {splitty ? (
-                  <button
-                    onClick={() => setRows((rs) => rs.filter((x) => x.id !== r.id))}
-                    aria-label={`Remove ${r.nameInput}`}
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 7,
-                      flexShrink: 0,
-                      cursor: "pointer",
-                      border: "1px solid var(--line2)",
-                      background: "transparent",
-                      color: "var(--faint)",
-                      fontSize: 15,
-                      fontWeight: 800,
-                      lineHeight: 1,
-                    }}
-                  >
-                    ×
-                  </button>
-                ) : (
-                  <button
-                    onClick={() =>
-                      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, included: !x.included } : x)))
-                    }
-                    aria-label={r.included ? `Exclude ${r.nameInput}` : `Include ${r.nameInput}`}
-                    style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: 7,
-                      flexShrink: 0,
-                      cursor: "pointer",
-                      border: `2px solid ${r.included ? "var(--green)" : "var(--line2)"}`,
-                      background: r.included ? "var(--greenbg)" : "transparent",
-                      color: "var(--green)",
-                      fontSize: 13,
-                      fontWeight: 800,
-                      lineHeight: 1,
-                    }}
-                  >
-                    {r.included ? "✓" : ""}
-                  </button>
-                )}
-                {splitty ? (
-                  <input
-                    className="inline-input"
-                    value={r.nameInput}
-                    onChange={(e) =>
-                      setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, nameInput: e.target.value } : x)))
-                    }
-                    aria-label={`Name of ${r.nameInput}`}
-                    style={{
-                      flex: 1,
-                      minWidth: 0,
-                      background: "transparent",
-                      border: "none",
-                      // Underline on focus comes from .inline-input (WCAG 2.4.7).
-                      borderBottom: "2px solid transparent",
-                      color: "var(--ink)",
-                      fontSize: 16, // ≥16px or iOS zooms in on focus now that pinch-zoom is allowed
-                      fontWeight: 600,
-                    }}
+          {splitty ? (
+            <>
+              {/* Josh's words (Phase 21): this is the host's one chance to
+                  make the bill right before anyone claims from it. */}
+              <p style={{ fontSize: 13.5, color: "var(--ink)", lineHeight: 1.5, marginBottom: 4 }}>
+                This is where you can configure your split. Someone paid already? The value or number of
+                items incorrect? Fix it now before sharing with the others.
+              </p>
+              {merchant && <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>{merchant}</p>}
+              <div style={{ maxHeight: "46vh", overflowY: "auto", margin: "8px -4px" }}>
+                {lines.map((l) => (
+                  <LineEditor
+                    key={l.id}
+                    line={l}
+                    onChange={(patch) => updateLine(l.id, patch)}
+                    onRemove={() => setLines((ls) => ls.filter((x) => x.id !== l.id))}
                   />
-                ) : (
-                  <span
-                    style={{
-                      flex: 1,
-                      fontSize: 14,
-                      fontWeight: 600,
-                      color: r.included ? "var(--ink)" : "var(--faint)",
-                      textDecoration: r.included ? "none" : "line-through",
-                    }}
-                  >
-                    {r.nameInput}
-                  </span>
-                )}
-                <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                  <span style={{ color: "var(--faint)", fontSize: 13, fontWeight: 700 }}>R</span>
-                  <input
-                    value={r.priceInput}
-                    onChange={(e) =>
-                      setRows((rs) =>
-                        rs.map((x) => (x.id === r.id ? { ...x, priceInput: e.target.value } : x))
-                      )
-                    }
-                    inputMode="decimal"
-                    aria-label={`Price of ${r.nameInput}`}
-                    style={{
-                      width: 72,
-                      background: "var(--s2)",
-                      border: "1px solid var(--line2)",
-                      borderRadius: 8,
-                      color: "var(--ink)",
-                      fontSize: 16, // ≥16px or iOS zooms in on focus now that pinch-zoom is allowed
-                      fontWeight: 700,
-                      padding: "6px 8px",
-                      textAlign: "right",
-                    }}
-                  />
-                </span>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <>
+              <p style={{ fontSize: 12.5, color: "var(--muted)", marginBottom: 4 }}>
+                {merchant ? `${merchant} · ` : ""}Tick the items for this expense. Tap a price to fix it.
+              </p>
+              <div style={{ maxHeight: "46vh", overflowY: "auto", margin: "8px -4px" }}>
+                {rows.map((r) => (
+                  <div
+                    key={r.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                      padding: "9px 4px",
+                      borderTop: "1px solid var(--line)",
+                    }}
+                  >
+                    <button
+                      onClick={() =>
+                        setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, included: !x.included } : x)))
+                      }
+                      aria-label={r.included ? `Exclude ${r.nameInput}` : `Include ${r.nameInput}`}
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: 7,
+                        flexShrink: 0,
+                        cursor: "pointer",
+                        border: `2px solid ${r.included ? "var(--green)" : "var(--line2)"}`,
+                        background: r.included ? "var(--greenbg)" : "transparent",
+                        color: "var(--green)",
+                        fontSize: 13,
+                        fontWeight: 800,
+                        lineHeight: 1,
+                      }}
+                    >
+                      {r.included ? "✓" : ""}
+                    </button>
+                    <span
+                      style={{
+                        flex: 1,
+                        fontSize: 14,
+                        fontWeight: 600,
+                        color: r.included ? "var(--ink)" : "var(--faint)",
+                        textDecoration: r.included ? "none" : "line-through",
+                      }}
+                    >
+                      {r.nameInput}
+                    </span>
+                    <span style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                      <span style={{ color: "var(--faint)", fontSize: 13, fontWeight: 700 }}>R</span>
+                      <input
+                        value={r.priceInput}
+                        onChange={(e) =>
+                          setRows((rs) => rs.map((x) => (x.id === r.id ? { ...x, priceInput: e.target.value } : x)))
+                        }
+                        inputMode="decimal"
+                        aria-label={`Price of ${r.nameInput}`}
+                        style={priceInputStyle}
+                      />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
 
           <div
             style={{
@@ -318,6 +322,146 @@ export function ReceiptScanSheet({
         </>
       )}
     </Sheet>
+  );
+}
+
+const priceInputStyle = {
+  width: 72,
+  background: "var(--s2)",
+  border: "1px solid var(--line2)",
+  borderRadius: 8,
+  color: "var(--ink)",
+  fontSize: 16, // ≥16px or iOS zooms in on focus now that pinch-zoom is allowed
+  fontWeight: 700,
+  padding: "6px 8px",
+  textAlign: "right" as const,
+};
+
+/** One product on the Splitty review screen: name, qty stepper, price each. */
+function LineEditor({
+  line,
+  onChange,
+  onRemove,
+}: {
+  line: Line;
+  onChange: (patch: Partial<Line>) => void;
+  onRemove: () => void;
+}) {
+  const label = line.nameInput || "item";
+  return (
+    <div style={{ padding: "10px 4px", borderTop: "1px solid var(--line)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <button
+          onClick={onRemove}
+          aria-label={`Remove ${label}`}
+          className="hit"
+          style={{
+            width: 22,
+            height: 22,
+            borderRadius: 7,
+            flexShrink: 0,
+            cursor: "pointer",
+            border: "1px solid var(--line2)",
+            background: "transparent",
+            color: "var(--faint)",
+            fontSize: 15,
+            fontWeight: 800,
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+        <input
+          className="inline-input"
+          value={line.nameInput}
+          onChange={(e) => onChange({ nameInput: e.target.value })}
+          aria-label={`Name of ${label}`}
+          style={{
+            flex: 1,
+            minWidth: 0,
+            background: "transparent",
+            border: "none",
+            // Underline on focus comes from .inline-input (WCAG 2.4.7).
+            borderBottom: "2px solid transparent",
+            color: "var(--ink)",
+            fontSize: 16, // ≥16px or iOS zooms in on focus
+            fontWeight: 600,
+          }}
+        />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, paddingLeft: 32 }}>
+        <div
+          role="group"
+          aria-label={`Number of ${label}`}
+          style={{ display: "flex", alignItems: "center", border: "1px solid var(--line2)", borderRadius: 999 }}
+        >
+          <StepButton
+            label={`One fewer ${label}`}
+            disabled={line.qty <= 1}
+            onClick={() => onChange({ qty: Math.max(1, line.qty - 1) })}
+          >
+            −
+          </StepButton>
+          <span
+            aria-live="polite"
+            style={{ minWidth: 26, textAlign: "center", fontSize: 15, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}
+          >
+            {line.qty}
+          </span>
+          <StepButton
+            label={`One more ${label}`}
+            disabled={line.qty >= MAX_QTY}
+            onClick={() => onChange({ qty: Math.min(MAX_QTY, line.qty + 1) })}
+          >
+            +
+          </StepButton>
+        </div>
+        <span style={{ color: "var(--faint)", fontSize: 13, fontWeight: 700 }}>× R</span>
+        <input
+          value={line.unitInput}
+          onChange={(e) => onChange({ unitInput: e.target.value })}
+          inputMode="decimal"
+          aria-label={`Price each of ${label}`}
+          style={priceInputStyle}
+        />
+        <span style={{ marginLeft: "auto", fontSize: 14, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>
+          {fmt(lineCents(line))}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function StepButton({
+  label,
+  disabled,
+  onClick,
+  children,
+}: {
+  label: string;
+  disabled: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      style={{
+        width: 34,
+        height: 34,
+        border: "none",
+        background: "transparent",
+        color: disabled ? "var(--faint)" : "var(--ink)",
+        fontSize: 18,
+        fontWeight: 800,
+        cursor: disabled ? "default" : "pointer",
+        borderRadius: 999,
+      }}
+    >
+      {children}
+    </button>
   );
 }
 

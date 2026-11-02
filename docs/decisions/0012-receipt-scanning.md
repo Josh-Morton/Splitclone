@@ -1,6 +1,6 @@
 # ADR-0012: Receipt line-item scanning via a central Gemini Edge Function
 
-**Status:** Accepted (2026-07-22) · **Source:** Josh (Phase 7); ROADMAP Phase 7 spec
+**Status:** Accepted (2026-07-22); **amended 2026-11-02 by [ADR-0022](0022-splitty-without-an-account.md)**: scanning needs a session, anonymous allowed, within a shared daily budget (100/day) and a per-account cap (15/day). · **Source:** Josh (Phase 7); ROADMAP Phase 7 spec
 
 ## Context
 Josh wants to photograph a till slip while adding an expense, get a checklist

@@ -207,6 +207,20 @@ Every error a person can hit has a plain message, backed by the unit-tested
 table, and a test fails if a raw Supabase string reaches the screen.
 
 ## Other open items
+- **Splitty without an account: follow-ups** (from [Phase 21](phases/phase-21-splitty-standalone.md),
+  ADR-0022).
+  - **Keep your splits when you join Tally.** Someone who started splits
+    anonymously and later creates a Tally account gets a *new* user, so their
+    old splits stay with the anonymous one. They keep guest access, but lose
+    host controls such as closing a bill. Fix by converting the anonymous user
+    in place (`updateUser` with email + password) when they sign up from a
+    device that has one.
+  - **Tidy idle anonymous users.** Delete long-idle anonymous users who
+    started no splits, on a schedule.
+  - **Add CAPTCHA to anonymous sign-in** only if abuse appears.
+
+  **Effort:** S–M · **Credits:** ~6–14 *(the conversion is most of it; the
+  clean-up is one scheduled SQL job).*
 - ~~**Formal a11y pass (WCAG)**~~ → **done** 2026-10-21, against WCAG 2.2 AA.
   Measured first, then fixed at the source so it holds for future screens:
   - **Contrast (1.4.3).** Only body text passed. White on the teal buttons and

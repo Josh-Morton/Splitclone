@@ -101,6 +101,9 @@ API, fingerprinting all spending data so only categories can change.
 6. **UI goes through the Repo.** New data needs = extend `repo.ts` first.
 7. **Secrets:** only the anon key ships to the client; service-role key is
    server-only (Phase 4 jobs). RLS is the real security boundary.
+   **Anonymous sessions exist** (Splitty creators without an account,
+   ADR-0022): to Tally they are signed out, so check `isTallySession()`,
+   never just "is there a session".
 8. **Styling:** tokens from `globals.css` only; dark-mode-only; system fonts.
 
 ## Offline strategy (deferred to end of project — ADR-0009)

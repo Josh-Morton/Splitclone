@@ -101,10 +101,14 @@ export class MemoryRepo implements Repo {
     billId: string;
     displayName: string;
     tipPercent: number;
+    tipCents: number | null;
     lockedIn: boolean;
     isAdmin: boolean;
     joinedAt: string;
   }[] = [];
+  /** Demo stand-in for the shared daily scan budget (Phase 21). */
+  private demoScansLeft = 100;
+  private scanListeners = new Set<() => void>();
   private splitItems: {
     id: string;
     billId: string;
@@ -685,8 +689,14 @@ export class MemoryRepo implements Repo {
   // scan → checklist → expense flow without a backend.
   async scanReceipt(): Promise<import("./repo").ScanResult> {
     await new Promise((r) => setTimeout(r, 900)); // mimic the network round-trip
+    this.demoScansLeft = Math.max(0, this.demoScansLeft - 1);
+    this.scanListeners.forEach((cb) => cb());
     const items = [
       { name: "Milk 2L Fresh", qty: null, lineTotalCents: 3299 },
+      // Two of the same line, expanded per unit exactly as the live scanner
+      // does, so the demo shows Splitty folding them back into "qty 2".
+      { name: "Coke 330ml (1 of 2)", qty: null, lineTotalCents: 1599 },
+      { name: "Coke 330ml (2 of 2)", qty: null, lineTotalCents: 1599 },
       { name: "Brown Bread", qty: null, lineTotalCents: 1799 },
       { name: "Cheddar Cheese 400g", qty: null, lineTotalCents: 8999 },
       { name: "Bananas 1kg", qty: null, lineTotalCents: 2450 },
@@ -698,6 +708,7 @@ export class MemoryRepo implements Repo {
       merchant: "Checkers Hyper",
       totalCents: items.reduce((a, i) => a + i.lineTotalCents, 0),
       items,
+      scansRemaining: this.demoScansLeft,
     };
   }
 
@@ -715,7 +726,8 @@ export class MemoryRepo implements Repo {
   async splittyCreateBill(
     merchant: string | null,
     receiptTotalCents: number,
-    items: import("./repo").SplitBillItemInput[]
+    items: import("./repo").SplitBillItemInput[],
+    displayName?: string | null
   ): Promise<{ shareCode: string; guestId: string; guestToken: string }> {
     const clean = items.filter((it) => it.name.trim() && it.lineTotalCents > 0);
     if (clean.length === 0) throw new ValidationError("A split needs at least one item");
@@ -734,8 +746,9 @@ export class MemoryRepo implements Repo {
     this.splitGuests.push({
       id: guestId,
       billId,
-      displayName: this.user.displayName || "You",
+      displayName: this.user.displayName || displayName?.trim() || "Host",
       tipPercent: 0,
+      tipCents: null,
       lockedIn: false,
       isAdmin: true,
       joinedAt: nowIso(),
@@ -767,6 +780,7 @@ export class MemoryRepo implements Repo {
       billId: bill.id,
       displayName: name,
       tipPercent: 0,
+      tipCents: null,
       lockedIn: false,
       isAdmin: false,
       joinedAt: nowIso(),
@@ -814,6 +828,7 @@ export class MemoryRepo implements Repo {
           id: g.id,
           displayName: g.displayName,
           tipPercent: g.tipPercent,
+          tipCents: g.tipCents,
           lockedIn: g.lockedIn,
           isAdmin: g.isAdmin,
         })),
@@ -851,7 +866,20 @@ export class MemoryRepo implements Repo {
     if (bill.status === "closed") throw new ValidationError("This split is closed");
     if (guest.lockedIn) throw new ValidationError("Unlock to change your tip");
     guest.tipPercent = Math.max(0, Math.min(100, tipPercent));
+    guest.tipCents = null;
   }
+
+  async splittySetTipAmount(shareCode: string, guestToken: string, tipCents: number): Promise<void> {
+    const { bill, guest } = this.splittyGuest(shareCode, guestToken);
+    if (bill.status === "closed") throw new ValidationError("This split is closed");
+    if (guest.lockedIn) throw new ValidationError("Unlock to change your tip");
+    if (!(tipCents >= 0 && tipCents <= 10_000_000)) throw new ValidationError("Enter a tip between R0 and R100 000");
+    guest.tipCents = Math.round(tipCents);
+    guest.tipPercent = 0;
+  }
+
+  // The demo always has its one in-memory user, so there's nothing to create.
+  async splittyEnsureSession(): Promise<void> {}
 
   async splittySetLocked(shareCode: string, guestToken: string, locked: boolean): Promise<void> {
     const { bill, guest } = this.splittyGuest(shareCode, guestToken);
@@ -880,6 +908,20 @@ export class MemoryRepo implements Repo {
   subscribeSplitBill(): () => void {
     return () => {};
   }
+
+  async scansRemainingToday(): Promise<number> {
+    return this.demoScansLeft;
+  }
+
+  subscribeScanQuota(cb: () => void): () => void {
+    this.scanListeners.add(cb);
+    return () => {
+      this.scanListeners.delete(cb);
+    };
+  }
+
+  // Nothing to record in the demo; usage counts are for the real service.
+  async trackSplittyEvent(): Promise<void> {}
 
   // --- push notifications (Phase 9) ---
   // Not demoable: real push needs a server-signed VAPID message delivered by

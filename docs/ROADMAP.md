@@ -35,7 +35,7 @@
 >   Shipped work doesn't need one — the estimate exists to price the decision
 >   *before* committing to it. Scale + calibration: [Estimating scale](#estimating-scale).
 
-**Last updated:** 2026-10-28 (Phase 18 §5 legacy category backfill live: Other 38% → 11% of spend; Phase 20 Reporting v2 shipped; BUG-021 fixed)
+**Last updated:** 2026-11-02 (Phase 21 — Splitty on its own — shipped: /splitty without an account, share message with a second link + usage events, live scan counter, round-up totals, Rand tips, qty/price editing)
 
 ## Where we are
 
@@ -79,7 +79,7 @@ features people actually asked for before offline-first).
 | [18 — Learning categorisation engine](phases/phase-18-learning-categorisation.md) | 🟡 §1 **live** (2026-10-20, `9f366c2`) · §5 backfill **live** (2026-10-28) · §2–§4 spec only | **L** · ~25–55 remaining | — | Scoring matcher + 2 369-entry library; legacy backfill ran: *Other* fell from 38% to 11% of spend, reversibly, with `category_source` provenance. Still to build: corrections learned globally on consensus, ambiguity picker, subcategory report filters (ADR-0019) |
 | [19 — User category assignments](phases/phase-19-category-assignments.md) | 📝 Spec only — not built (2026-10-20) | **L** · ~20–35 (M · ~10–20 after 18 §2) | — | "Always file *Vida* as Coffee": per-Tally rules from an override prompt, the expense detail, or Manage this Tally → Category rules |
 | [20 — Reporting v2: drill-down, trends & insights](phases/phase-20-reporting-v2.md) | ✅ Shipped (2026-10-28) | — | — | Drill from any number to its expenses (month · category · subcategory · regulars); 12-month trend, within-month pace, per-category sparklines, plain-language insights (ADR-0021) |
-| [21 — Splitty on its own](phases/phase-21-splitty-standalone.md) | 📝 Spec (2026-11-02) | **L** · ~25–45 | — | Dedicated `/splitty` page anyone can use without an account (ADR-0022), a second "Loving Splitty?" link in the share message with usage recorded, a live daily scan counter, round-up-to-the-rand totals, Rand custom tips, and price/qty editing before sharing |
+| [21 — Splitty on its own](phases/phase-21-splitty-standalone.md) | ✅ Shipped (2026-11-02) | — | — | Dedicated `/splitty` page anyone can use without an account (ADR-0022), a second "Loving Splitty?" link in the share message with usage recorded, a live daily scan counter, round-up-to-the-rand totals, Rand custom tips, and price/qty editing before sharing |
 
 See [`docs/decisions/`](decisions/README.md) for the settled architectural
 decisions (ADRs) behind these phases, [`docs/BACKLOG.md`](BACKLOG.md) for

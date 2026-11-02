@@ -216,12 +216,23 @@ export interface Repo {
   scanReceipt(imageBase64: string, mimeType: string): Promise<ScanResult>;
 
   // --- Splitty (Phase 8; standalone from the expense ledger — ADR-0013) ---
-  /** Admin only (signed in). Creates the bill + the admin's own guest row. */
+  /**
+   * Admin only (needs a session — a Tally one or Splitty's anonymous one).
+   * Creates the bill + the admin's own guest row. `displayName` is used when
+   * the session has no Tally profile name (ADR-0022).
+   */
   splittyCreateBill(
     merchant: string | null,
     receiptTotalCents: Cents,
-    items: SplitBillItemInput[]
+    items: SplitBillItemInput[],
+    displayName?: string | null
   ): Promise<{ shareCode: string; guestId: string; guestToken: string }>;
+  /**
+   * Make sure there's a session to start a split with: the Tally user's if
+   * signed in, otherwise an anonymous one created now (ADR-0022). Only called
+   * when someone actually starts a split, so visitors create nothing.
+   */
+  splittyEnsureSession(): Promise<void>;
   /** No auth required. */
   splittyJoin(shareCode: string, displayName: string): Promise<{ guestId: string; guestToken: string }>;
   /**
@@ -235,13 +246,21 @@ export interface Repo {
   splittyClaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void>;
   splittyUnclaimItem(shareCode: string, guestToken: string, itemId: string): Promise<void>;
   splittySetTip(shareCode: string, guestToken: string, tipPercent: number): Promise<void>;
+  /** A fixed Rand tip instead of a percentage (Phase 21). */
+  splittySetTipAmount(shareCode: string, guestToken: string, tipCents: Cents): Promise<void>;
   splittySetLocked(shareCode: string, guestToken: string, locked: boolean): Promise<void>;
   /** Admin only (signed in, must be the creator). */
   splittyCloseBill(shareCode: string): Promise<void>;
-  /** Admin only — bills the signed-in user created, newest first. */
+  /** Bills this session created, newest first. Empty with no session. */
   splittyListMyBills(): Promise<SplitBillSummary[]>;
   /** Realtime: invoke cb when items/guests change on this bill. Returns unsubscribe. */
   subscribeSplitBill(shareCode: string, cb: () => void): () => void;
+  /** Receipt scans left today across everyone — the live counter (ADR-0022). */
+  scansRemainingToday(): Promise<number>;
+  /** Realtime: invoke cb whenever today's scan count changes. Returns unsubscribe. */
+  subscribeScanQuota(cb: () => void): () => void;
+  /** Record a Splitty usage event. Fire-and-forget: never throws, never blocks. */
+  trackSplittyEvent(e: SplittyEvent): Promise<void>;
 
   // --- push notifications (Phase 9; Web Push via VAPID — ADR-0014) ---
   /** Browser permission/support state for this device. Synchronous. */
@@ -269,6 +288,18 @@ export interface ScanResult {
   merchant: string | null;
   totalCents: Cents;
   items: ScanItem[];
+  /** Scans left today after this one, when the server reports it (Phase 21). */
+  scansRemaining?: number;
+}
+
+/** A first-party Splitty usage event (Phase 21, ADR-0022). */
+export interface SplittyEvent {
+  event: "splitty_opened" | "bill_opened" | "share_tapped" | "split_created";
+  shareCode?: string | null;
+  /** The bill whose "Loving Splitty?" link brought this browser. */
+  ref?: string | null;
+  source?: "splitty_page" | "tally_tab" | null;
+  deviceId?: string | null;
 }
 
 export interface SplitBillItemInput {
@@ -280,6 +311,8 @@ export interface SplitBillGuest {
   id: string;
   displayName: string;
   tipPercent: number;
+  /** A fixed Rand tip (Phase 21). When set it replaces `tipPercent`. */
+  tipCents: Cents | null;
   lockedIn: boolean;
   isAdmin: boolean;
 }

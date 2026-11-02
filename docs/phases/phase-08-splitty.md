@@ -2,6 +2,12 @@
 
 # Phase 8 — Splitty ✅ SHIPPED (2026-07-23) → M6 "Split with anyone"
 
+> **Extended by [Phase 21](phase-21-splitty-standalone.md) (2026-11-02):** a
+> public `/splitty` page anyone can start a split from without an account,
+> a second "Loving Splitty?" link in the share message, usage events, a live
+> daily scan counter, round-up-to-the-rand totals, Rand custom tips, and
+> qty/price editing before sharing.
+
 > **Live:** the Splitty tab (5th bottom-nav tab) → scan a bill → items expand
 > per-unit (Phase-7 qty work) → "Create split" → share a `/split/<code>` link
 > on WhatsApp → guests join with just a name (no account), tick their items,

@@ -1,6 +1,9 @@
 *(Part of the [Tally roadmap](../ROADMAP.md).)*
 
-# Phase 21 — Splitty on its own: a dedicated page, sharing that spreads, and fairer maths 📝 SPEC (2026-11-02)
+# Phase 21 — Splitty on its own: a dedicated page, sharing that spreads, and fairer maths ✅ SHIPPED (2026-11-02)
+
+> **Shipped** — see [§ Shipped](#shipped-2026-11-02) at the end for what was
+> built, the small differences from this spec, and how it was verified.
 
 > **Effort:** L · **Credits:** ~25–45. Covers a migration (four new
 > functions, two new tables, two changed functions), an Edge Function change,
@@ -239,3 +242,74 @@ untouched):
   totals; back links.
 - `npm test`, tsc, lint and build green; the deploy verified in the
   production bundle.
+
+## Shipped (2026-11-02)
+
+**Live:**
+
+- Migration `20261102000000_splitty_standalone` (rehearsed in a rolled-back
+  transaction first, then recorded).
+- Anonymous sign-ins switched on.
+- `scan-receipt` v6.
+- The app at `/splitty`, plus the changes to the Splitty tab, the review
+  screen and `/split/<code>`.
+
+**Small differences from the spec:**
+
+- The Splitty **tab** also lists "Splits you joined", because it renders the
+  same `SplittyHome` as `/splitty`.
+- A guest who set a **custom percentage** before this phase still sees it, as
+  an extra pill next to the presets, so their tip isn't hidden. New custom
+  tips are Rand amounts only.
+- The demo's canned slip gained a 2× Coke line, so the demo shows the
+  quantity folding.
+
+**Verification:**
+
+- **Unit tests** (488 total, 31 Splitty), covering:
+  - rounding: cents up, an exact rand untouched, applied to items + tip;
+  - Rand vs percentage tips;
+  - scanner rows folding into qty lines and expanding back cent-exact
+    (round-trip identical);
+  - the edited-line rule;
+  - both links in the share message;
+  - counter wording;
+  - anonymous sessions treated as signed out.
+- **SQL, in a rolled-back transaction on production:**
+  - `anon` reads the counter (100) and can record a valid event; an unknown
+    event is rejected;
+  - `anon` can neither read `splitty_event` nor call `consume_scan`;
+  - 15 scans for one account leave 85, and the 16th is refused
+    (`scan_user_cap_reached`); a refund gives one back;
+  - at the budget, scans are refused (`scan_budget_exhausted`) and the
+    counter reads 0;
+  - an anonymous JWT creates a split under its typed name and sets a R20 tip
+    (a percentage then clears it), but is refused creating a Tally (RLS) and
+    redeeming an invite.
+  - After applying: a real Tally user can still create a Tally; there's one
+    `splitty_create_bill` signature; only the service role can call
+    `consume_scan`; `scan_usage` is in Realtime.
+- **Deployed function:** v6 boots and still answers 401 to a caller with no
+  session.
+- **Browser, signed out** (against production): `/splitty` has its own page
+  title, shows "(100 Splits remaining for today)" live from production, and
+  records `splitty_opened` with a random device id and no user. That one test
+  row was then deleted. "+ New split" asks for a name, and no session exists
+  yet at that point.
+- **Browser, demo:**
+  - The tab shows the counter.
+  - Scan review shows Josh's copy and folds 2× Coke into one qty-2 line.
+    Real taps: + → qty 3 (R47,97); price each R20,00 → R60,00; total
+    R406,42 → R422,41 → R434,44.
+  - Create split makes three R20,00 Coke items.
+  - Claiming R50,98 shows R51,00. A R5 custom tip gives R56,00, and the
+    overview reads tips R5,00 + rounding R0,02 = R56,00. 15% gives R59,00.
+  - The rounding note uses the normal text colour and weight.
+  - The copied share message contains both links, the second with
+    `?ref=<code>`.
+  - At 375px, the review screen has no sideways scroll.
+
+**Not verified end to end:** a real anonymous scan on production. Doing it
+would create a real anonymous account and spend a real scan, so the first
+real use is the live test. Every database path it uses was proven above as an
+anonymous user, and the function is deployed.

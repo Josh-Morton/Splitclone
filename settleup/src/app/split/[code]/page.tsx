@@ -13,16 +13,20 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Repo, SplitBill, SplitBillGuest } from "@/lib/data";
-import { fmt } from "@/lib/domain";
+import { fmt, parseCents } from "@/lib/domain";
 import {
   claimedItemsCents,
   claimedSubtotalCents,
   coveredCents,
   guestContributionCents,
+  guestTipCents,
   itemsTotalCents,
   loadGuestIdentity,
+  roundingCents,
   tipsCents,
   saveGuestIdentity,
+  splittyDeviceId,
+  splittyShareMessage,
   unclaimedCents,
   type GuestIdentity,
 } from "@/lib/splitty";
@@ -70,6 +74,14 @@ export default function SplitPage() {
     if (!repo) return;
     const b = await repo.splittyGetBill(shareCode);
     setBill(b ?? "missing");
+  }, [repo, shareCode]);
+
+  // Usage count (Phase 21): one `bill_opened` per page load.
+  const openTracked = useRef(false);
+  useEffect(() => {
+    if (!repo || openTracked.current) return;
+    openTracked.current = true;
+    void repo.trackSplittyEvent({ event: "bill_opened", shareCode, deviceId: splittyDeviceId() });
   }, [repo, shareCode]);
 
   useEffect(() => {
@@ -153,31 +165,32 @@ export default function SplitPage() {
 
   return (
     <Screen>
-      {canGoBack && (
-        <Link
-          href="/"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            // As a flex item in the column layout, `inline-flex` is blockified
-            // and then stretched by the default `align-items: stretch` — so
-            // this pill spanned the whole screen (BUG-017).
-            alignSelf: "flex-start",
-            marginBottom: 12,
-            background: "var(--s2)",
-            border: "1px solid var(--line2)",
-            borderRadius: 999,
-            color: "var(--ink)",
-            fontSize: 13,
-            fontWeight: 700,
-            padding: "7px 14px",
-            textDecoration: "none",
-          }}
-        >
-          ‹ Back to Tally
-        </Link>
-      )}
+      {/* Tally users go back to Tally; everyone else (guests, people who
+          started a split without an account) to Splitty's own page, which
+          lists their splits (Phase 21). */}
+      <Link
+        href={canGoBack ? "/" : "/splitty"}
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          // As a flex item in the column layout, `inline-flex` is blockified
+          // and then stretched by the default `align-items: stretch` — so
+          // this pill spanned the whole screen (BUG-017).
+          alignSelf: "flex-start",
+          marginBottom: 12,
+          background: "var(--s2)",
+          border: "1px solid var(--line2)",
+          borderRadius: 999,
+          color: "var(--ink)",
+          fontSize: 13,
+          fontWeight: 700,
+          padding: "7px 14px",
+          textDecoration: "none",
+        }}
+      >
+        {canGoBack ? "‹ Back to Tally" : "‹ My splits"}
+      </Link>
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
         <Logo size={34} />
         <div>
@@ -210,7 +223,7 @@ export default function SplitPage() {
 
       {me.isAdmin && (
         <>
-          <SharePanel shareCode={shareCode} merchant={bill.merchant} />
+          <SharePanel shareCode={shareCode} merchant={bill.merchant} repo={repo} />
           <OverviewCard bill={bill} />
           {bill.status === "open" && <CloseBillCard shareCode={shareCode} repo={repo} onClosed={refresh} />}
         </>
@@ -294,6 +307,7 @@ function ClaimCard({
   const editable = bill.status === "open" && !me.lockedIn;
 
   const subtotal = claimedSubtotalCents(bill, me.id);
+  const myTip = guestTipCents(bill, me.id);
   const myTotal = guestContributionCents(bill, me.id);
 
   async function guarded(fn: () => Promise<void>) {
@@ -388,9 +402,11 @@ function ClaimCard({
       <div style={{ height: 16 }} />
       <Label>Your tip</Label>
       <TipSelector
-        value={me.tipPercent}
+        percent={me.tipPercent}
+        amountCents={me.tipCents}
         disabled={!editable || busy}
-        onPick={(pct) => void guarded(() => repo.splittySetTip(shareCode, identity.guestToken, pct))}
+        onPickPercent={(pct) => void guarded(() => repo.splittySetTip(shareCode, identity.guestToken, pct))}
+        onPickAmount={(cents) => void guarded(() => repo.splittySetTipAmount(shareCode, identity.guestToken, cents))}
       />
 
       <div
@@ -405,7 +421,7 @@ function ClaimCard({
       >
         <div>
           <p style={{ fontSize: 12, color: "var(--muted)" }}>
-            {fmt(subtotal)} + {me.tipPercent}% tip
+            {fmt(subtotal)} + {me.tipCents != null ? `${fmt(myTip)} tip` : `${me.tipPercent}% tip`}
           </p>
           <p style={{ fontSize: 12.5, color: "var(--faint)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
             Your total
@@ -413,6 +429,8 @@ function ClaimCard({
         </div>
         <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.5px" }}>{fmt(myTotal)}</span>
       </div>
+      {/* Josh (Phase 21): plain text, no colour change. */}
+      <p style={{ fontSize: 12.5, color: "var(--ink)", marginTop: 6 }}>Splitty always rounds up to the nearest ZAR</p>
 
       <div style={{ height: 14 }} />
       {bill.status === "open" &&
@@ -451,84 +469,81 @@ function ClaimCard({
 }
 
 function TipSelector({
-  value,
+  percent,
+  amountCents,
   disabled,
-  onPick,
+  onPickPercent,
+  onPickAmount,
 }: {
-  value: number;
+  percent: number;
+  /** A fixed Rand tip, if one is set (Phase 21). */
+  amountCents: number | null;
   disabled: boolean;
-  onPick: (pct: number) => void;
+  onPickPercent: (pct: number) => void;
+  onPickAmount: (cents: number) => void;
 }) {
-  const isPreset = TIP_PRESETS.includes(value);
-  const [customOpen, setCustomOpen] = useState(!isPreset && value > 0);
-  const [custom, setCustom] = useState(isPreset ? "" : String(value));
+  // Custom is a Rand amount, not a percentage (Josh, Phase 21). An older
+  // custom percentage that isn't a preset still shows, so nothing is hidden.
+  const isAmount = amountCents != null;
+  const [customOpen, setCustomOpen] = useState(isAmount);
+  const [custom, setCustom] = useState(isAmount ? (amountCents / 100).toFixed(2).replace(".", ",") : "");
+  const presets = TIP_PRESETS.includes(percent) || isAmount ? TIP_PRESETS : [...TIP_PRESETS, percent];
+
+  const setAmount = () => onPickAmount(Math.max(0, Math.min(10_000_000, parseCents(custom))));
+
+  const pill = (on: boolean) => ({
+    flex: 1,
+    minWidth: 56,
+    padding: "9px 0",
+    borderRadius: "var(--r-pill)",
+    border: `1px solid ${on ? "var(--primary)" : "var(--line2)"}`,
+    background: on ? "var(--accentbg)" : "var(--s2)",
+    color: on ? "var(--primary)" : "var(--ink)",
+    fontSize: 13.5,
+    fontWeight: 700,
+    cursor: disabled ? "default" : "pointer",
+  });
 
   return (
     <div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-        {TIP_PRESETS.map((pct) => {
-          const on = !customOpen && value === pct;
-          return (
-            <button
-              key={pct}
-              disabled={disabled}
-              onClick={() => {
-                setCustomOpen(false);
-                onPick(pct);
-              }}
-              style={{
-                flex: 1,
-                minWidth: 56,
-                padding: "9px 0",
-                borderRadius: "var(--r-pill)",
-                border: `1px solid ${on ? "var(--primary)" : "var(--line2)"}`,
-                background: on ? "var(--accentbg)" : "var(--s2)",
-                color: on ? "var(--primary)" : "var(--ink)",
-                fontSize: 13.5,
-                fontWeight: 700,
-                cursor: disabled ? "default" : "pointer",
-              }}
-            >
-              {pct === 0 ? "No tip" : `${pct}%`}
-            </button>
-          );
-        })}
+        {presets.map((pct) => (
+          <button
+            key={pct}
+            disabled={disabled}
+            aria-pressed={!customOpen && !isAmount && percent === pct}
+            onClick={() => {
+              setCustomOpen(false);
+              onPickPercent(pct);
+            }}
+            style={pill(!customOpen && !isAmount && percent === pct)}
+          >
+            {pct === 0 ? "No tip" : `${pct}%`}
+          </button>
+        ))}
         <button
           disabled={disabled}
+          aria-pressed={customOpen || isAmount}
           onClick={() => setCustomOpen(true)}
-          style={{
-            flex: 1,
-            minWidth: 56,
-            padding: "9px 0",
-            borderRadius: "var(--r-pill)",
-            border: `1px solid ${customOpen ? "var(--primary)" : "var(--line2)"}`,
-            background: customOpen ? "var(--accentbg)" : "var(--s2)",
-            color: customOpen ? "var(--primary)" : "var(--ink)",
-            fontSize: 13.5,
-            fontWeight: 700,
-            cursor: disabled ? "default" : "pointer",
-          }}
+          style={pill(customOpen || isAmount)}
         >
-          Custom
+          {isAmount && !customOpen ? fmt(amountCents) : "Custom R"}
         </button>
       </div>
       {customOpen && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
           <div style={{ flex: 1 }}>
-            <Input label="Custom tip percentage"
+            <Input
+              label="Tip amount in rand"
               value={custom}
               onChange={setCustom}
               inputMode="decimal"
-              placeholder="Tip %"
-              onEnter={() => onPick(Math.max(0, Math.min(100, Number(custom) || 0)))}
+              prefix="R"
+              placeholder="Tip amount"
+              onEnter={setAmount}
             />
           </div>
-          <Button
-            variant="secondary"
-            disabled={disabled}
-            style={{ width: 90 }}
-            onClick={() => onPick(Math.max(0, Math.min(100, Number(custom) || 0)))}
-          >
+          <Button variant="secondary" disabled={disabled} style={{ width: 90 }} onClick={setAmount}>
             Set
           </Button>
         </div>
@@ -537,24 +552,25 @@ function TipSelector({
   );
 }
 
-function SharePanel({ shareCode, merchant }: { shareCode: string; merchant: string | null }) {
+function SharePanel({ shareCode, merchant, repo }: { shareCode: string; merchant: string | null; repo: Repo }) {
   const [copied, setCopied] = useState(false);
-  const link = typeof window !== "undefined" ? `${window.location.origin}/split/${shareCode}` : "";
-  const message =
-    `Let's split ${merchant ? `the ${merchant} bill` : "the bill"} on Tally.\n\n` +
-    `1. Tap this link: ${link}\n` +
-    `2. Type your name\n` +
-    `3. Tick what you had, add a tip, and lock in.`;
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const link = `${origin}/split/${shareCode}`;
+  // Two links (Phase 21): the bill, then "Loving Splitty?" → /splitty?ref=.
+  const message = origin ? splittyShareMessage(origin, shareCode, merchant) : "";
   const canNativeShare = typeof navigator !== "undefined" && "share" in navigator;
+  const track = () => void repo.trackSplittyEvent({ event: "share_tapped", shareCode, deviceId: splittyDeviceId() });
 
   async function share() {
+    track();
     try {
-      await navigator.share({ title: "Split the bill on Tally", text: message });
+      await navigator.share({ title: "Split the bill on Splitty", text: message });
     } catch {
       /* dismissed — not an error */
     }
   }
   async function copy() {
+    track();
     try {
       await navigator.clipboard.writeText(message);
       setCopied(true);
@@ -584,6 +600,7 @@ function OverviewCard({ bill }: { bill: SplitBill }) {
   const covered = coveredCents(bill);
   const claimed = claimedItemsCents(bill);
   const tips = tipsCents(bill);
+  const rounding = roundingCents(bill);
   const unclaimed = unclaimedCents(bill);
   return (
     <Card style={{ padding: 16, marginBottom: 12 }}>
@@ -636,12 +653,22 @@ function OverviewCard({ bill }: { bill: SplitBill }) {
       {/* Tips are on top of the bill, so they're shown as their own line —
           folding them into "claimed" made a fully claimed bill look
           over-claimed (BUG-019). */}
-      {tips > 0 && (
+      {(tips > 0 || rounding > 0) && (
         <>
-          <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 6 }}>
-            <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Tips on top</span>
-            <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(tips)}</span>
-          </div>
+          {tips > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 6 }}>
+              <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Tips on top</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(tips)}</span>
+            </div>
+          )}
+          {/* Everyone rounds up to the rand (Phase 21), so it gets its own line:
+              items + tips + rounding = what everyone pays. */}
+          {rounding > 0 && (
+            <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 6 }}>
+              <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Rounding</span>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(rounding)}</span>
+            </div>
+          )}
           <div style={{ display: "flex", justifyContent: "space-between", paddingTop: 6 }}>
             <span style={{ fontSize: 13, color: "var(--muted)", fontWeight: 600 }}>Everyone&apos;s paying</span>
             <span style={{ fontSize: 14, fontWeight: 800 }}>{fmt(covered)}</span>

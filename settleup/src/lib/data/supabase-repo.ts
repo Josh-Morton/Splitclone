@@ -35,6 +35,7 @@ import {
   type SplitBill,
   type SplitBillItemInput,
   type SplitBillSummary,
+  type SplittyEvent,
   ValidationError,
 } from "./repo";
 
@@ -950,7 +951,39 @@ export class SupabaseRepo implements Repo {
         qty: it.qty != null ? Number(it.qty) : null,
         lineTotalCents: Number(it.line_total_cents),
       })),
+      scansRemaining: data?.scans_remaining != null ? Number(data.scans_remaining) : undefined,
     };
+  }
+
+  async scansRemainingToday(): Promise<number> {
+    const { data, error } = await this.sb.rpc("scans_remaining_today");
+    if (error) this.fail(error);
+    return Number(data ?? 0);
+  }
+
+  subscribeScanQuota(cb: () => void): () => void {
+    // One row per day; any change to it means the counter moved.
+    const channel = this.sb
+      .channel(`scan-quota-${Math.random().toString(36).slice(2)}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "scan_usage" }, () => cb())
+      .subscribe();
+    return () => {
+      void this.sb.removeChannel(channel);
+    };
+  }
+
+  async trackSplittyEvent(e: SplittyEvent): Promise<void> {
+    try {
+      await this.sb.rpc("splitty_track", {
+        p_event: e.event,
+        p_share_code: e.shareCode ?? null,
+        p_ref: e.ref ?? null,
+        p_source: e.source ?? null,
+        p_device_id: e.deviceId ?? null,
+      });
+    } catch {
+      /* usage counts must never break the page */
+    }
   }
 
   // --- activity ---
@@ -979,17 +1012,33 @@ export class SupabaseRepo implements Repo {
   async splittyCreateBill(
     merchant: string | null,
     receiptTotalCents: number,
-    items: SplitBillItemInput[]
+    items: SplitBillItemInput[],
+    displayName?: string | null
   ): Promise<{ shareCode: string; guestId: string; guestToken: string }> {
     const { data, error } = await this.sb.rpc("splitty_create_bill", {
       p_merchant: merchant,
       p_receipt_total_cents: receiptTotalCents,
       p_items: items.map((it) => ({ name: it.name, line_total_cents: it.lineTotalCents })),
+      p_display_name: displayName ?? null,
     });
     if (error) this.fail(error);
     const row = Array.isArray(data) ? data[0] : data;
     if (!row) throw new ValidationError("Could not create the split");
     return { shareCode: row.share_code, guestId: row.guest_id, guestToken: row.guest_token };
+  }
+
+  async splittyEnsureSession(): Promise<void> {
+    if (await this.sessionUser()) return;
+    // ADR-0022: an anonymous auth user stands in for auth.uid(), so every
+    // existing Splitty function and the scanner work unchanged.
+    const { error } = await this.sb.auth.signInAnonymously();
+    if (error) {
+      throw new ValidationError(
+        error.status === 429
+          ? "Too many new Splitty sessions from this network — try again in a while"
+          : "Couldn't start Splitty — check your connection and try again"
+      );
+    }
   }
 
   async splittyJoin(shareCode: string, displayName: string): Promise<{ guestId: string; guestToken: string }> {
@@ -1044,6 +1093,7 @@ export class SupabaseRepo implements Repo {
         id: g.id,
         displayName: g.display_name,
         tipPercent: Number(g.tip_percent),
+        tipCents: g.tip_cents != null ? Number(g.tip_cents) : null,
         lockedIn: g.locked_in,
         isAdmin: g.is_admin,
       })),
@@ -1077,6 +1127,15 @@ export class SupabaseRepo implements Repo {
     if (error) this.fail(error);
   }
 
+  async splittySetTipAmount(shareCode: string, guestToken: string, tipCents: number): Promise<void> {
+    const { error } = await this.sb.rpc("splitty_set_tip_amount", {
+      p_share_code: shareCode,
+      p_guest_token: guestToken,
+      p_tip_cents: Math.round(tipCents),
+    });
+    if (error) this.fail(error);
+  }
+
   async splittySetLocked(shareCode: string, guestToken: string, locked: boolean): Promise<void> {
     const { error } = await this.sb.rpc("splitty_set_locked", {
       p_share_code: shareCode,
@@ -1092,7 +1151,9 @@ export class SupabaseRepo implements Repo {
   }
 
   async splittyListMyBills(): Promise<SplitBillSummary[]> {
-    const userId = await this.uid();
+    // No session yet (a /splitty visitor who hasn't started a split) = none.
+    const userId = (await this.sessionUser())?.id;
+    if (!userId) return [];
     const { data, error } = await this.sb
       .from("split_bill")
       .select("share_code, merchant, status, created_at")

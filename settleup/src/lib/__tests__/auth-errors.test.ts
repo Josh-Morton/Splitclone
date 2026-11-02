@@ -16,8 +16,9 @@ import {
   AuthRefreshDiscardedError,
   AuthRetryableFetchError,
   AuthUnknownError,
+  type Session,
 } from "@supabase/supabase-js";
-import { isSessionReallyOver } from "../auth-errors";
+import { isSessionReallyOver, isTallySession } from "../auth-errors";
 
 describe("isSessionReallyOver", () => {
   it("does not end the session when there is no error", () => {
@@ -56,5 +57,21 @@ describe("isSessionReallyOver", () => {
   it("does not end the session on a 429 rate-limit", () => {
     // Being throttled says nothing about whether the token is valid.
     expect(isSessionReallyOver(new AuthApiError("Too many requests", 429, undefined))).toBe(false);
+  });
+});
+
+describe("isTallySession (ADR-0022)", () => {
+  const session = (isAnonymous: boolean) =>
+    ({ access_token: "a", refresh_token: "r", user: { id: "u", is_anonymous: isAnonymous } }) as unknown as Session;
+
+  it("is true for a Tally account's session", () => {
+    expect(isTallySession(session(false))).toBe(true);
+  });
+  it("is false for Splitty's anonymous session, so Tally treats it as signed out", () => {
+    expect(isTallySession(session(true))).toBe(false);
+  });
+  it("is false with no session", () => {
+    expect(isTallySession(null)).toBe(false);
+    expect(isTallySession(undefined)).toBe(false);
   });
 });

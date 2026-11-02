@@ -28,7 +28,7 @@ export const metadata: Metadata = {
  */
 const PRIVACY_CONTACT_EMAIL: string | null = null;
 
-const LAST_UPDATED = "21 October 2026";
+const LAST_UPDATED = "2 November 2026";
 
 export default function PrivacyPage() {
   return (
@@ -54,7 +54,9 @@ export default function PrivacyPage() {
         <ul style={list}>
           <li>Tally keeps what your Tally needs to work — expenses, balances, the shopping list — and nothing more.</li>
           <li>Your salary is private unless you choose to share it with your Tally.</li>
-          <li>No ads, no analytics, no tracking. Your data isn’t sold or passed on for marketing.</li>
+          <li>
+            No ads, and no third-party analytics or trackers. Your data isn’t sold or passed on for marketing.
+          </li>
         </ul>
       </Section>
 
@@ -89,7 +91,14 @@ export default function PrivacyPage() {
           </li>
           <li>
             <b>Splitty:</b> guests give a display name and choose their items — no account. A token saved in
-            their browser lets them come back to the same bill.
+            their browser lets them come back to the same bill. Someone who starts a split without a Tally
+            account gets an anonymous sign-in on that device (no email or password), and the name they type is
+            saved in their browser.
+          </li>
+          <li>
+            <b>Splitty usage counts:</b> when the Splitty page or a bill is opened, a bill is shared, or a split
+            is started, Tally records which of those happened, which bill it was, and a random id kept in your
+            browser. No name, email or IP address is recorded. It’s used only to see how Splitty is used.
           </li>
         </ul>
       </Section>

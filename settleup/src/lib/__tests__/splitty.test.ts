@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { SplitBill } from "../data";
-import { claimedItemsCents, coveredCents, itemsTotalCents, tipsCents, unclaimedCents } from "../splitty";
+import { claimedItemsCents, coveredCents, itemsTotalCents, roundingCents, tipsCents, unclaimedCents } from "../splitty";
 
 function bill(): SplitBill {
   // R1 225,00 of items across two guests, both claimed in full; Sam tips 15%,
@@ -21,8 +21,8 @@ function bill(): SplitBill {
     receiptTotalCents: 122500,
     status: "closed",
     guests: [
-      { id: "sam", displayName: "Sam", tipPercent: 15, lockedIn: true, isAdmin: true },
-      { id: "lee", displayName: "Lee", tipPercent: 10, lockedIn: true, isAdmin: false },
+      { id: "sam", displayName: "Sam", tipPercent: 15, tipCents: null, lockedIn: true, isAdmin: true },
+      { id: "lee", displayName: "Lee", tipPercent: 10, tipCents: null, lockedIn: true, isAdmin: false },
     ],
     items: [
       { id: "1", name: "Burrata", lineTotalCents: 52500, claimedByGuestId: "sam" },
@@ -38,12 +38,13 @@ describe("Splitty claimed vs total (BUG-019)", () => {
     expect(unclaimedCents(b)).toBe(0);
   });
 
-  it("reports tips separately, and items + tips = what everyone pays", () => {
+  it("reports tips and rounding separately, and items + tips + rounding = what everyone pays", () => {
     const b = bill();
-    // Sam: 52 500 × 1.15 = 60 375 · Lee: 70 000 × 1.10 = 77 000
-    expect(coveredCents(b)).toBe(137375);
-    expect(tipsCents(b)).toBe(137375 - 122500);
-    expect(claimedItemsCents(b) + tipsCents(b)).toBe(coveredCents(b));
+    // Sam: 52 500 + 7 875 tip = 60 375 → rounds up to 60 400 · Lee: 70 000 + 7 000 = 77 000 exact
+    expect(tipsCents(b)).toBe(7875 + 7000);
+    expect(roundingCents(b)).toBe(25);
+    expect(coveredCents(b)).toBe(60400 + 77000);
+    expect(claimedItemsCents(b) + tipsCents(b) + roundingCents(b)).toBe(coveredCents(b));
   });
 
   it("counts only claimed items when the bill is partly claimed", () => {

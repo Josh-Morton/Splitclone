@@ -17,7 +17,7 @@
  */
 
 import { AuthRefreshDiscardedError, isAuthRetryableFetchError } from "@supabase/supabase-js";
-import type { AuthError } from "@supabase/supabase-js";
+import type { AuthError, Session } from "@supabase/supabase-js";
 
 export function isSessionReallyOver(error: AuthError | null | undefined): boolean {
   if (!error) return false;
@@ -30,4 +30,18 @@ export function isSessionReallyOver(error: AuthError | null | undefined): boolea
   // token is no longer valid".
   const status = (error as { status?: number }).status;
   return status === 400 || status === 401;
+}
+
+/**
+ * Is this a Tally account's session, rather than none or one of Splitty's
+ * anonymous sessions (ADR-0022)?
+ *
+ * Starting a split without an account signs in anonymously, which leaves a
+ * real session in the same browser storage the Tally app reads. To Tally that
+ * person is a visitor, not a member, so every Tally screen must treat an
+ * anonymous session exactly like being signed out. Lives here, DOM-free,
+ * because getting it wrong would drop a stranger into onboarding.
+ */
+export function isTallySession(session: Session | null | undefined): session is Session {
+  return Boolean(session) && !session!.user?.is_anonymous;
 }

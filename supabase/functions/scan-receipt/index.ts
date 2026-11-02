@@ -6,8 +6,12 @@
 // it for everyone). The image is received in the request body and discarded
 // when the response is sent; nothing is stored.
 //
-// Auth: requires a real signed-in Supabase user (protects the free quota from
-// anonymous abuse). Returns { merchant?, total_cents, items: [...] }.
+// Auth: requires a Supabase session. Since Phase 21 that includes Splitty's
+// anonymous sessions (ADR-0022), so the free quota is protected by a shared
+// DAILY BUDGET instead: every scan reserves a slot with consume_scan() before
+// Google is called (100 a day across everyone, 15 per account), and a scan
+// that never produces a result gives its slot back with refund_scan().
+// Returns { merchant?, total_cents, items: [...], scans_remaining }.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
 
@@ -122,6 +126,15 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
+  // Set once a scan slot is reserved; any exit without a result refunds it.
+  let reserved: { admin: ReturnType<typeof createClient>; userId: string } | null = null;
+  const refund = async () => {
+    if (!reserved) return;
+    const r = reserved;
+    reserved = null;
+    await r.admin.rpc("refund_scan", { p_user: r.userId }).catch(() => undefined);
+  };
+
   try {
     // Require a real signed-in user (not just the anon key).
     const authHeader = req.headers.get("Authorization") ?? "";
@@ -146,6 +159,23 @@ Deno.serve(async (req: Request) => {
     if (image_base64.length > 6_000_000) {
       return json({ error: "Image too large — retake at a lower quality" }, 413);
     }
+
+    // Reserve today's scan before spending any of Google's quota (ADR-0022).
+    // The budget functions are service-role only, so clients can't skip them.
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const { data: remaining, error: quotaError } = await admin.rpc("consume_scan", { p_user: user.id });
+    if (quotaError) {
+      const msg = quotaError.message ?? "";
+      if (msg.includes("scan_budget_exhausted")) {
+        return json({ error: "Splitty has used today's scans. Back tomorrow (daily limit · 429)", scans_remaining: 0 }, 429);
+      }
+      if (msg.includes("scan_user_cap_reached")) {
+        return json({ error: "You've used today's scans on this account. Back tomorrow (daily limit · 429)" }, 429);
+      }
+      console.error(`scan-receipt: consume_scan failed — ${msg}`);
+      return json({ error: "Couldn't check today's scan allowance — try again in a moment" }, 503);
+    }
+    reserved = { admin, userId: user.id };
 
     const callGemini = (model: string) =>
       fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
@@ -186,6 +216,7 @@ Deno.serve(async (req: Request) => {
       const reason = await upstreamReason(geminiRes);
       attempts.push(`${usedModel}:${geminiRes.status}`);
       console.error(`scan-receipt: all models failed — ${attempts.join(", ")} — last: ${reason}`);
+      await refund();
       const busy = geminiRes.status >= 500;
       const quota = geminiRes.status === 429;
       return json(
@@ -209,12 +240,16 @@ Deno.serve(async (req: Request) => {
 
     const out = await geminiRes.json();
     const text: string | undefined = out?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!text) return json({ error: "The receipt couldn't be read — try a clearer photo" }, 422);
+    if (!text) {
+      await refund();
+      return json({ error: "The receipt couldn't be read — try a clearer photo" }, 422);
+    }
 
     let parsed: { merchant?: string; total_cents?: number; items?: unknown[] };
     try {
       parsed = JSON.parse(text);
     } catch {
+      await refund();
       return json({ error: "The receipt couldn't be read — try a clearer photo" }, 422);
     }
 
@@ -248,6 +283,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (items.length === 0) {
+      await refund();
       return json({ error: "No items found on that photo — try again or add the amount by hand" }, 422);
     }
 
@@ -255,8 +291,9 @@ Deno.serve(async (req: Request) => {
       ? Math.round(Number(parsed.total_cents))
       : items.reduce((a, i) => a + i.line_total_cents, 0);
 
-    return json({ merchant: parsed.merchant ?? null, total_cents, items });
+    return json({ merchant: parsed.merchant ?? null, total_cents, items, scans_remaining: remaining });
   } catch (e) {
+    await refund();
     return json({ error: String(e) }, 500);
   }
 });
