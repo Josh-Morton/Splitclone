@@ -1,0 +1,38 @@
+{
+  "id": "/splitty",
+  "name": "Splitty",
+  "short_name": "Splitty",
+  "description": "Scan a restaurant or bar bill, share the link, and everyone picks what they had. No account needed.",
+  "start_url": "/splitty",
+  "scope": "/split",
+  "display": "standalone",
+  "background_color": "#FFF7EF",
+  "theme_color": "#FFF7EF",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icons/splitty/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/splitty/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/splitty/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/splitty/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -20,8 +20,11 @@ export const metadata: Metadata = {
   title: "Tally",
   description: "Shared expenses for your home — always know who owes whom.",
   manifest: "/manifest.webmanifest",
+  // /favicon.ico is deliberately in public/, not src/app/: Next.js adds an
+  // app/favicon.ico to every route, which would put Tally's icon on Splitty's.
   icons: {
     icon: [
+      { url: "/favicon.ico", sizes: "48x48", type: "image/x-icon" },
       { url: "/icons/tally-icon.svg", type: "image/svg+xml" },
       { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
       { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
@@ -44,8 +47,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  // Matches --bg. Kept in sync with manifest.webmanifest by hand — if the
-  // palette moves, both need to move (Phase 11).
+  // Matches --bg. Kept in sync with Tally's and Splitty's manifests by hand —
+  // if the palette moves, all three need to move (Phase 11).
   themeColor: "#FFF7EF",
   width: "device-width",
   initialScale: 1,

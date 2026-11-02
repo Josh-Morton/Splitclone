@@ -221,6 +221,20 @@ table, and a test fails if a raw Supabase string reaches the screen.
 
   **Effort:** S–M · **Credits:** ~6–14 *(the conversion is most of it; the
   clean-up is one scheduled SQL job).*
+- **Splitty as its own app: follow-ups** (ADR-0023).
+  - **Tally notifications can land in a Splitty window.** The service worker's
+    `notificationclick` reuses any open window on the domain, so with both apps
+    installed on Android, a Tally notification could navigate an open Splitty
+    window. Left alone because the change was scoped to leave Tally unchanged.
+    **Effort:** XS · **Credits:** ~1–3
+  - **Carry splits into a saved iPhone app.** iPhone home-screen apps don't
+    share storage with Safari, so a saved Splitty starts empty and bill links
+    from WhatsApp land in Safari. A fix means something like a short restore
+    code, so it's only worth doing if guests actually complain.
+    **Effort:** S–M · **Credits:** ~6–14
+  - **A simplified Splitty favicon.** "Splitty" can't be read at 16–32px, so the
+    browser-tab icon looks almost the same as Tally's.
+    **Effort:** XS · **Credits:** ~1–3 *(needs Josh's design first.)*
 - ~~**Formal a11y pass (WCAG)**~~ → **done** 2026-10-21, against WCAG 2.2 AA.
   Measured first, then fixed at the source so it holds for future screens:
   - **Contrast (1.4.3).** Only body text passed. White on the teal buttons and

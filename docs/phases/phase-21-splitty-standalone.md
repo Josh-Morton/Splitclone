@@ -329,3 +329,26 @@ backward-compatible with the old app:
 would create a real anonymous account and spend a real scan, so the first
 real use is the live test. Every database path it uses was proven above as an
 anonymous user, and the function is deployed.
+
+## Follow-up: Splitty as its own app (2026-11-02)
+
+`/splitty` and `/split/*` now have their own manifest, icons and home-screen
+name, so saving either gives a Splitty app that opens on `/splitty`. Tally keeps
+its identity everywhere else. The decision, including why the scope is `/split`,
+is in [ADR-0023](../decisions/0023-splitty-own-app-identity.md); follow-ups are
+in the [backlog](../BACKLOG.md).
+
+**Verified locally:**
+
+- `npm test` (493 total) and `npm run build` pass.
+- The icon, manifest and app-title tags on `/`, `/welcome` and `/privacy` match
+  production exactly, so Tally's output is unchanged. Tally's manifest, `sw.js`
+  and icon files are untouched, and `/favicon.ico` serves the same bytes.
+- `/splitty` and `/split/<code>` serve only Splitty's tags, with no Tally icon
+  left behind, and every file they point to loads.
+- A real click from `/splitty` to `/privacy` swaps the tags to Tally's without
+  a page reload, and going back restores Splitty's.
+
+**Not verified:** saving to a real iPhone or Android home screen. That needs the
+deployed site, and the Android behaviour with Tally already installed is the
+part most worth checking.

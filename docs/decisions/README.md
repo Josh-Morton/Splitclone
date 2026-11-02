@@ -33,3 +33,4 @@ Consequences. To change a decision, write a new ADR that supersedes the old one
 | 0020 | *Reserved by [Phase 19](../phases/phase-19-category-assignments.md) for its pending decision* | — |
 | [0021](0021-reporting-charts.md) | Reporting charts: hand-rolled SVG, one hue + emphasis, small multiples over stacked categories | Accepted |
 | [0022](0022-splitty-without-an-account.md) | Splitty without an account: anonymous sessions for creators, a shared daily scan budget, first-party usage events | Accepted (extends 0013, amends 0012) |
+| [0023](0023-splitty-own-app-identity.md) | Splitty as its own installable app on Tally's domain: a second manifest and icon set, scope `/split` | Accepted (extends 0022) |
