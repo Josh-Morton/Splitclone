@@ -62,7 +62,8 @@ when unsure.
   New migrations: this network blocks port 5432, so apply via the Management
   API `database/query` endpoint (see ROADMAP notes), then record the version in
   `supabase_migrations.schema_migrations`.
-- Production: https://splitclone-joshprojects13.vercel.app — pushes to `main`
+- Production: https://www.tally-ho.co.za (since 2026-11-02; the old
+  https://splitclone-joshprojects13.vercel.app still serves it) — pushes to `main`
   auto-deploy.
 
 ## Iron rules (from the ADRs — violating these breaks the product)

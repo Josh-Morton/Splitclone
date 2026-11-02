@@ -29,7 +29,7 @@ work as intended**.
   BUG-003 was a one-line change that cost far more than its size, because
   finding it was the work. When the cause is unknown, say so in the estimate
   rather than quoting a number as if it were.
-- **Open: BUG-022 to BUG-026**, all from the 2026-10-28 sign-up/login audit. Their fixes are scoped together in [BACKLOG → Sign-up, login & accounts rework](BACKLOG.md#sign-up-login--accounts--holistic-rework-audit-2026-10-28); diagrams in [AUTH-FLOWS.md](AUTH-FLOWS.md). BUG-001 to BUG-021 are fixed. BUG-021 awaits a real scan to confirm. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan; see its entry.
+- **Open: BUG-022 to BUG-025**, all from the 2026-10-28 sign-up/login audit (BUG-026 fixed 2026-11-02). Their fixes are scoped together in [BACKLOG → Sign-up, login & accounts rework](BACKLOG.md#sign-up-login--accounts--holistic-rework-audit-2026-10-28); diagrams in [AUTH-FLOWS.md](AUTH-FLOWS.md). BUG-001 to BUG-021 are fixed. BUG-021 awaits a real scan to confirm. BUG-016's Gemini call itself is the one thing not yet confirmed by a real scan; see its entry.
 
 ## Open — 2026-10-28 (auth audit)
 
@@ -106,9 +106,9 @@ screen accepts.
 **Fix:** set the code length to 6, and add `{{ .Token }}` to the templates
 once custom SMTP allows editing them.
 
-### BUG-026 — the auth redirect allow-list accepts any `*.vercel.app` site
+### BUG-026 — ~~the auth redirect allow-list accepts any `*.vercel.app` site~~ ✅ fixed
 
-**Status:** open · **Reported:** 2026-10-28 · **Severity: medium (security;
+**Status:** ✅ fixed 2026-11-02 (with the move to `www.tally-ho.co.za`) · **Reported:** 2026-10-28 · **Severity: medium (security;
 latent)** · **Effort:** XS · **Credits:** ~1 *(rework 0.5)*
 
 **Confirmed** from the live config: `uri_allow_list` is
@@ -121,6 +121,14 @@ without this would open it.
 **Expected:** only Tally's own URLs are allowed.
 **Fix:** replace the wildcard with the production URL and this project's
 preview pattern. One config change, made before (or with) custom SMTP.
+
+**Fixed 2026-11-02** via the Management API when Tally moved to its own
+domain. `site_url` is now `https://www.tally-ho.co.za`, and `uri_allow_list`
+names only Tally's own addresses: `localhost:3000`, `www.tally-ho.co.za`,
+`tally-ho.co.za` and the project's two `vercel.app` addresses
+(`splitclone-joshprojects13`, `splitclone-six`). Preview deployments are no
+longer allowed as sign-in return addresses; the app builds every redirect from
+`window.location.origin`, so every listed address still works.
 
 ## Fixed — 2026-10-28 (BUG-021)
 

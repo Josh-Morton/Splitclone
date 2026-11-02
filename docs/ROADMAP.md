@@ -39,7 +39,7 @@
 
 ## Where we are
 
-**Tally is live:** https://splitclone-joshprojects13.vercel.app. The full
+**Tally is live:** https://www.tally-ho.co.za (own domain since 2026-11-02; the old https://splitclone-joshprojects13.vercel.app still works). The full
 ledger (add/edit/delete, multi-payer, settle-up), spaces, recurring bills,
 shopping list, reports, receipt scanning, Splitty, and push notifications all
 work against the live Supabase backend. Phases 0, 1, 3, 4, 5, 7, 8, and 9 are
