@@ -4,10 +4,10 @@ Everything in the repo is ready; these are the only steps that require a human
 with account access. ~30 minutes total. Infrastructure cost: **R0/month**.
 
 ## 1. GitHub repo (5 min)
-1. Create a private repo (e.g. `settleup`) on GitHub.
+1. Create a private repo (e.g. `tally`) on GitHub.
 2. From this folder:
    ```bash
-   git remote add origin git@github.com:<you>/settleup.git
+   git remote add origin git@github.com:<you>/tally.git
    git push -u origin main
    ```
 
@@ -51,7 +51,7 @@ with account access. ~30 minutes total. Infrastructure cost: **R0/month**.
 
 ## 4. Install on phones (2 min)
 Open the deployed URL in Chrome on Android → menu → **Add to Home screen**.
-It should open full-screen with the SettleUp icon.
+It should open full-screen with the Tally icon.
 
 ## Local development
 ```bash

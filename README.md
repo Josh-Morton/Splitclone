@@ -1,4 +1,4 @@
-# SettleUp
+# Tally
 
 A Splitwise-style shared-expense tracker for couples & households, in South
 African Rand — no paywalls, works offline, adds salary-proportional "fair

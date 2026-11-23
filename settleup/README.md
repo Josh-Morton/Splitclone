@@ -1,6 +1,6 @@
-# settleup — the Next.js PWA
+# Tally — the Next.js PWA
 
-App code for SettleUp. Project-level docs, status and setup live one level up:
+App code for Tally. Project-level docs, status and setup live one level up:
 see [../README.md](../README.md) and [../docs/](../docs/).
 
 ```bash

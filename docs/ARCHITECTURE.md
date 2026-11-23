@@ -1,4 +1,4 @@
-# SettleUp — Architecture
+# Tally — Architecture
 
 > Companion to the two source specs (`SettleUp - Scope, Data Model & Roadmap.docx`,
 > `SettleUp - Phase 1 Plan, Roadmap & Infrastructure.docx`) and the design

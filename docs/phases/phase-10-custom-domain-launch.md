@@ -121,7 +121,23 @@ silent no-op in production since it shipped. Setting `RESEND_API_KEY` +
 `RESEND_FROM` as Supabase Function secrets during this same Resend setup
 switches that feature on for free, same domain verification covers both.
 
-### 4. Rename "SettleUp" → "Tally" in the files that still say it
+### 4. Rename "SettleUp" → "Tally" in the files that still say it ✅ DONE 2026-11-23
+
+> **Done 2026-11-23** (legacy-name audit): the six files below, plus
+> `package-lock.json`, the `session.ts` storage keys (`tally:demo`,
+> `tally:invite`), `supabase/config.toml` (`project_id = "tally"`),
+> `.claude/launch.json` (`tally-dev`), the live cron job (now
+> `tally-recurring-daily`, migration `20261123000000`) and the Supabase
+> project's display name (now "Tally").
+>
+> **Still open.** Josh's accounts: rename the GitHub repo (`Splitclone` →
+> `tally`) and its About → Website link, and rename the Vercel project
+> (`splitclone` → `tally`). Then Claude drops the two `splitclone` addresses
+> from the auth redirect allow-list and updates the repo URL in the docs.
+> Optional, in one sitting with Josh: rename the `settleup/` folder (Vercel's
+> Root Directory has to change at the same time) and the Mac folder.
+> **Effort:** S · **Credits:** ~3–8 for Claude's part.
+
 The product itself already fully renamed in Phase 6 (manifest, page title,
 icons). What's left is internal/dev-facing docs and package metadata —
 confirmed via grep, exactly these files:

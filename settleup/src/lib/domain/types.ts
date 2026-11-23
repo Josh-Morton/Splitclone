@@ -1,5 +1,5 @@
 /**
- * Core entity types for SettleUp.
+ * Core entity types for Tally.
  *
  * Mirrors the data model in "SettleUp - Scope, Data Model & Roadmap" §9 and the
  * Phase-1 subset in "Phase 1 Plan" §3.3. All money is integer cents (never floats).

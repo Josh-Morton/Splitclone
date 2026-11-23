@@ -1,6 +1,6 @@
-# SettleUp — guide for LLMs (and humans) continuing this project
+# Tally — guide for LLMs (and humans) continuing this project
 
-SettleUp is a Splitwise-style shared-expense tracker for a two-person household
+Tally (formerly SettleUp) is a Splitwise-style shared-expense tracker for a two-person household
 (Josh + partner), in South African Rand, built as a Next.js PWA on Vercel +
 Supabase (both free tier). This file is the entry point for continuing work
 from any state — read it first, then follow the pointers.

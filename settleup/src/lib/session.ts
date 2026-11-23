@@ -15,8 +15,8 @@ import type { Session } from "@supabase/supabase-js";
 import { isSessionReallyOver, isTallySession } from "./auth-errors";
 import { getSupabase, isSupabaseConfigured } from "./supabase/client";
 
-const DEMO_KEY = "settleup:demo";
-const INVITE_KEY = "settleup:invite";
+const DEMO_KEY = "tally:demo";
+const INVITE_KEY = "tally:invite";
 
 /** Invite code captured before sign-in; redeemed right after auth. */
 export function setPendingInviteCode(code: string): void {

@@ -42,7 +42,7 @@ Deno.serve(async (req: Request) => {
   try {
     const publicKey = Deno.env.get("VAPID_PUBLIC_KEY");
     const privateKey = Deno.env.get("VAPID_PRIVATE_KEY");
-    const subject = Deno.env.get("VAPID_SUBJECT") ?? "mailto:noreply@tally.app";
+    const subject = Deno.env.get("VAPID_SUBJECT") ?? "mailto:noreply@tally-ho.co.za";
     if (!publicKey || !privateKey) return json({ error: "Push not configured" }, 500);
     webpush.setVapidDetails(subject, publicKey, privateKey);
 
